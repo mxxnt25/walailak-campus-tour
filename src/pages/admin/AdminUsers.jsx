@@ -86,7 +86,7 @@ export default function AdminUsers() {
                 {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
               <Button variant="danger" size="sm" onClick={() => handleDelete(u)}>
-                🗑️ ลบ
+                🗑️ Delete
               </Button>
             </div>
           </Card>
