@@ -40,3 +40,10 @@ export async function updateUserRole(userId, role) {
   if (error) throw error
   return data
 }
+export async function deleteUserProfile(userId) {
+  const { error } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('id', userId)
+  if (error) throw error
+}
