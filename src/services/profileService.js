@@ -47,3 +47,15 @@ export async function deleteUserProfile(userId) {
     .eq('id', userId)
   if (error) throw error
 }
+export async function uploadAvatar(userId, file) {
+  const fileExt = file.name.split('.').pop()
+  const filePath = `${userId}/avatar.${fileExt}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(filePath, file, { upsert: true })
+  if (uploadError) throw uploadError
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+  return `${data.publicUrl}?t=${Date.now()}` // กัน cache รูปเก่าค้าง
+}
