@@ -1,16 +1,38 @@
-# React + Vite
+# Walailak Campus Tour Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Web app for managing WU campus tours — routes, booking, guide scheduling, incidents, reviews.
 
-Currently, two official plugins are available:
+## Tech Stack
+React + Vite, Tailwind CSS, Supabase
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Setup
 
-## React Compiler
+1. Clone this repo
+2. Copy `.env.example` to `.env` and fill in your Supabase project URL and anon key
+3. Install dependencies:
+   \`\`\`
+   npm install
+   \`\`\`
+4. Run dev server:
+   \`\`\`
+   npm run dev
+   \`\`\`
+5. Apply database migrations in Supabase SQL Editor (in order):
+   - `supabase/migrations/0001_initial_schema.sql`
+   - `supabase/migrations/0002_rls_baseline.sql`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Bootstrap first Admin
 
-## Expanding the ESLint configuration
+1. Register a normal account through `/register` (will get role = VISITOR)
+2. In Supabase SQL Editor, run:
+   \`\`\`sql
+   alter table public.profiles disable trigger trg_protect_profile_privileges;
+   update public.profiles set role = 'ADMIN' where email = 'your-email@example.com';
+   alter table public.profiles enable trigger trg_protect_profile_privileges;
+   \`\`\`
+3. Refresh the app and log in — you now have admin access at `/admin/users`
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Branches
+- `main` — release/demo only
+- `develop` — integration branch
+- `feature/*` — per-member work branches
