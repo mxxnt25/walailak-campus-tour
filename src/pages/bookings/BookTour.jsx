@@ -1,17 +1,20 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Button from "../../components/common/Button";
 import Card from "../../components/common/Card";
 import ErrorState from "../../components/common/ErrorState";
+import { createBooking } from "../../services/bookingService";
 
 export default function BookTour() {
   const { scheduleId } = useParams();
+  const navigate = useNavigate();
 
   const [participantCount, setParticipantCount] = useState(1);
   const [specialRequest, setSpecialRequest] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
     setErrorMessage("");
 
@@ -22,13 +25,28 @@ export default function BookTour() {
       return;
     }
 
-    // createBooking จะเชื่อมในขั้น M3 ↔ M4 integration
+    setSubmitting(true);
+
+    const result = await createBooking({
+      scheduleId,
+      participantCount: count,
+      specialRequest,
+    });
+
+    if (!result.success) {
+      setErrorMessage(result.error.message);
+      setSubmitting(false);
+      return;
+    }
+
+    navigate(`/bookings/${result.data.bookingId}`);
   }
 
   return (
     <section className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-textPrimary">จองรอบนำเที่ยว</h1>
+
         <p className="mt-1 text-sm text-textSecondary">
           ระบุจำนวนผู้เข้าร่วมและคำขอพิเศษสำหรับการจอง
         </p>
@@ -40,7 +58,8 @@ export default function BookTour() {
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
             <p className="text-sm text-textSecondary">รหัสรอบนำเที่ยว</p>
-            <p className="mt-1 font-medium text-textPrimary">
+
+            <p className="mt-1 break-all font-medium text-textPrimary">
               {scheduleId || "-"}
             </p>
           </div>
@@ -59,8 +78,9 @@ export default function BookTour() {
               min="1"
               step="1"
               value={participantCount}
+              disabled={submitting}
               onChange={(event) => setParticipantCount(event.target.value)}
-              className="w-full rounded-button border border-border bg-surface px-4 py-2 text-textPrimary outline-none focus:border-primary"
+              className="w-full rounded-button border border-border bg-surface px-4 py-2 text-textPrimary outline-none focus:border-primary disabled:opacity-50"
               required
             />
           </div>
@@ -77,13 +97,16 @@ export default function BookTour() {
               id="specialRequest"
               rows="4"
               value={specialRequest}
+              disabled={submitting}
               onChange={(event) => setSpecialRequest(event.target.value)}
               placeholder="ระบุคำขอเพิ่มเติม หากมี"
-              className="w-full rounded-button border border-border bg-surface px-4 py-2 text-textPrimary outline-none focus:border-primary"
+              className="w-full rounded-button border border-border bg-surface px-4 py-2 text-textPrimary outline-none focus:border-primary disabled:opacity-50"
             />
           </div>
 
-          <Button type="submit">ยืนยันการจอง</Button>
+          <Button type="submit" disabled={submitting || !scheduleId}>
+            {submitting ? "กำลังจอง..." : "ยืนยันการจอง"}
+          </Button>
         </form>
       </Card>
     </section>
