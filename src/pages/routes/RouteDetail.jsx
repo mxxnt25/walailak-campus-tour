@@ -4,6 +4,7 @@ import {
   getRouteDetail,
   listRouteStops,
 } from '../../services/routeService'
+import CampusMap from './CampusMap'
 
 function RouteDetail() {
   const { id } = useParams()
@@ -117,6 +118,17 @@ function RouteDetail() {
           </div>
         )}
       </section>
+
+      <section className="mt-8">
+        <h2 className="text-2xl font-semibold text-textPrimary">
+          แผนที่เส้นทาง
+        </h2>
+
+        <div className="mt-4">
+          <CampusMap stops={stops} />
+        </div>
+      </section>
+
     </div>
   )
 }
