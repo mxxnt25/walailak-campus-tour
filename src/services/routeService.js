@@ -60,6 +60,19 @@ export async function listActiveRoutes() {
   return success(data)
 }
 
+export async function listAllRoutes() {
+  const { data, error } = await supabase
+    .from('routes')
+    .select('*')
+    .order('name', { ascending: true })
+
+  if (error) {
+    return failure(error)
+  }
+
+  return success(data)
+}
+
 export async function getRouteDetail(routeId) {
   if (!routeId) {
     return failure(

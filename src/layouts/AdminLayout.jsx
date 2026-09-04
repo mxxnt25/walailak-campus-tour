@@ -17,6 +17,9 @@ export default function AdminLayout({ children }) {
           <Link to="/admin/users" className="px-3 py-2 rounded-button text-sm text-textPrimary hover:bg-background">
             👥 จัดการผู้ใช้
           </Link>
+          <Link to="/admin/routes" className="px-3 py-2 rounded-button text-sm text-textPrimary hover:bg-background">
+            🗺️ จัดการเส้นทาง
+          </Link>
           <Link to="/profile" className="px-3 py-2 rounded-button text-sm text-textPrimary hover:bg-background">
             👤 โปรไฟล์ของฉัน
           </Link>

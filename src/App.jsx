@@ -15,6 +15,9 @@ import Register from './pages/auth/Register'
 import Login from './pages/auth/Login'
 import Profile from './pages/auth/Profile'
 import AdminUsers from './pages/admin/AdminUsers'
+import RouteEdit from './pages/admin/RouteEdit'
+import RouteCreate from './pages/admin/RouteCreate'
+import AdminRoutes from './pages/admin/AdminRoutes'
 
 import RoutesList from './pages/routes/RoutesList'
 import RouteDetail from './pages/routes/RouteDetail'
@@ -96,6 +99,39 @@ function App() {
               <RoleGuard allowedRoles={['ADMIN']}>
                 <AdminLayout>
                   <AdminUsers />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/routes"
+            element={
+              <RoleGuard allowedRoles={['ADMIN']}>
+                <AdminLayout>
+                  <AdminRoutes />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/routes/new"
+            element={
+              <RoleGuard allowedRoles={['ADMIN']}>
+                <AdminLayout>
+                  <RouteCreate />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/routes/:id/edit"
+            element={
+              <RoleGuard allowedRoles={['ADMIN']}>
+                <AdminLayout>
+                  <RouteEdit />
                 </AdminLayout>
               </RoleGuard>
             }
