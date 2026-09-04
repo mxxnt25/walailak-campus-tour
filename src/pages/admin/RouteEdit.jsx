@@ -35,6 +35,7 @@ export default function RouteEdit() {
     })
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [stopError, setStopError] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [savingStops, setSavingStops] = useState(false)
 
@@ -92,12 +93,12 @@ export default function RouteEdit() {
 
     function handleAddStop() {
         if (!newStop.name.trim()) {
-            setError('กรุณากรอกชื่อจุดแวะ')
+            setStopError('กรุณากรอกชื่อจุดแวะ')
             return
         }
 
         if (newStop.latitude === '' || newStop.longitude === '') {
-            setError('กรุณากรอก Latitude และ Longitude')
+            setStopError('กรุณากรอก Latitude และ Longitude')
             return
         }
 
@@ -117,7 +118,7 @@ export default function RouteEdit() {
             image_url: '',
         })
 
-        setError('')
+        setStopError('')
     }
 
     function moveStop(index, direction) {
@@ -139,13 +140,13 @@ export default function RouteEdit() {
     }
 
     async function handleSaveStops() {
-        setError('')
+        setStopError('')
         setSavingStops(true)
 
         const result = await replaceRouteStops(id, stops)
 
         if (!result.success) {
-            setError(result.error.message)
+            setStopError(result.error.message)
             setSavingStops(false)
             return
         }
@@ -349,6 +350,12 @@ export default function RouteEdit() {
                         ตอนนี้มี {stops.length} จุด
                     </p>
                 </div>
+
+                {stopError && (
+                    <div className="mb-4 rounded-input border border-danger bg-danger/10 p-3 text-sm text-danger">
+                        {stopError}
+                    </div>
+                )}
 
                 <div className="flex flex-col gap-4">
                     <Input
