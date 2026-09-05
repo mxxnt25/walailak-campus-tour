@@ -38,6 +38,12 @@ import MyBookings from './pages/bookings/MyBookings'
 import BookingDetail from './pages/bookings/BookingDetail'
 
 /* =========================
+   M5: INCIDENT REPORTING
+========================= */
+import AdminIncidents from './pages/admin/Incidents'
+import IncidentDetail from './pages/admin/IncidentDetail'
+
+/* =========================
    M6: REVIEW
 ========================= */
 import Review from './pages/reviews/Review'
@@ -195,6 +201,31 @@ function App() {
               <RoleGuard allowedRoles={['ADMIN']}>
                 <AdminLayout>
                   <RouteEdit />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          {/* =========================
+              ADMIN - M5
+          ========================= */}
+          <Route
+            path="/admin/incidents"
+            element={
+              <RoleGuard allowedRoles={['ADMIN']}>
+                <AdminLayout>
+                  <AdminIncidents />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/incidents/:id"
+            element={
+              <RoleGuard allowedRoles={['ADMIN']}>
+                <AdminLayout>
+                  <IncidentDetail />
                 </AdminLayout>
               </RoleGuard>
             }
