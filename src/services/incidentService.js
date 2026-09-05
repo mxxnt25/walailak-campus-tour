@@ -156,6 +156,10 @@ export async function listIncidentsForAdmin(filters = {}) {
     query = query.eq('schedule_id', filters.scheduleId)
   }
 
+  if (filters.incidentId) {
+    query = query.eq('id', filters.incidentId)
+  }
+
   const { data, error } = await query
 
   if (error) {
