@@ -4,16 +4,12 @@ import {
   Route,
 } from 'react-router-dom'
 
-
 import { AuthProvider } from './hooks/useAuth'
-
 
 import PublicLayout from './layouts/PublicLayout'
 import AdminLayout from './layouts/AdminLayout'
 
-
 import RoleGuard from './components/common/RoleGuard'
-
 
 /* =========================
    M1: HOME / AUTH
@@ -23,13 +19,6 @@ import Register from './pages/auth/Register'
 import Login from './pages/auth/Login'
 import Profile from './pages/auth/Profile'
 import AdminUsers from './pages/admin/AdminUsers'
-import RouteEdit from './pages/admin/RouteEdit'
-import RouteCreate from './pages/admin/RouteCreate'
-import AdminRoutes from './pages/admin/AdminRoutes'
-
-import RoutesList from './pages/routes/RoutesList'
-import RouteDetail from './pages/routes/RouteDetail'
-
 
 /* =========================
    M2: ROUTES & MAP
@@ -53,7 +42,6 @@ import BookingDetail from './pages/bookings/BookingDetail'
 ========================= */
 import Review from './pages/reviews/Review'
 
-
 function App() {
   return (
     <AuthProvider>
@@ -72,7 +60,6 @@ function App() {
             }
           />
 
-
           {/* =========================
               M1: AUTH
           ========================= */}
@@ -90,27 +77,6 @@ function App() {
             path="/profile"
             element={<Profile />}
           />
-
-          {/* M2: Campus Routes & Map */}
-          <Route
-            path="/routes"
-            element={
-              <PublicLayout>
-                <RoutesList />
-              </PublicLayout>
-            }
-          />
-
-          <Route
-            path="/routes/:id"
-            element={
-              <PublicLayout>
-                <RouteDetail />
-              </PublicLayout>
-            }
-          />
-
-          {/* M6: Review & Feedback */}
 
           {/* =========================
               M2: CAMPUS ROUTES & MAP
@@ -133,12 +99,9 @@ function App() {
             }
           />
 
-
           {/* =========================
               M3: TOUR BOOKING
           ========================= */}
-
-          {/* จองรอบทัวร์ */}
           <Route
             path="/book/:scheduleId"
             element={
@@ -148,7 +111,6 @@ function App() {
             }
           />
 
-          {/* ดูรายการจองของตัวเอง */}
           <Route
             path="/my-bookings"
             element={
@@ -158,7 +120,6 @@ function App() {
             }
           />
 
-          {/* รายละเอียด Booking */}
           <Route
             path="/bookings/:id"
             element={
@@ -168,12 +129,9 @@ function App() {
             }
           />
 
-
           {/* =========================
               M6: REVIEW & FEEDBACK
           ========================= */}
-
-          {/* หน้ารวม Review */}
           <Route
             path="/reviews"
             element={
@@ -183,7 +141,6 @@ function App() {
             }
           />
 
-          {/* เขียน Review จาก Booking */}
           <Route
             path="/reviews/new/:bookingId"
             element={
@@ -192,7 +149,6 @@ function App() {
               </PublicLayout>
             }
           />
-
 
           {/* =========================
               ADMIN - M1
@@ -207,40 +163,6 @@ function App() {
               </RoleGuard>
             }
           />
-
-          <Route
-            path="/admin/routes"
-            element={
-              <RoleGuard allowedRoles={['ADMIN']}>
-                <AdminLayout>
-                  <AdminRoutes />
-                </AdminLayout>
-              </RoleGuard>
-            }
-          />
-
-          <Route
-            path="/admin/routes/new"
-            element={
-              <RoleGuard allowedRoles={['ADMIN']}>
-                <AdminLayout>
-                  <RouteCreate />
-                </AdminLayout>
-              </RoleGuard>
-            }
-          />
-
-          <Route
-            path="/admin/routes/:id/edit"
-            element={
-              <RoleGuard allowedRoles={['ADMIN']}>
-                <AdminLayout>
-                  <RouteEdit />
-                </AdminLayout>
-              </RoleGuard>
-            }
-          />
-
 
           {/* =========================
               ADMIN - M2
