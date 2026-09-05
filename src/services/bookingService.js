@@ -214,7 +214,7 @@ export async function getBookedParticipantCount(scheduleId) {
     .from("bookings")
     .select("participant_count")
     .eq("schedule_id", scheduleId)
-    .eq("status", "CONFIRMED");
+    .in("status", ["CONFIRMED", "COMPLETED"]);
 
   if (error) {
     return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบจำนวนผู้จองได้");
