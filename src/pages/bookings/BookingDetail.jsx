@@ -60,7 +60,9 @@ export default function BookingDetail() {
   }, [id]);
 
   async function handleCancel() {
-    const confirmed = window.confirm("ยืนยันการยกเลิกการจองนี้หรือไม่?");
+    const confirmed = window.confirm(
+      "ยืนยันการยกเลิกการจองนี้หรือไม่?",
+    );
 
     if (!confirmed) {
       return;
@@ -82,11 +84,17 @@ export default function BookingDetail() {
   }
 
   if (loading) {
-    return <LoadingState message="กำลังโหลดรายละเอียดการจอง..." />;
+    return (
+      <LoadingState message="กำลังโหลดรายละเอียดการจอง..." />
+    );
   }
 
   if (!booking) {
-    return <ErrorState message={errorMessage || "ไม่พบรายการจอง"} />;
+    return (
+      <ErrorState
+        message={errorMessage || "ไม่พบรายการจอง"}
+      />
+    );
   }
 
   return (
@@ -104,36 +112,52 @@ export default function BookingDetail() {
             รายละเอียดการจอง
           </h1>
 
-          <Badge color={getStatusColor(booking.status)}>{booking.status}</Badge>
+          <Badge color={getStatusColor(booking.status)}>
+            {booking.status}
+          </Badge>
         </div>
       </div>
 
-      {errorMessage && <ErrorState message={errorMessage} />}
+      {errorMessage && (
+        <ErrorState message={errorMessage} />
+      )}
 
       <Card className="space-y-5">
         <div>
-          <p className="text-sm text-textSecondary">รหัสการจอง</p>
-          <p className="mt-1 font-medium text-textPrimary">{booking.id}</p>
+          <p className="text-sm text-textSecondary">
+            รหัสการจอง
+          </p>
+          <p className="mt-1 break-all font-medium text-textPrimary">
+            {booking.id}
+          </p>
         </div>
 
         <div>
-          <p className="text-sm text-textSecondary">จำนวนผู้เข้าร่วม</p>
+          <p className="text-sm text-textSecondary">
+            จำนวนผู้เข้าร่วม
+          </p>
           <p className="mt-1 font-medium text-textPrimary">
             {booking.participant_count} คน
           </p>
         </div>
 
         <div>
-          <p className="text-sm text-textSecondary">คำขอพิเศษ</p>
+          <p className="text-sm text-textSecondary">
+            คำขอพิเศษ
+          </p>
           <p className="mt-1 text-textPrimary">
             {booking.special_request || "-"}
           </p>
         </div>
 
         <div>
-          <p className="text-sm text-textSecondary">สร้างเมื่อ</p>
+          <p className="text-sm text-textSecondary">
+            สร้างเมื่อ
+          </p>
           <p className="mt-1 text-textPrimary">
-            {new Date(booking.created_at).toLocaleString("th-TH")}
+            {new Date(
+              booking.created_at,
+            ).toLocaleString("th-TH")}
           </p>
         </div>
 
@@ -144,8 +168,21 @@ export default function BookingDetail() {
               disabled={cancelling}
               onClick={handleCancel}
             >
-              {cancelling ? "กำลังยกเลิก..." : "ยกเลิกการจอง"}
+              {cancelling
+                ? "กำลังยกเลิก..."
+                : "ยกเลิกการจอง"}
             </Button>
+          </div>
+        )}
+
+        {booking.status === "COMPLETED" && (
+          <div className="border-t border-border pt-5">
+            <Link
+              to={`/reviews/new/${booking.id}`}
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              เขียนรีวิว
+            </Link>
           </div>
         )}
       </Card>
