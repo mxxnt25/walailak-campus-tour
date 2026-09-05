@@ -95,7 +95,21 @@ export async function listMyBookings() {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("*")
+    .select(`
+      *,
+      tour_schedules (
+        id,
+        tour_date,
+        start_time,
+        end_time,
+        max_participants,
+        status,
+        routes (
+          id,
+          name
+        )
+      )
+    `)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -126,7 +140,21 @@ export async function getBookingDetail(bookingId) {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("*")
+    .select(`
+      *,
+      tour_schedules (
+        id,
+        tour_date,
+        start_time,
+        end_time,
+        max_participants,
+        status,
+        routes (
+          id,
+          name
+        )
+      )
+    `)
     .eq("id", bookingId)
     .eq("user_id", user.id)
     .maybeSingle();
