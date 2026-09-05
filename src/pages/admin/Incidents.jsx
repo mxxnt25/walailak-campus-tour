@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Card from "../../components/common/Card";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
@@ -30,6 +31,7 @@ function formatDateTime(value) {
 }
 
 export default function AdminIncidents() {
+  const navigate = useNavigate();
   const [incidents, setIncidents] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [severityFilter, setSeverityFilter] = useState("");
@@ -171,6 +173,7 @@ export default function AdminIncidents() {
                   <th className="px-4 py-3 font-medium">Severity</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">วันที่รายงาน</th>
+                  <th className="px-4 py-3 font-medium">จัดการ</th>
                 </tr>
               </thead>
 
@@ -208,6 +211,18 @@ export default function AdminIncidents() {
 
                     <td className="whitespace-nowrap px-4 py-4 text-sm text-textSecondary">
                       {formatDateTime(incident.created_at)}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          navigate(`/admin/incidents/${incident.id}`)
+                        }
+                      >
+                        ดูรายละเอียด
+                      </Button>
                     </td>
                   </tr>
                 ))}
