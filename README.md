@@ -36,3 +36,8 @@ React + Vite, Tailwind CSS, Supabase
 - `main` — release/demo only
 - `develop` — integration branch
 - `feature/*` — per-member work branches
+
+Bootstrap Admin:
+1. Create a user through Supabase Auth or normal registration.
+2. Promote the selected initial account to ADMIN using the controlled Supabase admin procedure.
+3. Public registration must never allow users to select ADMIN or GUIDE.
