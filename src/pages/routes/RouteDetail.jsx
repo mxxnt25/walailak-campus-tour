@@ -36,6 +36,7 @@ function RouteDetail() {
   const [route, setRoute] = useState(null)
   const [stops, setStops] = useState([])
   const [schedules, setSchedules] = useState([])
+  const [selectedDate, setSelectedDate] = useState('')
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -77,7 +78,10 @@ function RouteDetail() {
       }
 
       if (schedulesResult.success) {
-        setSchedules(schedulesResult.data ?? [])
+        const openSchedules = schedulesResult.data ?? []
+
+        setSchedules(openSchedules)
+        setSelectedDate(openSchedules[0]?.tour_date ?? '')
       } else {
         setScheduleError(
           schedulesResult.error?.message ||
@@ -119,6 +123,16 @@ function RouteDetail() {
     )
   }
 
+  const availableDates = [
+    ...new Set(schedules.map((schedule) => schedule.tour_date)),
+  ]
+
+  const filteredSchedules = selectedDate
+    ? schedules.filter(
+        (schedule) => schedule.tour_date === selectedDate,
+      )
+    : []
+
   return (
     <div className="mx-auto max-w-6xl p-6">
       <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
@@ -153,36 +167,70 @@ function RouteDetail() {
             ยังไม่มีรอบนำเที่ยวที่เปิดรับจอง
           </div>
         ) : (
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {schedules.map((schedule) => (
-              <article
-                key={schedule.id}
-                className="rounded-xl border border-border bg-white p-5 shadow-sm"
+          <div className="mt-4 space-y-5">
+            <div className="max-w-sm">
+              <label
+                htmlFor="tourDate"
+                className="mb-2 block text-sm font-medium text-textPrimary"
               >
-                <div className="space-y-2">
-                  <p className="font-semibold text-textPrimary">
-                    {formatTourDate(schedule.tour_date)}
-                  </p>
+                เลือกวันที่ต้องการเข้าร่วม
+              </label>
 
-                  <p className="text-sm text-textSecondary">
-                    เวลา {formatTime(schedule.start_time)}
-                    {schedule.end_time
-                      ? ` - ${formatTime(schedule.end_time)}`
-                      : ''}
-                  </p>
+              <select
+                id="tourDate"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-textPrimary outline-none focus:border-primary"
+              >
+                {availableDates.map((date) => (
+                  <option key={date} value={date}>
+                    {formatTourDate(date)}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                  <p className="text-sm text-textSecondary">
-                    รองรับสูงสุด {schedule.max_participants} คน
-                  </p>
+            <div>
+              <h3 className="font-semibold text-textPrimary">
+                รอบที่เปิดรับจองในวันที่เลือก
+              </h3>
+
+              {filteredSchedules.length === 0 ? (
+                <div className="mt-3 rounded-xl border border-border bg-white p-6 text-textSecondary">
+                  ไม่มีรอบนำเที่ยวที่เปิดรับจองในวันที่เลือก
                 </div>
+              ) : (
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  {filteredSchedules.map((schedule) => (
+                    <article
+                      key={schedule.id}
+                      className="rounded-xl border border-border bg-white p-5 shadow-sm"
+                    >
+                      <p className="font-semibold text-textPrimary">
+                        {formatTourDate(schedule.tour_date)}
+                      </p>
 
-                <div className="mt-4">
-                  <Link to={`/book/${schedule.id}`}>
-                    <Button>จองรอบนี้</Button>
-                  </Link>
+                      <p className="mt-2 text-sm text-textSecondary">
+                        เวลา {formatTime(schedule.start_time)}
+                        {schedule.end_time
+                          ? ` - ${formatTime(schedule.end_time)}`
+                          : ''}
+                      </p>
+
+                      <p className="mt-2 text-sm text-textSecondary">
+                        รองรับสูงสุด {schedule.max_participants} คน
+                      </p>
+
+                      <div className="mt-4">
+                        <Link to={`/book/${schedule.id}`}>
+                          <Button>จองรอบนี้</Button>
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              </article>
-            ))}
+              )}
+            </div>
           </div>
         )}
       </section>
