@@ -20,6 +20,20 @@ export default function GuideLayout({ children }) {
           >
             🚨 เหตุการณ์ของฉัน
           </Link>
+
+          <Link
+            to="/incidents/new"
+            className="
+              px-3
+              py-2
+              rounded-button
+              text-sm
+              text-textPrimary
+              hover:bg-background
+            "
+          >
+            ➕ แจ้งเหตุใหม่
+          </Link>
         </nav>
       </aside>
 
