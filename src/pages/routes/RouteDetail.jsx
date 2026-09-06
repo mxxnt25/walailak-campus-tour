@@ -1,43 +1,98 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
+
+import Button from '../../components/common/Button'
 import {
   getRouteDetail,
   listRouteStops,
 } from '../../services/routeService'
+import { listOpenSchedules } from '../../services/scheduleService'
 import CampusMap from './CampusMap'
+
+function formatTourDate(value) {
+  if (!value) return '-'
+
+  const [year, month, day] = value.split('-').map(Number)
+
+  if (!year || !month || !day) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('th-TH', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(year, month - 1, day))
+}
+
+function formatTime(value) {
+  if (!value) return '-'
+  return value.slice(0, 5)
+}
 
 function RouteDetail() {
   const { id } = useParams()
 
   const [route, setRoute] = useState(null)
   const [stops, setStops] = useState([])
+  const [schedules, setSchedules] = useState([])
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [scheduleError, setScheduleError] = useState(null)
 
   useEffect(() => {
+    let active = true
+
     async function loadRoute() {
       const routeResult = await getRouteDetail(id)
 
+      if (!active) return
+
       if (!routeResult.success) {
-        setError(routeResult.error?.message || 'ไม่สามารถโหลดข้อมูลเส้นทางได้')
+        setError(
+          routeResult.error?.message ||
+            'ไม่สามารถโหลดข้อมูลเส้นทางได้',
+        )
         setLoading(false)
         return
       }
 
-      const stopsResult = await listRouteStops(id)
+      const [stopsResult, schedulesResult] = await Promise.all([
+        listRouteStops(id),
+        listOpenSchedules(id),
+      ])
+
+      if (!active) return
 
       setRoute(routeResult.data)
 
       if (stopsResult.success) {
         setStops(stopsResult.data)
       } else {
-        setError(stopsResult.error?.message || 'ไม่สามารถโหลดจุดแวะชมได้')
+        setError(
+          stopsResult.error?.message ||
+            'ไม่สามารถโหลดจุดแวะชมได้',
+        )
+      }
+
+      if (schedulesResult.success) {
+        setSchedules(schedulesResult.data ?? [])
+      } else {
+        setScheduleError(
+          schedulesResult.error?.message ||
+            'ไม่สามารถโหลดรอบนำเที่ยวได้',
+        )
       }
 
       setLoading(false)
     }
 
     loadRoute()
+
+    return () => {
+      active = false
+    }
   }, [id])
 
   if (loading) {
@@ -86,6 +141,54 @@ function RouteDetail() {
 
       <section className="mt-8">
         <h2 className="text-2xl font-semibold text-textPrimary">
+          รอบนำเที่ยวที่เปิดรับจอง
+        </h2>
+
+        {scheduleError ? (
+          <div className="mt-4 rounded-xl border border-border bg-white p-6 text-danger">
+            {scheduleError}
+          </div>
+        ) : schedules.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-border bg-white p-6 text-textSecondary">
+            ยังไม่มีรอบนำเที่ยวที่เปิดรับจอง
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {schedules.map((schedule) => (
+              <article
+                key={schedule.id}
+                className="rounded-xl border border-border bg-white p-5 shadow-sm"
+              >
+                <div className="space-y-2">
+                  <p className="font-semibold text-textPrimary">
+                    {formatTourDate(schedule.tour_date)}
+                  </p>
+
+                  <p className="text-sm text-textSecondary">
+                    เวลา {formatTime(schedule.start_time)}
+                    {schedule.end_time
+                      ? ` - ${formatTime(schedule.end_time)}`
+                      : ''}
+                  </p>
+
+                  <p className="text-sm text-textSecondary">
+                    รองรับสูงสุด {schedule.max_participants} คน
+                  </p>
+                </div>
+
+                <div className="mt-4">
+                  <Link to={`/book/${schedule.id}`}>
+                    <Button>จองรอบนี้</Button>
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <h2 className="text-2xl font-semibold text-textPrimary">
           จุดแวะชม
         </h2>
 
@@ -128,7 +231,6 @@ function RouteDetail() {
           <CampusMap stops={stops} />
         </div>
       </section>
-
     </div>
   )
 }
