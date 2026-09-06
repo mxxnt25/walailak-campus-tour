@@ -63,6 +63,7 @@ export default function MyBookings() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [authRequired, setAuthRequired] = useState(false);
   const [cancellingId, setCancellingId] = useState(null);
 
   useEffect(() => {
@@ -77,7 +78,14 @@ export default function MyBookings() {
 
       if (!result.success) {
         setBookings([]);
-        setErrorMessage(result.error.message);
+
+        if (result.error.code === "AUTH_REQUIRED") {
+          setAuthRequired(true);
+          setErrorMessage("");
+        } else {
+          setErrorMessage(result.error.message);
+        }
+
         setLoading(false);
         return;
       }
@@ -130,6 +138,28 @@ export default function MyBookings() {
 
   if (loading) {
     return <LoadingState message="กำลังโหลดรายการจอง..." />;
+  }
+
+  if (authRequired) {
+    return (
+      <section className="mx-auto max-w-3xl py-8">
+        <Card className="py-12 text-center">
+          <h1 className="text-xl font-semibold text-textPrimary">
+            กรุณาเข้าสู่ระบบ
+          </h1>
+
+          <p className="mt-2 text-sm text-textSecondary">
+            เข้าสู่ระบบเพื่อดูรายการจองของคุณ
+          </p>
+
+          <div className="mt-5">
+            <Link to="/login">
+              <Button>เข้าสู่ระบบ</Button>
+            </Link>
+          </div>
+        </Card>
+      </section>
+    );
   }
 
   return (
