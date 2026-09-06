@@ -8,6 +8,7 @@ import { AuthProvider } from './hooks/useAuth'
 
 import PublicLayout from './layouts/PublicLayout'
 import AdminLayout from './layouts/AdminLayout'
+import GuideLayout from './layouts/GuideLayout'
 
 import RoleGuard from './components/common/RoleGuard'
 
@@ -42,6 +43,7 @@ import BookingDetail from './pages/bookings/BookingDetail'
 ========================= */
 import AdminIncidents from './pages/admin/Incidents'
 import IncidentDetail from './pages/admin/IncidentDetail'
+import GuideIncidents from './pages/guide/Incidents'
 
 /* =========================
    M6: REVIEW
@@ -153,6 +155,20 @@ function App() {
               <PublicLayout>
                 <Review />
               </PublicLayout>
+            }
+          />
+
+          {/* =========================
+              GUIDE - M5
+          ========================= */}
+          <Route
+            path="/guide/incidents"
+            element={
+              <RoleGuard allowedRoles={['GUIDE']}>
+                <GuideLayout>
+                  <GuideIncidents />
+                </GuideLayout>
+              </RoleGuard>
             }
           />
 
