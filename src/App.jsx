@@ -44,6 +44,7 @@ import BookingDetail from './pages/bookings/BookingDetail'
 import AdminIncidents from './pages/admin/Incidents'
 import IncidentDetail from './pages/admin/IncidentDetail'
 import GuideIncidents from './pages/guide/Incidents'
+import NewIncident from './pages/incidents/NewIncident'
 
 /* =========================
    M6: REVIEW
@@ -167,6 +168,17 @@ function App() {
               <RoleGuard allowedRoles={['GUIDE']}>
                 <GuideLayout>
                   <GuideIncidents />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/incidents/new"
+            element={
+              <RoleGuard allowedRoles={['GUIDE']}>
+                <GuideLayout>
+                  <NewIncident />
                 </GuideLayout>
               </RoleGuard>
             }
