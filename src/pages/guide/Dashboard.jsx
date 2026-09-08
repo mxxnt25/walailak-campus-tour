@@ -1,54 +1,44 @@
 import React, { useState, useEffect } from 'react';
-// import { listMyGuideAssignments } from '../../services/assignmentService';
+// 1. ดึงข้อมูลตารางงานจาก M4 ของเราเอง
+import { listMyGuideAssignments } from '../../services/assignmentService';
+// 2. ดึงข้อมูลยอดคนจองจาก M3 ของเพื่อน
+import { getBookedParticipantCount } from '../../services/bookingService';
 
 export default function GuideDashboard() {
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const mockAssignments = [
-    {
-      id: 'asg-001',
-      schedule_id: 'sch-001',
-      status: 'ASSIGNED',
-      bookedCount: 0,
-      tour_schedules: {
-        tour_date: '2026-09-10',
-        start_time: '09:00',
-        end_time: '11:00',
-        max_participants: 20,
-        status: 'OPEN',
-        routes: { name: 'Main Campus Tour' }
-      }
-    },
-    {
-      id: 'asg-002',
-      schedule_id: 'sch-002',
-      status: 'ACCEPTED',
-      bookedCount: 15,
-      tour_schedules: {
-        tour_date: '2026-09-15',
-        start_time: '13:00',
-        end_time: '15:00',
-        max_participants: 15,
-        status: 'OPEN',
-        routes: { name: 'Botanic Garden Walk' }
-      }
-    }
-  ];
-
   const fetchAssignments = async () => {
     setIsLoading(true);
     setErrorMsg('');
     
-    // const { success, data, error } = await listMyGuideAssignments();
-    // if (success) setAssignments(data); // อย่าลืมใส่ Logic ดึง BookedCount เพิ่มตอนเชื่อม API
-    // else setErrorMsg(error.message);
-
-    setTimeout(() => {
-      setAssignments(mockAssignments);
+    try {
+      // ดึงงานทั้งหมดที่ถูกมอบหมายให้ไกด์คนนี้ (ระบบจะรู้ ID ไกด์เองจากการล็อกอิน)
+      const res = await listMyGuideAssignments();
+      
+      if (res.success) {
+        // นำตารางงานแต่ละอัน ไปถาม M3 ว่า "รอบนี้มีคนจองกี่คนแล้ว?"
+        const assignmentsWithCount = await Promise.all(
+          res.data.map(async (task) => {
+            const countRes = await getBookedParticipantCount(task.schedule_id);
+            // ถ้าดึงสำเร็จให้เอาตัวเลขมาใช้ ถ้าดึงไม่สำเร็จให้เป็น 0
+            const bookedCount = countRes.success ? countRes.data : 0;
+            
+            // นำยอดคนจองไปรวมกับข้อมูลตารางงานเดิม
+            return { ...task, bookedCount };
+          })
+        );
+        
+        setAssignments(assignmentsWithCount);
+      } else {
+        setErrorMsg(res.error.message);
+      }
+    } catch (error) {
+      setErrorMsg('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   useEffect(() => {
@@ -56,7 +46,8 @@ export default function GuideDashboard() {
   }, []);
 
   const handleUpdateAssignmentStatus = async (assignmentId, newStatus) => {
-    // ใส่โค้ดอัพเดทฐานข้อมูลที่นี่เมื่อต่อ API
+    // ในอนาคตสามารถใส่โค้ดอัปเดตสถานะใน DB (เช่น ACCEPTED, DECLINED) ได้ที่นี่
+    // ตอนนี้เราจะอัปเดตแค่บนหน้าจอก่อนเพื่อให้เห็นภาพ
     setAssignments(prev => 
       prev.map(task => task.id === assignmentId ? { ...task, status: newStatus } : task)
     );
@@ -94,7 +85,9 @@ export default function GuideDashboard() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {assignments.map((assignment) => {
+                // เช็กว่าทัวร์เต็มความจุหรือยัง
                 const isFull = assignment.bookedCount >= assignment.tour_schedules.max_participants;
+                
                 return (
                   <div key={assignment.id} className="bg-[#FFFFFF] p-6 rounded-[12px] border border-[#E2E8F0] shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start mb-4">
