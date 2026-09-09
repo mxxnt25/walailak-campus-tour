@@ -11,15 +11,16 @@ import {
 } from 'lucide-react'
 import StarRating from '../../components/reviews/StarRating'
 import { getBookingDetail } from '../../services/bookingService'
-import { getProfile } from '../../services/profileService'
 import {
   createReview,
   getMyReviewByBookingId,
   getReviews,
 } from '../../services/review'
 import { listRouteStops } from '../../services/routeService'
-import { getScheduleDetail } from '../../services/scheduleService'
-
+import {
+  getGuideNameForSchedule,
+  getScheduleDetail,
+} from '../../services/scheduleService'
 const BOOKING_STATUS_LABELS = {
   CONFIRMED: 'ยืนยันการจองแล้ว',
   CANCELLED: 'ยกเลิกแล้ว',
@@ -164,13 +165,17 @@ function Review() {
 
         const booking = bookingResult.data
 
-        const [scheduleResult, reviewList, myReview] =
-          await Promise.all([
-            getScheduleDetail(booking.schedule_id),
-            getReviews(booking.id),
-            getMyReviewByBookingId(booking.id),
-          ])
-
+        const [
+  scheduleResult,
+  guideNameResult,
+  reviewList,
+  myReview,
+] = await Promise.all([
+  getScheduleDetail(booking.schedule_id),
+  getGuideNameForSchedule(booking.schedule_id),
+  getReviews(booking.id),
+  getMyReviewByBookingId(booking.id),
+])
         if (!scheduleResult.success) {
           throw new Error(
             getServiceError(
@@ -206,17 +211,12 @@ function Review() {
           }
         }
 
-        let guideProfile = null
-
-        if (assignment?.guide_id) {
-          try {
-            guideProfile = await getProfile(
-              assignment.guide_id,
-            )
-          } catch {
-            guideProfile = null
-          }
-        }
+       const guideName =
+  guideNameResult.success && guideNameResult.data
+    ? guideNameResult.data
+    : assignment
+      ? 'ไกด์ประจำรอบนำเที่ยว'
+      : 'กำลังรอข้อมูลไกด์'
 
         const firstStop = routeStops[0] || null
 
@@ -226,11 +226,7 @@ function Review() {
             route?.name || 'ไม่พบชื่อเส้นทาง',
           meetingPoint:
             firstStop?.name || 'ยังไม่ระบุจุดนัดพบ',
-          guideName:
-            guideProfile?.full_name ||
-            (assignment
-              ? 'ไกด์ประจำรอบนำเที่ยว'
-              : 'กำลังรอข้อมูลไกด์'),
+          guideName,
           travelDate: formatTripDate(
             schedule.tour_date,
           ),

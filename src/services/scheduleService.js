@@ -40,6 +40,24 @@ export const getScheduleDetail = async (scheduleId) => {
   return formatResponse(data, error);
 };
 
+export const getGuideNameForSchedule = async (scheduleId) => {
+  if (!scheduleId) {
+    return formatResponse(null, {
+      code: 'VALIDATION_ERROR',
+      message: 'scheduleId is required',
+    });
+  }
+
+  const { data, error } = await supabase.rpc(
+    'get_guide_name_for_schedule',
+    {
+      target_schedule_id: scheduleId,
+    },
+  );
+
+  return formatResponse(data, error);
+};
+
 export const createSchedule = async (payload) => {
   const { data, error } = await supabase
     .from('tour_schedules')
