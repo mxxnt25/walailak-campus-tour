@@ -22,7 +22,7 @@ begin
     raise exception 'AUTH_REQUIRED';
   end if;
 
-  -- 2. ล็อกแถวของตาราง tour_schedules (FOR UPDATE)
+  -- 2. ล็อกแถวของตาราง tour_schedules (FOR UPDATE) ป้องกันคนกดจองพร้อมกัน
   select status, max_participants
   into v_schedule_status, v_max_participants
   from public.tour_schedules
@@ -38,7 +38,7 @@ begin
     raise exception 'SCHEDULE_NOT_OPEN';
   end if;
 
-  -- 4. รวมยอดผู้เข้าร่วม
+  -- 4. รวมยอดผู้เข้าร่วมที่ยืนยันแล้ว
   select coalesce(sum(participant_count), 0)
   into v_current_booked
   from public.bookings
@@ -54,6 +54,14 @@ begin
   insert into public.bookings (user_id, schedule_id, participant_count, special_request, status)
   values (v_user_id, p_schedule_id, p_participant_count, p_special_request, 'CONFIRMED')
   returning id into v_new_booking_id;
+
+  -- 7. อัปเดตสถานะเป็น FULL อัตโนมัติถ้ายอดจองถึงขีดจำกัดแล้ว
+  if (v_current_booked + p_participant_count) = v_max_participants then
+    update public.tour_schedules
+    set status = 'FULL',
+        updated_at = now()
+    where id = p_schedule_id;
+  end if;
 
   return v_new_booking_id;
 end;
