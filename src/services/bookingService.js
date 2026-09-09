@@ -24,7 +24,59 @@ export async function createBooking({
   participantCount,
   specialRequest = null,
 }) {
-  // M3 implementation
+  if (!scheduleId) {
+    return failure("VALIDATION_ERROR", "ไม่พบรหัสรอบนำเที่ยว");
+  }
+
+  const count = Number(participantCount);
+
+  if (!Number.isInteger(count) || count < 1) {
+    return failure(
+      "VALIDATION_ERROR",
+      "จำนวนผู้เข้าร่วมต้องเป็นจำนวนเต็มอย่างน้อย 1 คน",
+    );
+  }
+
+  const normalizedSpecialRequest =
+    typeof specialRequest === "string" && specialRequest.trim()
+      ? specialRequest.trim()
+      : null;
+
+  const { data, error } = await supabase.rpc("book_tour_safe", {
+    p_schedule_id: scheduleId,
+    p_participant_count: count,
+    p_special_request: normalizedSpecialRequest,
+  });
+
+  if (error) {
+    const message = error.message || "";
+
+    if (message.includes("AUTH_REQUIRED")) {
+      return failure("AUTH_REQUIRED", "กรุณาเข้าสู่ระบบก่อนทำการจอง");
+    }
+
+    if (message.includes("NOT_FOUND")) {
+      return failure("NOT_FOUND", "ไม่พบรอบนำเที่ยวที่ต้องการจอง");
+    }
+
+    if (message.includes("SCHEDULE_NOT_OPEN")) {
+      return failure("SCHEDULE_NOT_OPEN", "รอบนำเที่ยวนี้ไม่เปิดรับการจอง");
+    }
+
+    if (message.includes("CAPACITY_EXCEEDED")) {
+      return failure(
+        "CAPACITY_EXCEEDED",
+        "จำนวนผู้เข้าร่วมเกินจำนวนที่ว่างในรอบนี้",
+      );
+    }
+
+    return failure("DATABASE_ERROR", "ไม่สามารถสร้างการจองได้");
+  }
+
+  return success({
+    bookingId: data,
+    status: "CONFIRMED",
+  });
 }
 
 export async function listMyBookings() {
@@ -43,7 +95,21 @@ export async function listMyBookings() {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("*")
+    .select(`
+      *,
+      tour_schedules (
+        id,
+        tour_date,
+        start_time,
+        end_time,
+        max_participants,
+        status,
+        routes (
+          id,
+          name
+        )
+      )
+    `)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -74,7 +140,21 @@ export async function getBookingDetail(bookingId) {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("*")
+    .select(`
+      *,
+      tour_schedules (
+        id,
+        tour_date,
+        start_time,
+        end_time,
+        max_participants,
+        status,
+        routes (
+          id,
+          name
+        )
+      )
+    `)
     .eq("id", bookingId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -162,7 +242,7 @@ export async function getBookedParticipantCount(scheduleId) {
     .from("bookings")
     .select("participant_count")
     .eq("schedule_id", scheduleId)
-    .eq("status", "CONFIRMED");
+    .in("status", ["CONFIRMED", "COMPLETED"]);
 
   if (error) {
     return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบจำนวนผู้จองได้");
