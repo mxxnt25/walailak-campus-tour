@@ -175,54 +175,32 @@ export async function cancelMyBooking(bookingId) {
     return failure("VALIDATION_ERROR", "ไม่พบรหัสการจอง");
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return failure("AUTH_REQUIRED", "กรุณาเข้าสู่ระบบก่อนยกเลิกการจอง");
-  }
-
-  if (userError) {
-    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบผู้ใช้งานได้");
-  }
-
-  const { data: booking, error: bookingError } = await supabase
-    .from("bookings")
-    .select("id, user_id, status")
-    .eq("id", bookingId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (bookingError) {
-    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบรายการจองได้");
-  }
-
-  if (!booking) {
-    return failure("NOT_FOUND", "ไม่พบรายการจอง");
-  }
-
-  if (booking.status !== "CONFIRMED") {
-    return failure(
-      "VALIDATION_ERROR",
-      "สามารถยกเลิกได้เฉพาะรายการจองที่มีสถานะ CONFIRMED",
-    );
-  }
-
-  const { data, error } = await supabase
-    .from("bookings")
-    .update({
-      status: "CANCELLED",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", bookingId)
-    .eq("user_id", user.id)
-    .eq("status", "CONFIRMED")
-    .select()
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("cancel_booking_safe", {
+    p_booking_id: bookingId,
+  });
 
   if (error) {
+    const message = error.message || "";
+
+    if (message.includes("AUTH_REQUIRED")) {
+      return failure("AUTH_REQUIRED", "กรุณาเข้าสู่ระบบก่อนยกเลิกการจอง");
+    }
+
+    if (message.includes("FORBIDDEN")) {
+      return failure("FORBIDDEN", "คุณไม่มีสิทธิ์ยกเลิกรายการจองนี้");
+    }
+
+    if (message.includes("NOT_FOUND")) {
+      return failure("NOT_FOUND", "ไม่พบรายการจอง");
+    }
+
+    if (message.includes("VALIDATION_ERROR")) {
+      return failure(
+        "VALIDATION_ERROR",
+        "สามารถยกเลิกได้เฉพาะรายการจองที่มีสถานะ CONFIRMED",
+      );
+    }
+
     return failure("DATABASE_ERROR", "ไม่สามารถยกเลิกการจองได้");
   }
 
