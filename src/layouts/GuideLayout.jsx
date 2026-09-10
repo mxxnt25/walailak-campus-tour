@@ -8,6 +8,20 @@ export default function GuideLayout({ children }) {
 
         <nav className="mt-6 flex flex-col gap-2">
           <Link
+            to="/"
+            className="
+              px-3
+              py-2
+              rounded-button
+              text-sm
+              text-textPrimary
+              hover:bg-background
+            "
+          >
+            ← กลับหน้าแรก
+          </Link>
+
+          <Link
             to="/guide/incidents"
             className="
               px-3
