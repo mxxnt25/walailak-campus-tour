@@ -85,12 +85,12 @@ export async function listMyBookings() {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError) {
-    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบผู้ใช้งานได้");
-  }
-
   if (!user) {
     return failure("AUTH_REQUIRED", "กรุณาเข้าสู่ระบบก่อนดูรายการจอง");
+  }
+
+  if (userError) {
+    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบผู้ใช้งานได้");
   }
 
   const { data, error } = await supabase
@@ -130,12 +130,12 @@ export async function getBookingDetail(bookingId) {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError) {
-    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบผู้ใช้งานได้");
-  }
-
   if (!user) {
     return failure("AUTH_REQUIRED", "กรุณาเข้าสู่ระบบก่อนดูรายละเอียดการจอง");
+  }
+
+  if (userError) {
+    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบผู้ใช้งานได้");
   }
 
   const { data, error } = await supabase
@@ -180,12 +180,12 @@ export async function cancelMyBooking(bookingId) {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError) {
-    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบผู้ใช้งานได้");
-  }
-
   if (!user) {
     return failure("AUTH_REQUIRED", "กรุณาเข้าสู่ระบบก่อนยกเลิกการจอง");
+  }
+
+  if (userError) {
+    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบผู้ใช้งานได้");
   }
 
   const { data: booking, error: bookingError } = await supabase
