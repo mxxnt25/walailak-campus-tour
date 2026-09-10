@@ -79,6 +79,20 @@ export default function AdminLayout({ children }) {
           </Link>
 
           <Link
+            to="/admin/incidents"
+            className="
+              px-3
+              py-2
+              rounded-button
+              text-sm
+              text-textPrimary
+              hover:bg-background
+            "
+          >
+            🚨 จัดการเหตุการณ์
+          </Link>
+
+          <Link
             to="/profile"
             className="
               px-3

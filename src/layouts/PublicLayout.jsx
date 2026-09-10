@@ -140,6 +140,36 @@ export default function PublicLayout({ children }) {
                   รีวิว
                 </Link>
 
+                {profile?.role === 'GUIDE' && (
+                  <>
+                    <Link
+                      to="/guide/incidents"
+                      className="
+                        text-sm
+                        font-medium
+                        text-textPrimary
+                        transition
+                        hover:text-primary
+                      "
+                    >
+                      เหตุการณ์ของฉัน
+                    </Link>
+
+                    <Link
+                      to="/incidents/new"
+                      className="
+                        text-sm
+                        font-medium
+                        text-textPrimary
+                        transition
+                        hover:text-primary
+                      "
+                    >
+                      แจ้งเหตุ
+                    </Link>
+                  </>
+                )}
+
                 <Link
                   to="/profile"
                   className="
@@ -241,6 +271,24 @@ export default function PublicLayout({ children }) {
               >
                 รีวิว
               </Link>
+
+              {profile?.role === 'GUIDE' && (
+                <>
+                  <Link
+                    to="/guide/incidents"
+                    className="whitespace-nowrap text-xs font-medium text-textPrimary"
+                  >
+                    เหตุการณ์ของฉัน
+                  </Link>
+
+                  <Link
+                    to="/incidents/new"
+                    className="whitespace-nowrap text-xs font-medium text-textPrimary"
+                  >
+                    แจ้งเหตุ
+                  </Link>
+                </>
+              )}
 
               <Link
                 to="/profile"

@@ -1,3 +1,4 @@
+import { listMyGuideAssignments } from './assignmentService'
 import { supabase } from '../lib/supabase'
 
 const INCIDENT_SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY']
@@ -80,6 +81,49 @@ export async function createIncident({
   return success(data)
 }
 
+export async function listMyRelatedIncidents() {
+  const assignmentsResult = await listMyGuideAssignments()
+
+  if (!assignmentsResult.success) {
+    return failure(
+      assignmentsResult.error?.code || 'DATABASE_ERROR',
+      assignmentsResult.error?.message || 'ไม่สามารถโหลดตารางงานของ Guide ได้'
+    )
+  }
+
+  const assignments = assignmentsResult.data || []
+
+  const scheduleIds = assignments
+    .map((assignment) => assignment.schedule_id)
+    .filter(Boolean)
+
+  if (scheduleIds.length === 0) {
+    return success([])
+  }
+
+  const { data, error } = await supabase
+    .from('incidents')
+    .select('*')
+    .in('schedule_id', scheduleIds)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    if (error.code === '42501') {
+      return failure(
+        'FORBIDDEN',
+        'คุณไม่มีสิทธิ์ดูรายการเหตุการณ์เหล่านี้'
+      )
+    }
+
+    return failure(
+      'DATABASE_ERROR',
+      'ไม่สามารถโหลดรายการเหตุการณ์ได้'
+    )
+  }
+
+  return success(data)
+}
+
 export async function listIncidentsForAdmin(filters = {}) {
   let query = supabase
     .from('incidents')
@@ -110,6 +154,10 @@ export async function listIncidentsForAdmin(filters = {}) {
 
   if (filters.scheduleId) {
     query = query.eq('schedule_id', filters.scheduleId)
+  }
+
+  if (filters.incidentId) {
+    query = query.eq('id', filters.incidentId)
   }
 
   const { data, error } = await query
