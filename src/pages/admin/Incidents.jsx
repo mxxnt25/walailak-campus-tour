@@ -139,6 +139,7 @@ export default function AdminIncidents() {
           <div className="flex items-end">
             <Button
               variant="secondary"
+              disabled={!statusFilter && !severityFilter}
               onClick={() => {
                 setLoading(true);
                 setError("");
