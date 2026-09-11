@@ -139,7 +139,9 @@ export default function BookingDetail() {
   }
 
   if (loading) {
-    return <LoadingState message="กำลังโหลดรายละเอียดการจอง..." />;
+    return (
+      <LoadingState message="กำลังโหลดรายละเอียดการจอง..." />
+    );
   }
 
   if (authRequired) {
@@ -165,7 +167,11 @@ export default function BookingDetail() {
   }
 
   if (!booking) {
-    return <ErrorState message={errorMessage || "ไม่พบรายการจอง"} />;
+    return (
+      <ErrorState
+        message={errorMessage || "ไม่พบรายการจอง"}
+      />
+    );
   }
 
   const schedule = booking.tour_schedules;
@@ -192,7 +198,9 @@ export default function BookingDetail() {
         </div>
       </div>
 
-      {errorMessage && <ErrorState message={errorMessage} />}
+      {errorMessage && (
+        <ErrorState message={errorMessage} />
+      )}
 
       <Card>
         <div className="space-y-5">
@@ -283,7 +291,18 @@ export default function BookingDetail() {
                   : "ยกเลิกการจอง"}
               </Button>
             </div>
+          
           )}
+          {booking.status === "COMPLETED" && (
+          <div className="border-t border-border pt-5">
+            <Link
+              to={`/reviews/new/${booking.id}`}
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              เขียนรีวิว
+            </Link>
+          </div>
+        )}
         </div>
       </Card>
     </section>
