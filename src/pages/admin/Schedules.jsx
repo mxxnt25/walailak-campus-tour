@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-// import { listOpenSchedules, createSchedule } from '../../services/scheduleService';
-// import { assignGuide } from '../../services/assignmentService';
+import { listOpenSchedules, createSchedule } from '../../services/scheduleService';
+import { assignGuide } from '../../services/assignmentService';
+import { listActiveRoutes } from '../../services/routeService'; 
+import { listAllProfiles } from '../../services/profileService'; 
 
 export default function AdminSchedules() {
+  // State สำหรับเก็บข้อมูลจริงจาก Database
   const [schedules, setSchedules] = useState([]);
+  const [routes, setRoutes] = useState([]); 
+  const [guides, setGuides] = useState([]); 
+  
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const mockRoutes = [{ id: 'rt-1', name: 'Main Campus Tour' }];
-  const mockGuides = [{ id: 'guide-1', full_name: 'สมชาย นำเที่ยว' }];
-
+  // State สำหรับจัดการ Modal และ Form
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
@@ -24,22 +28,35 @@ export default function AdminSchedules() {
   const [selectedGuideId, setSelectedGuideId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchSchedules = async () => {
+  // ดึงข้อมูลทั้งหมดเมื่อเข้าสู่หน้าจอ
+  const fetchData = async () => {
     setIsLoading(true);
     setErrorMsg('');
     
-    // const { success, data, error } = await listOpenSchedules();
-    // if (success) setSchedules(data);
-    // else setErrorMsg(error.message);
-    
-    setTimeout(() => {
-      setSchedules([]);
+    try {
+      // 1. ดึงข้อมูลตารางทัวร์ทั้งหมดที่เปิดอยู่
+      const schRes = await listOpenSchedules();
+      if (schRes.success) setSchedules(schRes.data);
+
+      // 2. ดึงข้อมูลเส้นทางทัวร์ที่เปิดใช้งาน
+      const routeRes = await listActiveRoutes();
+      if (routeRes.success) setRoutes(routeRes.data);
+
+      // 3. ดึงรายชื่อผู้ใช้งานทั้งหมด แล้วกรองเอาเฉพาะไกด์
+      const allProfiles = await listAllProfiles();
+      // สมมติว่าในระบบเก็บ role เป็น 'GUIDE' (ถ้าเพื่อนตั้งเป็นอย่างอื่นให้แก้ตรงนี้นะครับ)
+      const guidesOnly = allProfiles.filter(user => user.role === 'GUIDE');
+      setGuides(guidesOnly);
+
+    } catch (error) {
+      setErrorMsg('เกิดข้อผิดพลาดในการดึงข้อมูล: ' + (error.message || 'ระบบขัดข้อง'));
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   useEffect(() => {
-    fetchSchedules();
+    fetchData();
   }, []);
 
   const handleCreateSchedule = async () => {
@@ -52,15 +69,15 @@ export default function AdminSchedules() {
       return;
     }
 
-    // const { success, error } = await createSchedule(scheduleForm);
-    // if (success) { setIsScheduleModalOpen(false); fetchSchedules(); }
-    // else setErrorMsg(error.message);
-
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsScheduleModalOpen(false);
-      fetchSchedules();
-    }, 500);
+    const { success, error } = await createSchedule(scheduleForm);
+    if (success) { 
+      setIsScheduleModalOpen(false); 
+      fetchData(); 
+    } else { 
+      setErrorMsg(error.message); 
+    }
+    
+    setIsSubmitting(false);
   };
 
   const handleAssignGuide = async () => {
@@ -69,15 +86,15 @@ export default function AdminSchedules() {
     setErrorMsg('');
     setIsSubmitting(true);
 
-    // const { success, error } = await assignGuide({ scheduleId: selectedSchedule.id, guideId: selectedGuideId });
-    // if (success) { setIsAssignModalOpen(false); fetchSchedules(); }
-    // else setErrorMsg(error.message);
-
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsAssignModalOpen(false);
-      fetchSchedules();
-    }, 500);
+    const { success, error } = await assignGuide({ scheduleId: selectedSchedule.id, guideId: selectedGuideId });
+    if (success) { 
+      setIsAssignModalOpen(false); 
+      fetchData(); 
+    } else { 
+      setErrorMsg(error.message); 
+    }
+    
+    setIsSubmitting(false);
   };
 
   const getStatusBadge = (status) => {
@@ -192,7 +209,8 @@ export default function AdminSchedules() {
                     className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
                   >
                     <option value="">เลือกเส้นทาง...</option>
-                    {mockRoutes.map(route => <option key={route.id} value={route.id}>{route.name}</option>)}
+                    {/* ใช้ข้อมูลจริงจาก routes (M2) แทน mockRoutes */}
+                    {routes.map(route => <option key={route.id} value={route.id}>{route.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -265,7 +283,8 @@ export default function AdminSchedules() {
                   className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
                 >
                   <option value="">เลือกผู้นำเที่ยว...</option>
-                  {mockGuides.map(guide => (
+                  {/* ใช้ข้อมูลจริงจาก guides (M1) แทน mockGuides */}
+                  {guides.map(guide => (
                     <option key={guide.id} value={guide.id}>{guide.full_name}</option>
                   ))}
                 </select>
