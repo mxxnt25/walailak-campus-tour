@@ -1,31 +1,49 @@
 import { supabase } from '../lib/supabase'
 
-export async function signUp({ email, password, fullName, visitorType }) {
+export async function signUp({
+  email,
+  password,
+  fullName,
+  memberType,
+}) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         full_name: fullName,
-        visitor_type: visitorType, // 'STUDENT' | 'STAFF' | 'EXTERNAL'
+        member_type: memberType, // STUDENT | STAFF | EXTERNAL
       },
     },
   })
+
   if (error) throw error
+
   return data
 }
 
 export async function signIn({ email, password }) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data, error } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
   if (error) throw error
+
   return data
 }
 
 export async function signOut() {
   const { error } = await supabase.auth.signOut()
+
   if (error) throw error
 }
+
 export async function changePassword(newPassword) {
-  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
+  })
+
   if (error) throw error
 }

@@ -22,23 +22,24 @@ import Badge from '../../components/common/Badge'
 import LoadingState from '../../components/common/LoadingState'
 
 const ROLE_LABELS = {
+  MEMBER: 'สมาชิก',
+  GUIDE: 'ไกด์นำเที่ยว',
   ADMIN: 'ผู้ดูแลระบบ',
-  GUIDE: 'ไกด์นำทาง',
-  VISITOR: 'ผู้เยี่ยมชม',
+  SUPER_ADMIN: 'ผู้ดูแลระบบสูงสุด',
 }
 
-const VISITOR_LABELS = {
+const MEMBER_TYPE_LABELS = {
   STUDENT: 'นักศึกษา',
   STAFF: 'บุคลากร',
   EXTERNAL: 'บุคคลภายนอก',
 }
 
 const ROLE_COLORS = {
-  ADMIN: 'danger',
+  MEMBER: 'primary',
   GUIDE: 'warning',
-  VISITOR: 'primary',
+  ADMIN: 'danger',
+  SUPER_ADMIN: 'danger',
 }
-
 const TABS = [
   {
     id: 'info',
@@ -356,10 +357,9 @@ export default function Profile() {
                   text-left
                   transition
 
-                  ${
-                    activeTab === tab.id
-                      ? 'bg-white/20 font-semibold shadow-sm'
-                      : 'hover:bg-white/10'
+                  ${activeTab === tab.id
+                    ? 'bg-white/20 font-semibold shadow-sm'
+                    : 'hover:bg-white/10'
                   }
                 `}
               >
@@ -369,22 +369,22 @@ export default function Profile() {
             )
           })}
 
-          {profile.role === 'ADMIN' && (
+          {['ADMIN', 'SUPER_ADMIN'].includes(profile.role) && (
             <button
               onClick={() => navigate('/admin/users')}
               className="
-                flex
-                items-center
-                gap-3
-                px-4
-                py-3
-                rounded-xl
-                text-sm
-                text-left
-                hover:bg-white/10
-                transition
-                mt-2
-              "
+      flex
+      items-center
+      gap-3
+      px-4
+      py-3
+      rounded-xl
+      text-sm
+      text-left
+      hover:bg-white/10
+      transition
+      mt-2
+    "
             >
               <Shield size={17} />
               จัดการผู้ใช้
@@ -556,13 +556,13 @@ export default function Profile() {
                   disabled
                 />
 
-                {profile.visitor_type && (
+                {profile.member_type && (
                   <Input
-                    label="ประเภทผู้ใช้งาน"
+                    label="ประเภทสมาชิก"
                     value={
-                      VISITOR_LABELS[
-                        profile.visitor_type
-                      ] || profile.visitor_type
+                      MEMBER_TYPE_LABELS[
+                      profile.member_type
+                      ] || profile.member_type
                     }
                     disabled
                   />
@@ -717,10 +717,10 @@ export default function Profile() {
                     </p>
 
                     <p className="text-sm font-medium text-textPrimary">
-                      {profile.visitor_type
-                        ? VISITOR_LABELS[
-                            profile.visitor_type
-                          ]
+                      {profile.member_type
+                        ? MEMBER_TYPE_LABELS[
+                        profile.member_type
+                        ] || profile.member_type
                         : '-'}
                     </p>
                   </div>
@@ -912,10 +912,9 @@ export default function Profile() {
                     text-sm
                     mt-5
 
-                    ${
-                      pwMessage.includes('สำเร็จ')
-                        ? 'text-success'
-                        : 'text-danger'
+                    ${pwMessage.includes('สำเร็จ')
+                      ? 'text-success'
+                      : 'text-danger'
                     }
                   `}
                 >

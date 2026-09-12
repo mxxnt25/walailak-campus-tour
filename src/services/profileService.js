@@ -6,7 +6,9 @@ export async function getProfile(userId) {
     .select('*')
     .eq('id', userId)
     .single()
+
   if (error) throw error
+
   return data
 }
 
@@ -17,7 +19,9 @@ export async function updateProfile(userId, updates) {
     .eq('id', userId)
     .select()
     .single()
+
   if (error) throw error
+
   return data
 }
 
@@ -26,44 +30,62 @@ export async function listAllProfiles() {
     .from('profiles')
     .select('*')
     .order('created_at', { ascending: false })
+
   if (error) throw error
+
   return data
 }
 
 export async function updateUserRole(userId, role) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ role })
-    .eq('id', userId)
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc(
+    'change_user_role',
+    {
+      p_user_id: userId,
+      p_new_role: role,
+    }
+  )
+
   if (error) throw error
+
   return data
 }
+
 export async function deleteUserProfile(userId) {
-  const { data, error } = await supabase.functions.invoke('delete-user', {
-    body: { userId },
-  })
+  const { data, error } = await supabase.functions.invoke(
+    'delete-user',
+    {
+      body: { userId },
+    }
+  )
 
   if (error) {
     throw error
   }
 
   if (!data?.success) {
-    throw new Error(data?.error || 'ไม่สามารถลบผู้ใช้ได้')
+    throw new Error(
+      data?.error || 'ไม่สามารถจัดการผู้ใช้ได้'
+    )
   }
 
   return data
 }
+
 export async function uploadAvatar(userId, file) {
   const fileExt = file.name.split('.').pop()
   const filePath = `${userId}/avatar.${fileExt}`
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')
-    .upload(filePath, file, { upsert: true })
+    .upload(filePath, file, {
+      upsert: true,
+    })
+
   if (uploadError) throw uploadError
 
-  const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
-  return `${data.publicUrl}?t=${Date.now()}` // กัน cache รูปเก่าค้าง
+  const { data } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(filePath)
+
+  return `${data.publicUrl}?t=${Date.now()}`
 }
