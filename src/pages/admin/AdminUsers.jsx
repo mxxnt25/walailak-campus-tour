@@ -64,6 +64,10 @@ export default function AdminUsers() {
   }, [])
 
   function canManageUser(user) {
+    if (!user.is_active) {
+      return false
+    }
+
     if (currentRole === 'SUPER_ADMIN') {
       return true
     }
@@ -76,6 +80,10 @@ export default function AdminUsers() {
   }
 
   function getAllowedRoles(user) {
+    if (!user.is_active) {
+      return []
+    }
+
     if (currentRole === 'SUPER_ADMIN') {
       return ALL_ROLES
     }
@@ -114,7 +122,12 @@ export default function AdminUsers() {
 
   async function handleDelete(user) {
     if (user.id === currentUserId) {
-      alert('ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้')
+      alert('ไม่สามารถจัดการบัญชีที่กำลังใช้งานอยู่ได้')
+      return
+    }
+
+    if (!user.is_active) {
+      alert('บัญชีนี้ถูกปิดใช้งานแล้ว')
       return
     }
 
@@ -125,7 +138,7 @@ export default function AdminUsers() {
 
     const confirmed = window.confirm(
       `ยืนยันจัดการบัญชี "${user.full_name}" (${user.email})?\n\n` +
-      'หากบัญชีไม่มีประวัติการใช้งาน ระบบอาจลบบัญชีถาวร\n' +
+      'หากบัญชีไม่มีประวัติการใช้งาน ระบบจะลบบัญชีถาวร\n' +
       'หากมีประวัติ Booking / Review / Assignment / Incident ระบบจะเก็บประวัติและปิดการใช้งานบัญชีแทน'
     )
 
@@ -164,17 +177,22 @@ export default function AdminUsers() {
           const allowedRoles = getAllowedRoles(user)
           const manageable = canManageUser(user)
           const isCurrentUser = user.id === currentUserId
+          const isInactive = user.is_active === false
 
           return (
             <Card
               key={user.id}
-              className="
+              className={`
                 flex
                 items-center
                 justify-between
-                hover:shadow-md
                 transition
-              "
+                ${
+                  isInactive
+                    ? 'opacity-60 bg-gray-50'
+                    : 'hover:shadow-md'
+                }
+              `}
             >
               <div className="flex items-center gap-3">
                 <div
@@ -206,6 +224,22 @@ export default function AdminUsers() {
                         (คุณ)
                       </span>
                     )}
+
+                    {isInactive && (
+                      <span
+                        className="
+                          text-xs
+                          font-medium
+                          bg-gray-200
+                          text-gray-600
+                          px-2
+                          py-1
+                          rounded-full
+                        "
+                      >
+                        ปิดใช้งานแล้ว
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-sm text-textSecondary">
@@ -219,7 +253,11 @@ export default function AdminUsers() {
                   {ROLE_LABELS[user.role] || user.role}
                 </Badge>
 
-                {manageable && allowedRoles.length > 0 ? (
+                {isInactive ? (
+                  <span className="text-sm text-textSecondary px-2">
+                    บัญชีถูกปิดใช้งาน
+                  </span>
+                ) : manageable && allowedRoles.length > 0 ? (
                   <select
                     value={user.role}
                     onChange={(e) =>
@@ -256,17 +294,19 @@ export default function AdminUsers() {
                   </span>
                 )}
 
-                {manageable && !isCurrentUser && (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() =>
-                      handleDelete(user)
-                    }
-                  >
-                    🗑️ Delete / Deactivate
-                  </Button>
-                )}
+                {!isInactive &&
+                  manageable &&
+                  !isCurrentUser && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() =>
+                        handleDelete(user)
+                      }
+                    >
+                      🗑️ Delete / Deactivate
+                    </Button>
+                  )}
               </div>
             </Card>
           )

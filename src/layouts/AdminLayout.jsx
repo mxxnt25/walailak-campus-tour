@@ -3,9 +3,11 @@ import { Home } from 'lucide-react'
 
 import { signOut } from '../services/authService'
 import Button from '../components/common/Button'
+import { useAuth } from '../hooks/useAuth'
 
 export default function AdminLayout({ children }) {
   const navigate = useNavigate()
+  const { profile } = useAuth()
 
   async function handleSignOut() {
     await signOut()
@@ -91,6 +93,23 @@ export default function AdminLayout({ children }) {
           >
             🚨 จัดการเหตุการณ์
           </Link>
+
+          {/* SUPER_ADMIN ONLY */}
+          {profile?.role === 'SUPER_ADMIN' && (
+            <Link
+              to="/admin/audit-logs"
+              className="
+                px-3
+                py-2
+                rounded-button
+                text-sm
+                text-textPrimary
+                hover:bg-background
+              "
+            >
+              🧾 ประวัติการดำเนินการ
+            </Link>
+          )}
 
           <Link
             to="/profile"
