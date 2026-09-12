@@ -8,6 +8,7 @@ import { AuthProvider } from './hooks/useAuth'
 
 import PublicLayout from './layouts/PublicLayout'
 import AdminLayout from './layouts/AdminLayout'
+import GuideLayout from './layouts/GuideLayout'
 
 import RoleGuard from './components/common/RoleGuard'
 
@@ -38,6 +39,14 @@ import AdminRoutes from './pages/admin/AdminRoutes'
 import BookTour from './pages/bookings/BookTour'
 import MyBookings from './pages/bookings/MyBookings'
 import BookingDetail from './pages/bookings/BookingDetail'
+
+/* =========================
+   M5: INCIDENT REPORTING
+========================= */
+import AdminIncidents from './pages/admin/Incidents'
+import IncidentDetail from './pages/admin/IncidentDetail'
+import GuideIncidents from './pages/guide/Incidents'
+import NewIncident from './pages/incidents/NewIncident'
 
 /* =========================
    M6: REVIEW
@@ -163,6 +172,31 @@ function App() {
           />
 
           {/* =========================
+              GUIDE - M5
+          ========================= */}
+          <Route
+            path="/guide/incidents"
+            element={
+              <RoleGuard allowedRoles={['GUIDE']}>
+                <GuideLayout>
+                  <GuideIncidents />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/incidents/new"
+            element={
+              <RoleGuard allowedRoles={['GUIDE']}>
+                <GuideLayout>
+                  <NewIncident />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+
+          {/* =========================
               ADMIN - M1
           ========================= */}
           <Route
@@ -209,6 +243,31 @@ function App() {
               <RoleGuard allowedRoles={['ADMIN']}>
                 <AdminLayout>
                   <RouteEdit />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          {/* =========================
+              ADMIN - M5
+          ========================= */}
+          <Route
+            path="/admin/incidents"
+            element={
+              <RoleGuard allowedRoles={['ADMIN']}>
+                <AdminLayout>
+                  <AdminIncidents />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/incidents/:id"
+            element={
+              <RoleGuard allowedRoles={['ADMIN']}>
+                <AdminLayout>
+                  <IncidentDetail />
                 </AdminLayout>
               </RoleGuard>
             }

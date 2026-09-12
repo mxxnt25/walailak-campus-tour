@@ -17,30 +17,42 @@ function translateReviewError(
     return fallbackMessage
   }
 
-  const errorMessage = String(
-    error.message || '',
-  ).toLowerCase()
+  const errorCode = String(error.code || '').toUpperCase()
+  const originalMessage = String(error.message || '')
+  const errorMessage = originalMessage.toLowerCase()
+
+  if (errorCode === 'P0001') {
+    return (
+      originalMessage ||
+      'ยังไม่สามารถรีวิวการจองนี้ได้'
+    )
+  }
+
+  if (errorCode === '22P02') {
+    return 'รหัสการจองไม่ถูกต้อง'
+  }
 
   if (
-    error.code === '42703' ||
-    errorMessage.includes('does not exist') ||
+    errorCode === '42P01' ||
+    errorCode === 'PGRST205' ||
+    errorMessage.includes('could not find the table') ||
+    (errorMessage.includes('relation') &&
+      errorMessage.includes('does not exist'))
+  ) {
+    return 'ยังไม่พบตารางรีวิวในฐานข้อมูล กรุณาติดต่อผู้ดูแลระบบ'
+  }
+
+  if (
+    errorCode === '42703' ||
+    (errorMessage.includes('column') &&
+      errorMessage.includes('does not exist')) ||
     errorMessage.includes('reviewer_name')
   ) {
     return 'โครงสร้างฐานข้อมูลรีวิวยังไม่พร้อม กรุณาติดต่อผู้ดูแลระบบ'
   }
 
   if (
-    error.code === '42P01' ||
-    error.code === 'PGRST205' ||
-    errorMessage.includes('could not find the table') ||
-    errorMessage.includes('relation') &&
-      errorMessage.includes('does not exist')
-  ) {
-    return 'ยังไม่พบตารางรีวิวในฐานข้อมูล กรุณาติดต่อผู้ดูแลระบบ'
-  }
-
-  if (
-    error.code === '42501' ||
+    errorCode === '42501' ||
     errorMessage.includes('row-level security') ||
     errorMessage.includes('permission denied')
   ) {
@@ -48,10 +60,17 @@ function translateReviewError(
   }
 
   if (
-    error.code === '23505' ||
+    errorCode === '23505' ||
     errorMessage.includes('duplicate key')
   ) {
     return 'คุณรีวิวการจองนี้ไปแล้ว'
+  }
+
+  if (
+    errorCode === '23514' ||
+    errorCode === '23502'
+  ) {
+    return 'ข้อมูลรีวิวไม่ครบถ้วนหรือไม่ถูกต้อง'
   }
 
   if (
