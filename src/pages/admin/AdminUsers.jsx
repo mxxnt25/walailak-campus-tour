@@ -48,7 +48,7 @@ export default function AdminUsers() {
     if (!confirmed) return
     try {
       await deleteUserProfile(user.id)
-      load()
+      await load()
     } catch (err) {
       alert('ลบไม่สำเร็จ: ' + err.message)
     }

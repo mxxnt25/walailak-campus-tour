@@ -41,11 +41,19 @@ export async function updateUserRole(userId, role) {
   return data
 }
 export async function deleteUserProfile(userId) {
-  const { error } = await supabase
-    .from('profiles')
-    .delete()
-    .eq('id', userId)
-  if (error) throw error
+  const { data, error } = await supabase.functions.invoke('delete-user', {
+    body: { userId },
+  })
+
+  if (error) {
+    throw error
+  }
+
+  if (!data?.success) {
+    throw new Error(data?.error || 'ไม่สามารถลบผู้ใช้ได้')
+  }
+
+  return data
 }
 export async function uploadAvatar(userId, file) {
   const fileExt = file.name.split('.').pop()
