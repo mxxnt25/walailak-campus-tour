@@ -1,40 +1,36 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { Home } from 'lucide-react'
+import { Link, useNavigate } from "react-router-dom";
+import { Home } from "lucide-react";
 
-import { signOut } from '../services/authService'
-import Button from '../components/common/Button'
-import { useAuth } from '../hooks/useAuth'
+import { signOut } from "../services/authService";
+import Button from "../components/common/Button";
+import { useAuth } from "../hooks/useAuth";
 
 export default function AdminLayout({ children }) {
-  const navigate = useNavigate()
-  const { profile } = useAuth()
+  const navigate = useNavigate();
+  const { profile } = useAuth();
 
   async function handleSignOut() {
-    const result = await signOut()
+    const result = await signOut();
 
     if (!result.success) {
-      alert(result.error.message)
-      return
+      alert(result.error.message);
+      return;
     }
 
-    navigate('/login')
+    navigate("/login");
   }
 
   return (
     <div className="min-h-screen bg-background flex">
-
       {/* SIDEBAR */}
       <aside className="w-56 bg-surface border-r border-border p-4 flex flex-col">
-
         {/* HEADER */}
-        <span className="text-primary font-bold mb-4">
-          ⚙️ Admin
-        </span>
+        <span className="text-primary font-bold mb-4">⚙️ Admin</span>
 
         {/* กลับหน้าแรก */}
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => navigate("/")}
           className="
             flex
             items-center
@@ -57,7 +53,6 @@ export default function AdminLayout({ children }) {
 
         {/* MENU */}
         <nav className="flex flex-col gap-1 flex-1">
-
           <Link
             to="/admin/users"
             className="
@@ -85,6 +80,19 @@ export default function AdminLayout({ children }) {
           >
             🗺️ จัดการเส้นทาง
           </Link>
+          <Link
+            to="/admin/schedules"
+            className="
+    px-3
+    py-2
+    rounded-button
+    text-sm
+    text-textPrimary
+    hover:bg-background
+  "
+          >
+            📅 จัดการรอบนำเที่ยว
+          </Link>
 
           <Link
             to="/admin/incidents"
@@ -101,7 +109,7 @@ export default function AdminLayout({ children }) {
           </Link>
 
           {/* SUPER_ADMIN ONLY */}
-          {profile?.role === 'SUPER_ADMIN' && (
+          {profile?.role === "SUPER_ADMIN" && (
             <Link
               to="/admin/audit-logs"
               className="
@@ -133,20 +141,13 @@ export default function AdminLayout({ children }) {
         </nav>
 
         {/* LOGOUT */}
-        <Button
-          variant="secondary"
-          onClick={handleSignOut}
-        >
+        <Button variant="secondary" onClick={handleSignOut}>
           ออกจากระบบ
         </Button>
-
       </aside>
 
       {/* CONTENT */}
-      <main className="flex-1 p-6">
-        {children}
-      </main>
-
+      <main className="flex-1 p-6">{children}</main>
     </div>
-  )
+  );
 }
