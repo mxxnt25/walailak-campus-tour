@@ -158,14 +158,15 @@ select
   id,
   email,
   role,
-  is_active
+  account_status
 from public.profiles
 where email = 'your-email@example.com';
 
 Expected result:
 
 role = SUPER_ADMIN
-is_active = true
+account_status = ACTIVE
+
 
 This direct SQL procedure is only for bootstrapping the first SUPER_ADMIN.
 Normal role changes must use the trusted change_user_role RPC.
@@ -216,7 +217,7 @@ If the user has operational history, the account is not permanently removed.
 
 Instead:
 
-is_active = false
+account_status = DEACTIVATED
 
 and:
 

@@ -6,7 +6,8 @@ import {
   getRouteDetail,
   listRouteStops,
 } from '../../services/routeService'
-import { listOpenSchedules } from '../../services/scheduleService'
+import { getScheduleCapacity } from '../../services/bookingService'
+import { listPublicSchedules } from '../../services/scheduleService'
 import CampusMap from './CampusMap'
 
 function formatTourDate(value) {
@@ -28,6 +29,29 @@ function formatTourDate(value) {
 function formatTime(value) {
   if (!value) return '-'
   return value.slice(0, 5)
+}
+
+function getScheduleStatusLabel(status) {
+  switch (status) {
+    case 'OPEN':
+      return 'เปิดรับจอง'
+    case 'FULL':
+      return 'เต็มแล้ว'
+    default:
+      return status || '-'
+  }
+}
+
+function isScheduleBookable(schedule) {
+  if (schedule.status !== 'OPEN') {
+    return false
+  }
+
+  if (schedule.remaining_seats == null) {
+    return true
+  }
+
+  return schedule.remaining_seats > 0
 }
 
 function RouteDetail() {
@@ -61,7 +85,7 @@ function RouteDetail() {
 
       const [stopsResult, schedulesResult] = await Promise.all([
         listRouteStops(id),
-        listOpenSchedules(id),
+        listPublicSchedules(id),
       ])
 
       if (!active) return
@@ -78,10 +102,39 @@ function RouteDetail() {
       }
 
       if (schedulesResult.success) {
-        const openSchedules = schedulesResult.data ?? []
+        const publicSchedules = schedulesResult.data ?? []
 
-        setSchedules(openSchedules)
-        setSelectedDate(openSchedules[0]?.tour_date ?? '')
+        const schedulesWithCapacity = await Promise.all(
+          publicSchedules.map(async (schedule) => {
+            const capacityResult = await getScheduleCapacity(schedule.id)
+
+            if (!capacityResult.success) {
+              return {
+                ...schedule,
+                booked_participants: null,
+                remaining_seats: schedule.status === 'FULL' ? 0 : null,
+              }
+            }
+
+            return {
+              ...schedule,
+              max_participants:
+                capacityResult.data.maxParticipants,
+              booked_participants:
+                capacityResult.data.bookedParticipants,
+              remaining_seats:
+                capacityResult.data.remainingSeats,
+              status: capacityResult.data.status,
+            }
+          }),
+        )
+
+        if (!active) return
+
+        setSchedules(schedulesWithCapacity)
+        setSelectedDate(
+          schedulesWithCapacity[0]?.tour_date ?? '',
+        )
       } else {
         setScheduleError(
           schedulesResult.error?.message ||
@@ -155,7 +208,7 @@ function RouteDetail() {
 
       <section className="mt-8">
         <h2 className="text-2xl font-semibold text-textPrimary">
-          รอบนำเที่ยวที่เปิดรับจอง
+          รอบนำเที่ยวที่เปิดให้เข้าร่วม
         </h2>
 
         {scheduleError ? (
@@ -164,7 +217,7 @@ function RouteDetail() {
           </div>
         ) : schedules.length === 0 ? (
           <div className="mt-4 rounded-xl border border-border bg-white p-6 text-textSecondary">
-            ยังไม่มีรอบนำเที่ยวที่เปิดรับจอง
+            ยังไม่มีรอบนำเที่ยวที่เปิดให้เข้าร่วม
           </div>
         ) : (
           <div className="mt-4 space-y-5">
@@ -192,12 +245,12 @@ function RouteDetail() {
 
             <div>
               <h3 className="font-semibold text-textPrimary">
-                รอบที่เปิดรับจองในวันที่เลือก
+                รอบนำเที่ยวในวันที่เลือก
               </h3>
 
               {filteredSchedules.length === 0 ? (
                 <div className="mt-3 rounded-xl border border-border bg-white p-6 text-textSecondary">
-                  ไม่มีรอบนำเที่ยวที่เปิดรับจองในวันที่เลือก
+                  ไม่มีรอบนำเที่ยวที่เปิดให้เข้าร่วมในวันที่เลือก
                 </div>
               ) : (
                 <div className="mt-3 grid gap-4 md:grid-cols-2">
@@ -221,10 +274,32 @@ function RouteDetail() {
                         รองรับสูงสุด {schedule.max_participants} คน
                       </p>
 
+                      {schedule.booked_participants != null && (
+                        <p className="mt-1 text-sm text-textSecondary">
+                          จองแล้ว {schedule.booked_participants} คน
+                        </p>
+                      )}
+
+                      {schedule.remaining_seats != null && (
+                        <p className="mt-1 text-sm text-textSecondary">
+                          เหลือ {schedule.remaining_seats} ที่
+                        </p>
+                      )}
+
+                      <p className="mt-1 text-sm font-medium text-textPrimary">
+                        สถานะ {getScheduleStatusLabel(schedule.status)}
+                      </p>
+
                       <div className="mt-4">
-                        <Link to={`/book/${schedule.id}`}>
-                          <Button>จองรอบนี้</Button>
-                        </Link>
+                        {isScheduleBookable(schedule) ? (
+                          <Link to={`/book/${schedule.id}`}>
+                            <Button>จองรอบนี้</Button>
+                          </Link>
+                        ) : (
+                          <Button disabled>
+                            รอบนี้เต็มแล้ว
+                          </Button>
+                        )}
                       </div>
                     </article>
                   ))}

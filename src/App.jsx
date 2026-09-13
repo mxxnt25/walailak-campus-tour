@@ -53,6 +53,11 @@ import NewIncident from './pages/incidents/NewIncident'
    M6: REVIEW
 ========================= */
 import Review from './pages/reviews/Review'
+import AdminReviews from './pages/admin/AdminReviews'
+
+import GuideDashboard from './pages/guide/Dashboard'
+import TourDetail from './pages/guide/TourDetail'
+import AdminSchedules from './pages/admin/Schedules'
 
 function App() {
   return (
@@ -166,15 +171,49 @@ function App() {
           <Route
             path="/reviews/new/:bookingId"
             element={
-              <PublicLayout>
-                <Review />
-              </PublicLayout>
+              <RoleGuard allowedRoles={['MEMBER']}>
+                <PublicLayout>
+                  <Review />
+                </PublicLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/reviews"
+            element={
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <AdminLayout>
+                  <AdminReviews />
+                </AdminLayout>
+              </RoleGuard>
             }
           />
 
           {/* =========================
               GUIDE - M5
           ========================= */}
+          <Route
+            path="/guide"
+            element={
+              <RoleGuard allowedRoles={['GUIDE']}>
+                <GuideLayout>
+                  <GuideDashboard />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/guide/tours/:scheduleId"
+            element={
+              <RoleGuard allowedRoles={['GUIDE']}>
+                <GuideLayout>
+                  <TourDetail />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
           <Route
             path="/guide/incidents"
             element={
@@ -200,6 +239,16 @@ function App() {
           {/* =========================
               ADMIN - M1
           ========================= */}
+          <Route
+            path="/admin/schedules"
+            element={
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <AdminLayout>
+                  <AdminSchedules />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
           <Route
             path="/admin/users"
             element={
@@ -228,7 +277,7 @@ function App() {
           <Route
             path="/admin/routes"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <AdminRoutes />
                 </AdminLayout>
@@ -239,7 +288,7 @@ function App() {
           <Route
             path="/admin/routes/new"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <RouteCreate />
                 </AdminLayout>
@@ -250,7 +299,7 @@ function App() {
           <Route
             path="/admin/routes/:id/edit"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <RouteEdit />
                 </AdminLayout>
@@ -264,7 +313,7 @@ function App() {
           <Route
             path="/admin/incidents"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <AdminIncidents />
                 </AdminLayout>
@@ -275,7 +324,7 @@ function App() {
           <Route
             path="/admin/incidents/:id"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <IncidentDetail />
                 </AdminLayout>

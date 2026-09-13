@@ -69,7 +69,7 @@ export default function AdminUsers() {
   }, [])
 
   function canManageUser(user) {
-    if (!user.is_active) {
+    if (user.account_status !== 'ACTIVE') {
       return false
     }
 
@@ -85,7 +85,7 @@ export default function AdminUsers() {
   }
 
   function getAllowedRoles(user) {
-    if (!user.is_active) {
+    if (user.account_status !== 'ACTIVE') {
       return []
     }
 
@@ -142,7 +142,7 @@ export default function AdminUsers() {
       return
     }
 
-    if (!user.is_active) {
+    if (user.account_status !== 'ACTIVE') {
       alert('บัญชีนี้ถูกปิดใช้งานแล้ว')
       return
     }
@@ -205,7 +205,7 @@ export default function AdminUsers() {
           const isCurrentUser =
             user.id === currentUserId
           const isInactive =
-            user.is_active === false
+            user.account_status === 'DEACTIVATED'
 
           return (
             <Card

@@ -28,6 +28,32 @@ export const listOpenSchedules = async (routeId = null) => {
   return formatResponse(data, error);
 };
 
+const getLocalToday = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+export const listPublicSchedules = async (routeId = null) => {
+  let query = supabase
+    .from('tour_schedules')
+    .select('*, routes(name, duration_minutes)')
+    .in('status', ['OPEN', 'FULL'])
+    .gte('tour_date', getLocalToday())
+    .order('tour_date', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (routeId) {
+    query = query.eq('route_id', routeId);
+  }
+
+  const { data, error } = await query;
+  return formatResponse(data, error);
+};
+
 export const getScheduleDetail = async (scheduleId) => {
   if (!scheduleId) return formatResponse(null, { code: 'VALIDATION_ERROR', message: 'scheduleId is required' });
 
@@ -86,6 +112,24 @@ export const updateSchedule = async (scheduleId, patch) => {
     .eq('id', scheduleId)
     .select()
     .single();
+
+  return formatResponse(data, error);
+};
+
+export const completeTour = async (scheduleId) => {
+  if (!scheduleId) {
+    return formatResponse(null, {
+      code: 'VALIDATION_ERROR',
+      message: 'scheduleId is required',
+    });
+  }
+
+  const { data, error } = await supabase.rpc(
+    'complete_tour',
+    {
+      p_schedule_id: scheduleId,
+    },
+  );
 
   return formatResponse(data, error);
 };

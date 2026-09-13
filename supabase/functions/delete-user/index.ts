@@ -39,14 +39,15 @@ export default {
           return Response.json(
             {
               success: false,
-              error: "ไม่สามารถจัดการบัญชีตัวเองได้",
+              error:
+                "ไม่สามารถลบหรือปิดใช้งานบัญชีตัวเองได้",
             },
-            { status: 400 }
+            { status: 403 }
           )
         }
 
         // =====================================================
-        // 2. ตรวจ role ของผู้สั่ง
+        // 2. ตรวจ role / account_status ของผู้สั่ง
         // =====================================================
 
         const {
@@ -54,7 +55,7 @@ export default {
           error: callerError,
         } = await ctx.supabaseAdmin
           .from("profiles")
-          .select("role, is_active")
+          .select("role, account_status")
           .eq("id", callerId)
           .single()
 
@@ -68,7 +69,9 @@ export default {
           )
         }
 
-        if (!callerProfile.is_active) {
+        if (
+          callerProfile.account_status !== "ACTIVE"
+        ) {
           return Response.json(
             {
               success: false,
@@ -102,7 +105,7 @@ export default {
         } = await ctx.supabaseAdmin
           .from("profiles")
           .select(
-            "id, email, full_name, role, is_active"
+            "id, email, full_name, role, account_status"
           )
           .eq("id", userId)
           .single()
@@ -117,7 +120,9 @@ export default {
           )
         }
 
-        if (!targetProfile.is_active) {
+        if (
+          targetProfile.account_status !== "ACTIVE"
+        ) {
           return Response.json(
             {
               success: false,
@@ -151,8 +156,12 @@ export default {
         // 5. ป้องกัน SUPER_ADMIN คนสุดท้าย
         // =====================================================
 
-        if (targetProfile.role === "SUPER_ADMIN") {
-          if (callerProfile.role !== "SUPER_ADMIN") {
+        if (
+          targetProfile.role === "SUPER_ADMIN"
+        ) {
+          if (
+            callerProfile.role !== "SUPER_ADMIN"
+          ) {
             return Response.json(
               {
                 success: false,
@@ -173,13 +182,18 @@ export default {
               head: true,
             })
             .eq("role", "SUPER_ADMIN")
-            .eq("is_active", true)
+            .eq(
+              "account_status",
+              "ACTIVE"
+            )
 
           if (countError) {
             throw countError
           }
 
-          if ((superAdminCount ?? 0) <= 1) {
+          if (
+            (superAdminCount ?? 0) <= 1
+          ) {
             return Response.json(
               {
                 success: false,
@@ -248,8 +262,10 @@ export default {
 
         const hasHistory =
           (bookingsResult.count ?? 0) > 0 ||
-          (assignmentsResult.count ?? 0) > 0 ||
-          (incidentsResult.count ?? 0) > 0 ||
+          (assignmentsResult.count ?? 0) >
+            0 ||
+          (incidentsResult.count ?? 0) >
+            0 ||
           (reviewsResult.count ?? 0) > 0
 
         // =====================================================
@@ -257,14 +273,16 @@ export default {
         // =====================================================
 
         if (hasHistory) {
-          const now = new Date().toISOString()
+          const now =
+            new Date().toISOString()
 
           const {
             error: deactivateError,
           } = await ctx.supabaseAdmin
             .from("profiles")
             .update({
-              is_active: false,
+              account_status:
+                "DEACTIVATED",
               deactivated_at: now,
               updated_at: now,
             })
@@ -281,7 +299,8 @@ export default {
             await ctx.supabaseAdmin.auth.admin.updateUserById(
               userId,
               {
-                ban_duration: "876000h",
+                ban_duration:
+                  "876000h",
               }
             )
 
@@ -290,32 +309,41 @@ export default {
             await ctx.supabaseAdmin
               .from("profiles")
               .update({
-                is_active: true,
+                account_status:
+                  "ACTIVE",
                 deactivated_at: null,
-                updated_at: new Date().toISOString(),
+                updated_at:
+                  new Date().toISOString(),
               })
               .eq("id", userId)
 
             throw banError
           }
 
-          const { error: auditError } =
-            await ctx.supabaseAdmin
-              .from("audit_logs")
-              .insert({
-                actor_id: callerId,
-                action: "USER_DEACTIVATED",
-                target_type: "PROFILE",
-                target_id: userId,
-                old_data: {
-                  role: targetProfile.role,
-                  is_active: true,
-                },
-                new_data: {
-                  role: targetProfile.role,
-                  is_active: false,
-                },
-              })
+          // Audit foundation อยู่ใน shared migration 0010
+          const {
+            error: auditError,
+          } = await ctx.supabaseAdmin
+            .from("audit_logs")
+            .insert({
+              actor_id: callerId,
+              action:
+                "USER_DEACTIVATED",
+              target_type: "PROFILE",
+              target_id: userId,
+              old_data: {
+                role:
+                  targetProfile.role,
+                account_status:
+                  "ACTIVE",
+              },
+              new_data: {
+                role:
+                  targetProfile.role,
+                account_status:
+                  "DEACTIVATED",
+              },
+            })
 
           if (auditError) {
             console.error(
@@ -344,12 +372,19 @@ export default {
           .from("avatars")
           .list(userId)
 
-        if (!avatarListError && avatarFiles?.length) {
-          const paths = avatarFiles.map(
-            (file) => `${userId}/${file.name}`
-          )
+        if (
+          !avatarListError &&
+          avatarFiles?.length
+        ) {
+          const paths =
+            avatarFiles.map(
+              (file) =>
+                `${userId}/${file.name}`
+            )
 
-          const { error: avatarDeleteError } =
+          const {
+            error: avatarDeleteError,
+          } =
             await ctx.supabaseAdmin.storage
               .from("avatars")
               .remove(paths)
@@ -373,20 +408,26 @@ export default {
           throw deleteError
         }
 
-        const { error: auditError } =
-          await ctx.supabaseAdmin
-            .from("audit_logs")
-            .insert({
-              actor_id: callerId,
-              action: "USER_DELETED",
-              target_type: "PROFILE",
-              target_id: userId,
-              old_data: {
-                role: targetProfile.role,
-                email: targetProfile.email,
-              },
-              new_data: null,
-            })
+        // Audit foundation อยู่ใน shared migration 0010
+        const {
+          error: auditError,
+        } = await ctx.supabaseAdmin
+          .from("audit_logs")
+          .insert({
+            actor_id: callerId,
+            action: "USER_DELETED",
+            target_type: "PROFILE",
+            target_id: userId,
+            old_data: {
+              role:
+                targetProfile.role,
+              email:
+                targetProfile.email,
+              account_status:
+                targetProfile.account_status,
+            },
+            new_data: null,
+          })
 
         if (auditError) {
           console.error(
@@ -398,7 +439,8 @@ export default {
         return Response.json({
           success: true,
           action: "DELETED",
-          message: "ลบบัญชีผู้ใช้เรียบร้อยแล้ว",
+          message:
+            "ลบบัญชีผู้ใช้เรียบร้อยแล้ว",
         })
       } catch (error) {
         console.error(
