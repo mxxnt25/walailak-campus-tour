@@ -14,10 +14,8 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-background flex">
-
       {/* SIDEBAR */}
       <aside className="w-56 bg-surface border-r border-border p-4 flex flex-col">
-
         {/* HEADER */}
         <span className="text-primary font-bold mb-4">
           ⚙️ Admin
@@ -49,7 +47,6 @@ export default function AdminLayout({ children }) {
 
         {/* MENU */}
         <nav className="flex flex-col gap-1 flex-1">
-
           <Link
             to="/admin/users"
             className="
@@ -93,6 +90,20 @@ export default function AdminLayout({ children }) {
           </Link>
 
           <Link
+            to="/admin/reviews"
+            className="
+              px-3
+              py-2
+              rounded-button
+              text-sm
+              text-textPrimary
+              hover:bg-background
+            "
+          >
+            ⭐ จัดการรีวิว
+          </Link>
+
+          <Link
             to="/profile"
             className="
               px-3
@@ -114,14 +125,12 @@ export default function AdminLayout({ children }) {
         >
           ออกจากระบบ
         </Button>
-
       </aside>
 
       {/* CONTENT */}
       <main className="flex-1 p-6">
         {children}
       </main>
-
     </div>
   )
 }

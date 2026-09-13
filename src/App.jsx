@@ -50,13 +50,13 @@ import NewIncident from './pages/incidents/NewIncident'
    M6: REVIEW
 ========================= */
 import Review from './pages/reviews/Review'
+import AdminReviews from './pages/admin/AdminReviews'
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-
           {/* =========================
               M1: HOME
           ========================= */}
@@ -259,6 +259,19 @@ function App() {
             }
           />
 
+          {/* =========================
+              ADMIN - M6
+          ========================= */}
+          <Route
+            path="/admin/reviews"
+            element={
+              <RoleGuard allowedRoles={['ADMIN']}>
+                <AdminLayout>
+                  <AdminReviews />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -286,3 +286,106 @@ export async function deleteReview(reviewId) {
 
   return true
 }
+// ============================================================
+// M6 - Admin Review Management
+// ============================================================
+
+export async function getAdminReviews() {
+  const user = await getCurrentUser({
+    required: true,
+    errorMessage: 'กรุณาเข้าสู่ระบบก่อนดูรายการรีวิว',
+  })
+
+  if (!user) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('reviews')
+    .select(`
+      id,
+      booking_id,
+      user_id,
+      route_id,
+      guide_id,
+      reviewer_name,
+      overall_rating,
+      guide_rating,
+      route_rating,
+      comment,
+      is_hidden,
+      created_at,
+      updated_at
+    `)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw new Error(
+      translateReviewError(
+        error,
+        'ไม่สามารถโหลดรายการรีวิวสำหรับผู้ดูแลระบบได้',
+      ),
+    )
+  }
+
+  return data || []
+}
+
+export async function setReviewVisibility(reviewId, isHidden) {
+  await getCurrentUser({
+    required: true,
+    errorMessage: 'กรุณาเข้าสู่ระบบก่อนจัดการรีวิว',
+  })
+
+  if (!reviewId) {
+    throw new Error('ไม่พบรหัสรีวิว')
+  }
+
+  const { data, error } = await supabase
+    .from('reviews')
+    .update({
+      is_hidden: isHidden,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', reviewId)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(
+      translateReviewError(
+        error,
+        'ไม่สามารถเปลี่ยนสถานะการแสดงรีวิวได้',
+      ),
+    )
+  }
+
+  return data
+}
+
+export async function deleteReviewAsAdmin(reviewId) {
+  await getCurrentUser({
+    required: true,
+    errorMessage: 'กรุณาเข้าสู่ระบบก่อนลบรีวิว',
+  })
+
+  if (!reviewId) {
+    throw new Error('ไม่พบรหัสรีวิว')
+  }
+
+  const { error } = await supabase
+    .from('reviews')
+    .delete()
+    .eq('id', reviewId)
+
+  if (error) {
+    throw new Error(
+      translateReviewError(
+        error,
+        'ไม่สามารถลบรีวิวได้',
+      ),
+    )
+  }
+
+  return true
+}
