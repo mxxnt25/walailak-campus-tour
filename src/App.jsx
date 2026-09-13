@@ -55,6 +55,10 @@ import NewIncident from './pages/incidents/NewIncident'
 import Review from './pages/reviews/Review'
 import AdminReviews from './pages/admin/AdminReviews'
 
+import GuideDashboard from './pages/guide/Dashboard'
+import TourDetail from './pages/guide/TourDetail'
+import AdminSchedules from './pages/admin/Schedules'
+
 function App() {
   return (
     <AuthProvider>
@@ -190,6 +194,27 @@ function App() {
               GUIDE - M5
           ========================= */}
           <Route
+            path="/guide"
+            element={
+              <RoleGuard allowedRoles={['GUIDE']}>
+                <GuideLayout>
+                  <GuideDashboard />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/guide/tours/:scheduleId"
+            element={
+              <RoleGuard allowedRoles={['GUIDE']}>
+                <GuideLayout>
+                  <TourDetail />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+          <Route
             path="/guide/incidents"
             element={
               <RoleGuard allowedRoles={['GUIDE']}>
@@ -214,6 +239,16 @@ function App() {
           {/* =========================
               ADMIN - M1
           ========================= */}
+          <Route
+            path="/admin/schedules"
+            element={
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <AdminLayout>
+                  <AdminSchedules />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
           <Route
             path="/admin/users"
             element={

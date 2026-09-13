@@ -115,3 +115,21 @@ export const updateSchedule = async (scheduleId, patch) => {
 
   return formatResponse(data, error);
 };
+
+export const completeTour = async (scheduleId) => {
+  if (!scheduleId) {
+    return formatResponse(null, {
+      code: 'VALIDATION_ERROR',
+      message: 'scheduleId is required',
+    });
+  }
+
+  const { data, error } = await supabase.rpc(
+    'complete_tour',
+    {
+      p_schedule_id: scheduleId,
+    },
+  );
+
+  return formatResponse(data, error);
+};
