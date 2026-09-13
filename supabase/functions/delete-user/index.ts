@@ -46,7 +46,7 @@ export default {
         }
 
         // =====================================================
-        // 2. ตรวจ role ของผู้สั่ง
+        // 2. ตรวจ role / account_status ของผู้สั่ง
         // =====================================================
 
         const {
@@ -54,7 +54,7 @@ export default {
           error: callerError,
         } = await ctx.supabaseAdmin
           .from("profiles")
-          .select("role, is_active")
+          .select("role, account_status")
           .eq("id", callerId)
           .single()
 
@@ -68,7 +68,7 @@ export default {
           )
         }
 
-        if (!callerProfile.is_active) {
+        if (callerProfile.account_status !== "ACTIVE") {
           return Response.json(
             {
               success: false,
@@ -102,7 +102,7 @@ export default {
         } = await ctx.supabaseAdmin
           .from("profiles")
           .select(
-            "id, email, full_name, role, is_active"
+            "id, email, full_name, role, account_status"
           )
           .eq("id", userId)
           .single()
@@ -117,7 +117,7 @@ export default {
           )
         }
 
-        if (!targetProfile.is_active) {
+        if (targetProfile.account_status !== "ACTIVE") {
           return Response.json(
             {
               success: false,
@@ -173,7 +173,7 @@ export default {
               head: true,
             })
             .eq("role", "SUPER_ADMIN")
-            .eq("is_active", true)
+            .eq("account_status", "ACTIVE")
 
           if (countError) {
             throw countError
@@ -264,7 +264,7 @@ export default {
           } = await ctx.supabaseAdmin
             .from("profiles")
             .update({
-              is_active: false,
+              account_status: "DEACTIVATED",
               deactivated_at: now,
               updated_at: now,
             })
@@ -290,7 +290,7 @@ export default {
             await ctx.supabaseAdmin
               .from("profiles")
               .update({
-                is_active: true,
+                account_status: "ACTIVE",
                 deactivated_at: null,
                 updated_at: new Date().toISOString(),
               })
@@ -299,6 +299,7 @@ export default {
             throw banError
           }
 
+          // Audit foundation อยู่ใน shared migration 0010
           const { error: auditError } =
             await ctx.supabaseAdmin
               .from("audit_logs")
@@ -309,11 +310,11 @@ export default {
                 target_id: userId,
                 old_data: {
                   role: targetProfile.role,
-                  is_active: true,
+                  account_status: "ACTIVE",
                 },
                 new_data: {
                   role: targetProfile.role,
-                  is_active: false,
+                  account_status: "DEACTIVATED",
                 },
               })
 
@@ -373,6 +374,7 @@ export default {
           throw deleteError
         }
 
+        // Audit foundation อยู่ใน shared migration 0010
         const { error: auditError } =
           await ctx.supabaseAdmin
             .from("audit_logs")
@@ -384,6 +386,8 @@ export default {
               old_data: {
                 role: targetProfile.role,
                 email: targetProfile.email,
+                account_status:
+                  targetProfile.account_status,
               },
               new_data: null,
             })
