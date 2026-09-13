@@ -13,27 +13,18 @@ BEGIN;
 -- ============================================================
 -- 1) REVIEW MODERATOR CHECK
 -- ============================================================
--- Keep compatibility with the existing M1 public.is_admin()
--- while allowing the final project role SUPER_ADMIN for M6.
+-- Use the shared final admin helper only.
+-- public.is_admin() is the authoritative project-level helper
+-- for ACTIVE ADMIN + ACTIVE SUPER_ADMIN.
 --
--- This function does NOT change the M1 role model or is_admin().
--- It is an M6-specific authorization helper.
+-- M6 must not create a separate or weaker SUPER_ADMIN path.
 
 CREATE OR REPLACE FUNCTION public.is_review_moderator()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
-SECURITY DEFINER
-SET search_path = public
 AS $$
-  SELECT
-    public.is_admin()
-    OR EXISTS (
-      SELECT 1
-      FROM public.profiles AS p
-      WHERE p.id = auth.uid()
-        AND p.role = 'SUPER_ADMIN'
-    );
+  SELECT public.is_admin();
 $$;
 
 REVOKE ALL
