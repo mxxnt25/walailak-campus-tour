@@ -53,6 +53,7 @@ import NewIncident from './pages/incidents/NewIncident'
    M6: REVIEW
 ========================= */
 import Review from './pages/reviews/Review'
+import AdminReviews from './pages/admin/AdminReviews'
 
 function App() {
   return (
@@ -166,9 +167,22 @@ function App() {
           <Route
             path="/reviews/new/:bookingId"
             element={
-              <PublicLayout>
-                <Review />
-              </PublicLayout>
+              <RoleGuard allowedRoles={['MEMBER']}>
+                <PublicLayout>
+                  <Review />
+                </PublicLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/reviews"
+            element={
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <AdminLayout>
+                  <AdminReviews />
+                </AdminLayout>
+              </RoleGuard>
             }
           />
 
