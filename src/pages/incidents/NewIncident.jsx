@@ -58,12 +58,15 @@ export default function NewIncident({ scheduleId = null }) {
       }
 
       const data = result.data || []
+      const acceptedAssignments = data.filter(
+        (assignment) => assignment.status === 'ACCEPTED'
+      )
 
-      setAssignments(data)
+      setAssignments(acceptedAssignments)
       setAssignmentError('')
 
-      if (data.length === 1) {
-        setSelectedScheduleId(data[0].schedule_id)
+      if (acceptedAssignments.length === 1) {
+        setSelectedScheduleId(acceptedAssignments[0].schedule_id)
       }
 
       setLoadingAssignments(false)

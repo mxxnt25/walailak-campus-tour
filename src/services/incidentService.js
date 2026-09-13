@@ -94,6 +94,7 @@ export async function listMyRelatedIncidents() {
   const assignments = assignmentsResult.data || []
 
   const scheduleIds = assignments
+    .filter((assignment) => ['ACCEPTED', 'COMPLETED'].includes(assignment.status))
     .map((assignment) => assignment.schedule_id)
     .filter(Boolean)
 

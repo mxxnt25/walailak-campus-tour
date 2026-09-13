@@ -240,7 +240,7 @@ function App() {
           <Route
             path="/admin/incidents"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <AdminIncidents />
                 </AdminLayout>
@@ -251,7 +251,7 @@ function App() {
           <Route
             path="/admin/incidents/:id"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <IncidentDetail />
                 </AdminLayout>
