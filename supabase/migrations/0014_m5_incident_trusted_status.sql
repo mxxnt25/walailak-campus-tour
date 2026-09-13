@@ -19,6 +19,62 @@
 -- below so every real status transition creates an audit row.
 -- =========================================================
 
+-- =========================================================
+-- M5 v1.2 Guide incident authorization correction
+--
+-- READ:
+--   GUIDE must be ACTIVE and have ACCEPTED/COMPLETED assignment.
+--
+-- INSERT:
+--   GUIDE must be ACTIVE and have ACCEPTED assignment.
+--
+-- ADMIN/SUPER_ADMIN continue through public.is_admin().
+-- =========================================================
+
+drop policy if exists "incidents assigned guide/admin read"
+on public.incidents;
+
+create policy "incidents assigned guide/admin read"
+on public.incidents
+for select
+to authenticated
+using (
+  public.is_admin()
+  or (
+    public.is_guide()
+    and exists (
+      select 1
+      from public.guide_assignments ga
+      where ga.schedule_id = incidents.schedule_id
+        and ga.guide_id = auth.uid()
+        and ga.status in ('ACCEPTED', 'COMPLETED')
+    )
+  )
+);
+
+
+drop policy if exists "incidents guide/admin insert"
+on public.incidents;
+
+create policy "incidents guide/admin insert"
+on public.incidents
+for insert
+to authenticated
+with check (
+  public.is_admin()
+  or (
+    reported_by = auth.uid()
+    and public.is_guide()
+    and exists (
+      select 1
+      from public.guide_assignments ga
+      where ga.schedule_id = incidents.schedule_id
+        and ga.guide_id = auth.uid()
+        and ga.status = 'ACCEPTED'
+    )
+  )
+);
+
 drop policy if exists "incidents admin update"
 on public.incidents;
 
