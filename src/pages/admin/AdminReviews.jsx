@@ -10,10 +10,11 @@ function RatingStars({ value }) {
 
   return (
     <span
-      className="text-yellow-500 whitespace-nowrap"
+      className="whitespace-nowrap text-yellow-500"
       aria-label={`${rating} ดาว`}
     >
       {'★'.repeat(rating)}
+
       <span className="text-gray-300">
         {'★'.repeat(Math.max(0, 5 - rating))}
       </span>
@@ -36,6 +37,13 @@ function formatDate(value) {
   }
 }
 
+function getServiceError(
+  result,
+  fallbackMessage = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
+) {
+  return result?.error?.message || fallbackMessage
+}
+
 export default function AdminReviews() {
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
@@ -48,9 +56,22 @@ export default function AdminReviews() {
       setLoading(true)
       setError('')
 
-      const data = await getAdminReviews()
-      setReviews(data)
+      const result = await getAdminReviews()
+
+      if (!result.success) {
+        setReviews([])
+        setError(
+          getServiceError(
+            result,
+            'ไม่สามารถโหลดรายการรีวิวได้',
+          ),
+        )
+        return
+      }
+
+      setReviews(result.data || [])
     } catch (err) {
+      setReviews([])
       setError(
         err?.message ||
           'ไม่สามารถโหลดรายการรีวิวได้',
@@ -66,11 +87,15 @@ export default function AdminReviews() {
 
   const filteredReviews = useMemo(() => {
     if (filter === 'VISIBLE') {
-      return reviews.filter((review) => !review.is_hidden)
+      return reviews.filter(
+        (review) => !review.is_hidden,
+      )
     }
 
     if (filter === 'HIDDEN') {
-      return reviews.filter((review) => review.is_hidden)
+      return reviews.filter(
+        (review) => review.is_hidden,
+      )
     }
 
     return reviews
@@ -78,9 +103,11 @@ export default function AdminReviews() {
 
   const summary = useMemo(() => {
     const total = reviews.length
+
     const visible = reviews.filter(
       (review) => !review.is_hidden,
     ).length
+
     const hidden = reviews.filter(
       (review) => review.is_hidden,
     ).length
@@ -89,7 +116,10 @@ export default function AdminReviews() {
       total > 0
         ? reviews.reduce(
             (sum, review) =>
-              sum + Number(review.overall_rating || 0),
+              sum +
+              Number(
+                review.overall_rating || 0,
+              ),
             0,
           ) / total
         : 0
@@ -103,14 +133,39 @@ export default function AdminReviews() {
   }, [reviews])
 
   async function handleToggleVisibility(review) {
+    if (!review?.id) {
+      setError('ไม่พบข้อมูลรีวิว')
+      return
+    }
+
     try {
       setActionId(review.id)
       setError('')
 
-      const updatedReview = await setReviewVisibility(
-        review.id,
-        !review.is_hidden,
-      )
+      const result =
+        await setReviewVisibility(
+          review.id,
+          !review.is_hidden,
+        )
+
+      if (!result.success) {
+        setError(
+          getServiceError(
+            result,
+            'ไม่สามารถเปลี่ยนสถานะรีวิวได้',
+          ),
+        )
+        return
+      }
+
+      const updatedReview = result.data
+
+      if (!updatedReview) {
+        setError(
+          'ไม่พบข้อมูลรีวิวหลังจากอัปเดตสถานะ',
+        )
+        return
+      }
 
       setReviews((current) =>
         current.map((item) =>
@@ -133,6 +188,11 @@ export default function AdminReviews() {
   }
 
   async function handleDelete(review) {
+    if (!review?.id) {
+      setError('ไม่พบข้อมูลรีวิว')
+      return
+    }
+
     const confirmed = window.confirm(
       `ต้องการลบรีวิวของ "${
         review.reviewer_name || 'ผู้ใช้งาน'
@@ -147,11 +207,25 @@ export default function AdminReviews() {
       setActionId(review.id)
       setError('')
 
-      await deleteReviewAsAdmin(review.id)
+      const result =
+        await deleteReviewAsAdmin(
+          review.id,
+        )
+
+      if (!result.success) {
+        setError(
+          getServiceError(
+            result,
+            'ไม่สามารถลบรีวิวได้',
+          ),
+        )
+        return
+      }
 
       setReviews((current) =>
         current.filter(
-          (item) => item.id !== review.id,
+          (item) =>
+            item.id !== review.id,
         ),
       )
     } catch (err) {
@@ -216,6 +290,7 @@ export default function AdminReviews() {
 
           <p className="mt-1 text-2xl font-bold text-primary">
             {summary.average.toFixed(1)}
+
             <span className="ml-1 text-base font-normal text-textSecondary">
               / 5
             </span>
@@ -287,12 +362,15 @@ export default function AdminReviews() {
 
       {/* ERROR */}
       {error && (
-        <div className="rounded-card border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div
+          className="rounded-card border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          role="alert"
+        >
           {error}
         </div>
       )}
 
-      {/* LOADING */}
+      {/* CONTENT */}
       {loading ? (
         <div className="rounded-card border border-border bg-surface p-8 text-center text-textSecondary">
           กำลังโหลดรายการรีวิว...
@@ -310,7 +388,8 @@ export default function AdminReviews() {
       ) : (
         <div className="space-y-4">
           {filteredReviews.map((review) => {
-            const busy = actionId === review.id
+            const busy =
+              actionId === review.id
 
             return (
               <article
@@ -338,7 +417,9 @@ export default function AdminReviews() {
                     </div>
 
                     <p className="mt-1 text-xs text-textSecondary">
-                      {formatDate(review.created_at)}
+                      {formatDate(
+                        review.created_at,
+                      )}
                     </p>
 
                     {/* RATINGS */}
@@ -350,11 +431,16 @@ export default function AdminReviews() {
 
                         <div className="mt-1 flex items-center gap-2">
                           <RatingStars
-                            value={review.overall_rating}
+                            value={
+                              review.overall_rating
+                            }
                           />
 
                           <span className="text-sm text-textPrimary">
-                            {review.overall_rating}/5
+                            {
+                              review.overall_rating
+                            }
+                            /5
                           </span>
                         </div>
                       </div>
@@ -366,11 +452,14 @@ export default function AdminReviews() {
 
                         <div className="mt-1 flex items-center gap-2">
                           <RatingStars
-                            value={review.guide_rating}
+                            value={
+                              review.guide_rating
+                            }
                           />
 
                           <span className="text-sm text-textPrimary">
-                            {review.guide_rating}/5
+                            {review.guide_rating}
+                            /5
                           </span>
                         </div>
                       </div>
@@ -382,11 +471,14 @@ export default function AdminReviews() {
 
                         <div className="mt-1 flex items-center gap-2">
                           <RatingStars
-                            value={review.route_rating}
+                            value={
+                              review.route_rating
+                            }
                           />
 
                           <span className="text-sm text-textPrimary">
-                            {review.route_rating}/5
+                            {review.route_rating}
+                            /5
                           </span>
                         </div>
                       </div>
@@ -412,14 +504,16 @@ export default function AdminReviews() {
                       <p>
                         Route:{' '}
                         <span className="font-mono">
-                          {review.route_id || '-'}
+                          {review.route_id ||
+                            '-'}
                         </span>
                       </p>
 
                       <p>
                         Guide:{' '}
                         <span className="font-mono">
-                          {review.guide_id || '-'}
+                          {review.guide_id ||
+                            '-'}
                         </span>
                       </p>
                     </div>
@@ -431,7 +525,9 @@ export default function AdminReviews() {
                       type="button"
                       disabled={busy}
                       onClick={() =>
-                        handleToggleVisibility(review)
+                        handleToggleVisibility(
+                          review,
+                        )
                       }
                       className="
                         rounded-button
@@ -448,15 +544,19 @@ export default function AdminReviews() {
                         disabled:opacity-50
                       "
                     >
-                      {review.is_hidden
-                        ? 'แสดงรีวิว'
-                        : 'ซ่อนรีวิว'}
+                      {busy
+                        ? 'กำลังดำเนินการ...'
+                        : review.is_hidden
+                          ? 'แสดงรีวิว'
+                          : 'ซ่อนรีวิว'}
                     </button>
 
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => handleDelete(review)}
+                      onClick={() =>
+                        handleDelete(review)
+                      }
                       className="
                         rounded-button
                         border
@@ -472,7 +572,9 @@ export default function AdminReviews() {
                         disabled:opacity-50
                       "
                     >
-                      ลบรีวิว
+                      {busy
+                        ? 'กำลังดำเนินการ...'
+                        : 'ลบรีวิว'}
                     </button>
                   </div>
                 </div>

@@ -141,6 +141,8 @@ function App() {
           {/* =========================
               M6: REVIEW & FEEDBACK
           ========================= */}
+
+          {/* Public review list */}
           <Route
             path="/reviews"
             element={
@@ -150,12 +152,15 @@ function App() {
             }
           />
 
+          {/* MEMBER only - create review */}
           <Route
             path="/reviews/new/:bookingId"
             element={
-              <PublicLayout>
-                <Review />
-              </PublicLayout>
+              <RoleGuard allowedRoles={['MEMBER']}>
+                <PublicLayout>
+                  <Review />
+                </PublicLayout>
+              </RoleGuard>
             }
           />
 
@@ -265,7 +270,12 @@ function App() {
           <Route
             path="/admin/reviews"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard
+                allowedRoles={[
+                  'ADMIN',
+                  'SUPER_ADMIN',
+                ]}
+              >
                 <AdminLayout>
                   <AdminReviews />
                 </AdminLayout>
