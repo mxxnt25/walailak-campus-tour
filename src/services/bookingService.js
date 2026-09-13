@@ -59,14 +59,37 @@ export async function createBooking({
       return failure("NOT_FOUND", "ไม่พบรอบนำเที่ยวที่ต้องการจอง");
     }
 
-    if (message.includes("SCHEDULE_NOT_OPEN")) {
-      return failure("SCHEDULE_NOT_OPEN", "รอบนำเที่ยวนี้ไม่เปิดรับการจอง");
+    if (
+      message.includes("CAPACITY_FULL") ||
+      message.includes("CAPACITY_EXCEEDED")
+    ) {
+      return failure(
+        "CAPACITY_FULL",
+        "จำนวนผู้เข้าร่วมเกินจำนวนที่ว่างในรอบนี้",
+      );
     }
 
-    if (message.includes("CAPACITY_EXCEEDED")) {
+    if (message.includes("FORBIDDEN")) {
       return failure(
-        "CAPACITY_EXCEEDED",
-        "จำนวนผู้เข้าร่วมเกินจำนวนที่ว่างในรอบนี้",
+        "FORBIDDEN",
+        "บัญชีนี้ไม่มีสิทธิ์จองรอบนำเที่ยว",
+      );
+    }
+
+    if (
+      message.includes("INVALID_STATE") ||
+      message.includes("SCHEDULE_NOT_OPEN")
+    ) {
+      return failure(
+        "INVALID_STATE",
+        "รอบนำเที่ยวนี้ไม่อยู่ในสถานะที่สามารถจองได้",
+      );
+    }
+
+    if (message.includes("VALIDATION_ERROR")) {
+      return failure(
+        "VALIDATION_ERROR",
+        "ข้อมูลการจองไม่ถูกต้อง",
       );
     }
 
@@ -194,9 +217,12 @@ export async function cancelMyBooking(bookingId) {
       return failure("NOT_FOUND", "ไม่พบรายการจอง");
     }
 
-    if (message.includes("VALIDATION_ERROR")) {
+    if (
+      message.includes("INVALID_STATE") ||
+      message.includes("VALIDATION_ERROR")
+    ) {
       return failure(
-        "VALIDATION_ERROR",
+        "INVALID_STATE",
         "สามารถยกเลิกได้เฉพาะรายการจองที่มีสถานะ CONFIRMED",
       );
     }
@@ -212,24 +238,65 @@ export async function cancelMyBooking(bookingId) {
 }
 
 export async function getBookedParticipantCount(scheduleId) {
+  const capacityResult = await getScheduleCapacity(scheduleId);
+
+  if (!capacityResult.success) {
+    return capacityResult;
+  }
+
+  return success(
+    capacityResult.data.bookedParticipants,
+  );
+}
+
+
+export async function getScheduleCapacity(scheduleId) {
   if (!scheduleId) {
-    return failure("VALIDATION_ERROR", "ไม่พบรหัสรอบนำเที่ยว");
+    return failure(
+      "VALIDATION_ERROR",
+      "ไม่พบรหัสรอบนำเที่ยว",
+    );
   }
 
-  const { data, error } = await supabase
-    .from("bookings")
-    .select("participant_count")
-    .eq("schedule_id", scheduleId)
-    .in("status", ["CONFIRMED", "COMPLETED"]);
-
-  if (error) {
-    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบจำนวนผู้จองได้");
-  }
-
-  const total = (data ?? []).reduce(
-    (sum, booking) => sum + booking.participant_count,
-    0,
+  const { data, error } = await supabase.rpc(
+    "get_schedule_capacity",
+    {
+      p_schedule_id: scheduleId,
+    },
   );
 
-  return success(total);
+  if (error) {
+    const message = error.message || "";
+
+    if (message.includes("NOT_FOUND")) {
+      return failure(
+        "NOT_FOUND",
+        "ไม่พบรอบนำเที่ยว",
+      );
+    }
+
+    return failure(
+      "DATABASE_ERROR",
+      "ไม่สามารถตรวจสอบจำนวนที่นั่งคงเหลือได้",
+    );
+  }
+
+  const capacity = Array.isArray(data)
+    ? data[0]
+    : data;
+
+  if (!capacity) {
+    return failure(
+      "NOT_FOUND",
+      "ไม่พบข้อมูลความจุของรอบนำเที่ยว",
+    );
+  }
+
+  return success({
+    scheduleId: capacity.schedule_id,
+    maxParticipants: capacity.max_participants,
+    bookedParticipants: capacity.booked_participants,
+    remainingSeats: capacity.remaining_seats,
+    status: capacity.status,
+  });
 }

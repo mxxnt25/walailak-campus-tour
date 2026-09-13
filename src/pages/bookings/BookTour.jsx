@@ -5,7 +5,10 @@ import Button from "../../components/common/Button";
 import Card from "../../components/common/Card";
 import ErrorState from "../../components/common/ErrorState";
 
-import { createBooking } from "../../services/bookingService";
+import {
+  createBooking,
+  getScheduleCapacity,
+} from "../../services/bookingService";
 import { getScheduleDetail } from "../../services/scheduleService";
 
 function formatTourDate(value) {
@@ -35,6 +38,8 @@ function getStatusLabel(status) {
       return "เปิดรับจอง";
     case "FULL":
       return "เต็มแล้ว";
+    case "CLOSED":
+      return "ปิดรับจอง";
     case "CANCELLED":
       return "ยกเลิก";
     case "COMPLETED":
@@ -49,6 +54,7 @@ export default function BookTour() {
   const navigate = useNavigate();
 
   const [schedule, setSchedule] = useState(null);
+  const [capacity, setCapacity] = useState(null);
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [scheduleError, setScheduleError] = useState("");
 
@@ -61,19 +67,30 @@ export default function BookTour() {
     let active = true;
 
     async function loadSchedule() {
-      const result = await getScheduleDetail(scheduleId);
+      const [scheduleResult, capacityResult] = await Promise.all([
+        getScheduleDetail(scheduleId),
+        getScheduleCapacity(scheduleId),
+      ]);
 
       if (!active) return;
 
-      if (!result.success) {
+      if (!scheduleResult.success) {
         setScheduleError(
-          result.error?.message || "ไม่สามารถโหลดข้อมูลรอบนำเที่ยวได้",
+          scheduleResult.error?.message ||
+            "ไม่สามารถโหลดข้อมูลรอบนำเที่ยวได้",
         );
         setLoadingSchedule(false);
         return;
       }
 
-      setSchedule(result.data);
+      setSchedule(scheduleResult.data);
+
+      if (capacityResult.success) {
+        setCapacity(capacityResult.data);
+      } else {
+        setCapacity(null);
+      }
+
       setLoadingSchedule(false);
     }
 
@@ -102,7 +119,19 @@ export default function BookTour() {
       return;
     }
 
-    if (schedule?.status !== "OPEN") {
+    if (
+      capacity?.remainingSeats != null &&
+      count > capacity.remainingSeats
+    ) {
+      setErrorMessage(
+        `รอบนี้เหลือที่ว่าง ${capacity.remainingSeats} คน`,
+      );
+      return;
+    }
+
+    if (
+      (capacity?.status ?? schedule?.status) !== "OPEN"
+    ) {
       setErrorMessage("รอบนำเที่ยวนี้ไม่เปิดรับการจอง");
       return;
     }
@@ -148,7 +177,20 @@ export default function BookTour() {
     );
   }
 
-  const isOpen = schedule.status === "OPEN";
+  const effectiveStatus =
+    capacity?.status ?? schedule.status;
+
+  const remainingSeats =
+    capacity?.remainingSeats ?? null;
+
+  const isOpen =
+    effectiveStatus === "OPEN" &&
+    (remainingSeats == null || remainingSeats > 0);
+
+  const participantMaximum =
+    remainingSeats != null
+      ? Math.min(schedule.max_participants, remainingSeats)
+      : schedule.max_participants;
 
   return (
     <section className="mx-auto max-w-2xl space-y-6 py-8">
@@ -204,10 +246,32 @@ export default function BookTour() {
               </p>
             </div>
 
+            {capacity && (
+              <>
+                <div>
+                  <p className="text-sm text-textSecondary">
+                    จองแล้ว
+                  </p>
+                  <p className="mt-1 font-medium text-textPrimary">
+                    {capacity.bookedParticipants} คน
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-textSecondary">
+                    ที่ว่างคงเหลือ
+                  </p>
+                  <p className="mt-1 font-medium text-textPrimary">
+                    {capacity.remainingSeats} คน
+                  </p>
+                </div>
+              </>
+            )}
+
             <div>
               <p className="text-sm text-textSecondary">สถานะรอบ</p>
               <p className="mt-1 font-medium text-textPrimary">
-                {getStatusLabel(schedule.status)}
+                {getStatusLabel(effectiveStatus)}
               </p>
             </div>
           </div>
@@ -234,7 +298,7 @@ export default function BookTour() {
               id="participantCount"
               type="number"
               min="1"
-              max={schedule.max_participants}
+              max={participantMaximum}
               step="1"
               value={participantCount}
               disabled={submitting || !isOpen}
