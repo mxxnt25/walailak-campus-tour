@@ -13,8 +13,14 @@ import {
 } from 'lucide-react'
 
 import { useAuth } from '../../hooks/useAuth'
-import { updateProfile, uploadAvatar } from '../../services/profileService'
-import { signOut, changePassword } from '../../services/authService'
+import {
+  updateProfile,
+  uploadAvatar,
+} from '../../services/profileService'
+import {
+  signOut,
+  changePassword,
+} from '../../services/authService'
 
 import Button from '../../components/common/Button'
 import Input from '../../components/common/Input'
@@ -22,21 +28,23 @@ import Badge from '../../components/common/Badge'
 import LoadingState from '../../components/common/LoadingState'
 
 const ROLE_LABELS = {
+  MEMBER: 'สมาชิก',
+  GUIDE: 'ไกด์นำเที่ยว',
   ADMIN: 'ผู้ดูแลระบบ',
-  GUIDE: 'ไกด์นำทาง',
-  VISITOR: 'ผู้เยี่ยมชม',
+  SUPER_ADMIN: 'ผู้ดูแลระบบสูงสุด',
 }
 
-const VISITOR_LABELS = {
+const MEMBER_TYPE_LABELS = {
   STUDENT: 'นักศึกษา',
   STAFF: 'บุคลากร',
   EXTERNAL: 'บุคคลภายนอก',
 }
 
 const ROLE_COLORS = {
-  ADMIN: 'danger',
+  MEMBER: 'primary',
   GUIDE: 'warning',
-  VISITOR: 'primary',
+  ADMIN: 'danger',
+  SUPER_ADMIN: 'danger',
 }
 
 const TABS = [
@@ -58,7 +66,12 @@ const TABS = [
 ]
 
 export default function Profile() {
-  const { profile, loading, refreshProfile } = useAuth()
+  const {
+    profile,
+    loading,
+    refreshProfile,
+  } = useAuth()
+
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
@@ -116,14 +129,23 @@ export default function Profile() {
     setSaving(true)
 
     try {
-      await updateProfile(profile.id, {
-        full_name: form.full_name,
-        phone: form.phone,
-      })
+      const result = await updateProfile(
+        profile.id,
+        {
+          full_name: form.full_name,
+          phone: form.phone,
+        }
+      )
+
+      if (!result.success) {
+        throw new Error(result.error.message)
+      }
 
       await refreshProfile()
     } catch (err) {
-      alert('บันทึกไม่สำเร็จ: ' + err.message)
+      alert(
+        'บันทึกไม่สำเร็จ: ' + err.message
+      )
     } finally {
       setSaving(false)
     }
@@ -147,15 +169,36 @@ export default function Profile() {
     setUploading(true)
 
     try {
-      const url = await uploadAvatar(profile.id, file)
+      const uploadResult = await uploadAvatar(
+        profile.id,
+        file
+      )
 
-      await updateProfile(profile.id, {
-        avatar_url: url,
-      })
+      if (!uploadResult.success) {
+        throw new Error(
+          uploadResult.error.message
+        )
+      }
+
+      const updateResult = await updateProfile(
+        profile.id,
+        {
+          avatar_url: uploadResult.data,
+        }
+      )
+
+      if (!updateResult.success) {
+        throw new Error(
+          updateResult.error.message
+        )
+      }
 
       await refreshProfile()
     } catch (err) {
-      alert('อัปโหลดรูปไม่สำเร็จ: ' + err.message)
+      alert(
+        'อัปโหลดรูปไม่สำเร็จ: ' +
+          err.message
+      )
     } finally {
       setUploading(false)
     }
@@ -167,21 +210,35 @@ export default function Profile() {
     setPwMessage('')
 
     if (pwForm.password.length < 6) {
-      setPwMessage('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
+      setPwMessage(
+        'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'
+      )
       return
     }
 
     if (pwForm.password !== pwForm.confirm) {
-      setPwMessage('รหัสผ่านทั้งสองช่องไม่ตรงกัน')
+      setPwMessage(
+        'รหัสผ่านทั้งสองช่องไม่ตรงกัน'
+      )
       return
     }
 
     setPwSaving(true)
 
     try {
-      await changePassword(pwForm.password)
+      const result = await changePassword(
+        pwForm.password
+      )
 
-      setPwMessage('เปลี่ยนรหัสผ่านสำเร็จแล้ว')
+      if (!result.success) {
+        throw new Error(
+          result.error.message
+        )
+      }
+
+      setPwMessage(
+        'เปลี่ยนรหัสผ่านสำเร็จแล้ว'
+      )
 
       setPwForm({
         password: '',
@@ -189,7 +246,8 @@ export default function Profile() {
       })
     } catch (err) {
       setPwMessage(
-        'เปลี่ยนรหัสผ่านไม่สำเร็จ: ' + err.message
+        'เปลี่ยนรหัสผ่านไม่สำเร็จ: ' +
+          err.message
       )
     } finally {
       setPwSaving(false)
@@ -197,20 +255,25 @@ export default function Profile() {
   }
 
   async function handleSignOut() {
-    await signOut()
+    const result = await signOut()
+
+    if (!result.success) {
+      alert(result.error.message)
+      return
+    }
+
     navigate('/login')
   }
 
-  const initial = (profile.full_name || '?')
+  const initial = (
+    profile.full_name || '?'
+  )
     .charAt(0)
     .toUpperCase()
 
   return (
     <div className="min-h-screen w-full bg-background flex">
-
-      {/* =====================================================
-          SIDEBAR
-      ===================================================== */}
+      {/* SIDEBAR */}
       <aside
         className="
           w-[280px]
@@ -226,8 +289,6 @@ export default function Profile() {
           py-6
         "
       >
-
-        {/* กลับหน้าแรก */}
         <button
           onClick={() => navigate('/')}
           className="
@@ -245,7 +306,6 @@ export default function Profile() {
           กลับหน้าแรก
         </button>
 
-        {/* PROFILE SUMMARY */}
         <div
           className="
             flex
@@ -330,13 +390,17 @@ export default function Profile() {
           </p>
 
           <div className="mt-3">
-            <Badge color={ROLE_COLORS[profile.role]}>
-              {ROLE_LABELS[profile.role] || profile.role}
+            <Badge
+              color={
+                ROLE_COLORS[profile.role]
+              }
+            >
+              {ROLE_LABELS[profile.role] ||
+                profile.role}
             </Badge>
           </div>
         </div>
 
-        {/* MENU */}
         <nav className="flex flex-col gap-2 flex-1">
           {TABS.map((tab) => {
             const Icon = tab.icon
@@ -344,7 +408,9 @@ export default function Profile() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() =>
+                  setActiveTab(tab.id)
+                }
                 className={`
                   flex
                   items-center
@@ -355,7 +421,6 @@ export default function Profile() {
                   text-sm
                   text-left
                   transition
-
                   ${
                     activeTab === tab.id
                       ? 'bg-white/20 font-semibold shadow-sm'
@@ -369,9 +434,14 @@ export default function Profile() {
             )
           })}
 
-          {profile.role === 'ADMIN' && (
+          {[
+            'ADMIN',
+            'SUPER_ADMIN',
+          ].includes(profile.role) && (
             <button
-              onClick={() => navigate('/admin/users')}
+              onClick={() =>
+                navigate('/admin/users')
+              }
               className="
                 flex
                 items-center
@@ -392,7 +462,6 @@ export default function Profile() {
           )}
         </nav>
 
-        {/* LOGOUT */}
         <button
           onClick={handleSignOut}
           className="
@@ -415,9 +484,7 @@ export default function Profile() {
         </button>
       </aside>
 
-      {/* =====================================================
-          MAIN CONTENT
-      ===================================================== */}
+      {/* MAIN CONTENT */}
       <main
         className="
           flex-1
@@ -429,8 +496,6 @@ export default function Profile() {
           xl:px-[6vw]
         "
       >
-
-        {/* HEADER */}
         <div
           className="
             flex
@@ -468,7 +533,8 @@ export default function Profile() {
             </h1>
 
             <p className="text-sm text-textSecondary mt-2">
-              จัดการข้อมูลส่วนตัว รูปโปรไฟล์
+              จัดการข้อมูลส่วนตัว
+              รูปโปรไฟล์
               และการตั้งค่าความปลอดภัยของบัญชี
             </p>
           </div>
@@ -481,9 +547,7 @@ export default function Profile() {
           </Button>
         </div>
 
-        {/* ===================================================
-            INFO TAB
-        =================================================== */}
+        {/* INFO */}
         {activeTab === 'info' && (
           <div
             className="
@@ -494,8 +558,6 @@ export default function Profile() {
               w-full
             "
           >
-
-            {/* FORM */}
             <form
               onSubmit={handleSaveInfo}
               className="
@@ -532,7 +594,8 @@ export default function Profile() {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      full_name: e.target.value,
+                      full_name:
+                        e.target.value,
                     })
                   }
                   required
@@ -556,13 +619,14 @@ export default function Profile() {
                   disabled
                 />
 
-                {profile.visitor_type && (
+                {profile.member_type && (
                   <Input
-                    label="ประเภทผู้ใช้งาน"
+                    label="ประเภทสมาชิก"
                     value={
-                      VISITOR_LABELS[
-                        profile.visitor_type
-                      ] || profile.visitor_type
+                      MEMBER_TYPE_LABELS[
+                        profile.member_type
+                      ] ||
+                      profile.member_type
                     }
                     disabled
                   />
@@ -581,7 +645,6 @@ export default function Profile() {
               </div>
             </form>
 
-            {/* ACCOUNT SUMMARY */}
             <div
               className="
                 bg-surface
@@ -622,7 +685,9 @@ export default function Profile() {
                 >
                   {profile.avatar_url ? (
                     <img
-                      src={profile.avatar_url}
+                      src={
+                        profile.avatar_url
+                      }
                       alt="avatar"
                       className="w-full h-full object-cover"
                     />
@@ -636,24 +701,20 @@ export default function Profile() {
                 </h3>
 
                 <Badge
-                  color={ROLE_COLORS[profile.role]}
+                  color={
+                    ROLE_COLORS[
+                      profile.role
+                    ]
+                  }
                 >
-                  {ROLE_LABELS[profile.role] ||
-                    profile.role}
+                  {ROLE_LABELS[
+                    profile.role
+                  ] || profile.role}
                 </Badge>
               </div>
 
               <div className="space-y-4">
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-3
-                    rounded-xl
-                    bg-background
-                    p-4
-                  "
-                >
+                <div className="flex items-center gap-3 rounded-xl bg-background p-4">
                   <Mail
                     size={18}
                     className="text-primary"
@@ -670,16 +731,7 @@ export default function Profile() {
                   </div>
                 </div>
 
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-3
-                    rounded-xl
-                    bg-background
-                    p-4
-                  "
-                >
+                <div className="flex items-center gap-3 rounded-xl bg-background p-4">
                   <Phone
                     size={18}
                     className="text-primary"
@@ -691,21 +743,13 @@ export default function Profile() {
                     </p>
 
                     <p className="text-sm font-medium text-textPrimary">
-                      {profile.phone || 'ยังไม่ได้ระบุ'}
+                      {profile.phone ||
+                        'ยังไม่ได้ระบุ'}
                     </p>
                   </div>
                 </div>
 
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-3
-                    rounded-xl
-                    bg-background
-                    p-4
-                  "
-                >
+                <div className="flex items-center gap-3 rounded-xl bg-background p-4">
                   <User
                     size={18}
                     className="text-primary"
@@ -717,10 +761,12 @@ export default function Profile() {
                     </p>
 
                     <p className="text-sm font-medium text-textPrimary">
-                      {profile.visitor_type
-                        ? VISITOR_LABELS[
-                            profile.visitor_type
-                          ]
+                      {profile.member_type
+                        ? MEMBER_TYPE_LABELS[
+                            profile
+                              .member_type
+                          ] ||
+                          profile.member_type
                         : '-'}
                     </p>
                   </div>
@@ -730,9 +776,7 @@ export default function Profile() {
           </div>
         )}
 
-        {/* ===================================================
-            AVATAR TAB
-        =================================================== */}
+        {/* AVATAR */}
         {activeTab === 'avatar' && (
           <div
             className="
@@ -822,7 +866,8 @@ export default function Profile() {
 
               <p className="text-sm text-textSecondary mt-2 mb-7">
                 รองรับไฟล์รูปภาพ JPG, PNG
-                และไฟล์รูปภาพทั่วไป ขนาดไม่เกิน 3MB
+                และไฟล์รูปภาพทั่วไป
+                ขนาดไม่เกิน 3MB
               </p>
 
               {uploading && (
@@ -845,9 +890,7 @@ export default function Profile() {
           </div>
         )}
 
-        {/* ===================================================
-            PASSWORD TAB
-        =================================================== */}
+        {/* PASSWORD */}
         {activeTab === 'password' && (
           <div
             className="
@@ -881,11 +924,14 @@ export default function Profile() {
                 <Input
                   label="รหัสผ่านใหม่"
                   type="password"
-                  value={pwForm.password}
+                  value={
+                    pwForm.password
+                  }
                   onChange={(e) =>
                     setPwForm({
                       ...pwForm,
-                      password: e.target.value,
+                      password:
+                        e.target.value,
                     })
                   }
                   placeholder="อย่างน้อย 6 ตัวอักษร"
@@ -899,7 +945,8 @@ export default function Profile() {
                   onChange={(e) =>
                     setPwForm({
                       ...pwForm,
-                      confirm: e.target.value,
+                      confirm:
+                        e.target.value,
                     })
                   }
                   required
@@ -911,9 +958,10 @@ export default function Profile() {
                   className={`
                     text-sm
                     mt-5
-
                     ${
-                      pwMessage.includes('สำเร็จ')
+                      pwMessage.includes(
+                        'สำเร็จ'
+                      )
                         ? 'text-success'
                         : 'text-danger'
                     }
@@ -934,7 +982,6 @@ export default function Profile() {
               </Button>
             </form>
 
-            {/* SECURITY INFO */}
             <div
               className="
                 rounded-2xl
@@ -955,7 +1002,8 @@ export default function Profile() {
               </h3>
 
               <p className="text-sm text-textSecondary mt-3 leading-6">
-                รหัสผ่านใหม่ควรมีอย่างน้อย 6 ตัวอักษร
+                รหัสผ่านใหม่ควรมีอย่างน้อย
+                6 ตัวอักษร
                 และไม่ควรใช้รหัสผ่านเดียวกับบริการอื่น
                 เพื่อช่วยรักษาความปลอดภัยของบัญชี
               </p>

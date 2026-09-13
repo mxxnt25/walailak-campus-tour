@@ -16,7 +16,7 @@ export default function Register() {
     fullName: '',
     email: '',
     password: '',
-    visitorType: 'STUDENT',
+    memberType: 'STUDENT',
   })
 
   const [error, setError] = useState('')
@@ -36,12 +36,17 @@ export default function Register() {
     setLoading(true)
 
     try {
-      await signUp({
+      const result = await signUp({
         email: form.email,
         password: form.password,
         fullName: form.fullName,
-        visitorType: form.visitorType,
+        memberType: form.memberType,
       })
+
+      if (!result.success) {
+        setError(result.error.message)
+        return
+      }
 
       navigate('/login')
     } catch (err) {
@@ -143,7 +148,6 @@ export default function Register() {
               backgroundImage: `url(${campusBg})`,
             }}
           >
-            {/* Overlay สีม่วง */}
             <div
               className="
                 absolute
@@ -155,7 +159,6 @@ export default function Register() {
               "
             />
 
-            {/* ข้อความ */}
             <div
               className="
                 relative
@@ -331,10 +334,10 @@ export default function Register() {
                   />
                 </div>
 
-                {/* Visitor Type */}
+                {/* Member Type */}
                 <select
-                  name="visitorType"
-                  value={form.visitorType}
+                  name="memberType"
+                  value={form.memberType}
                   onChange={handleChange}
                   className="
                     w-full
@@ -387,7 +390,6 @@ export default function Register() {
                 </Button>
               </form>
 
-              {/* Login Link */}
               <p
                 className="
                   text-center

@@ -19,7 +19,10 @@ import Home from './pages/Home'
 import Register from './pages/auth/Register'
 import Login from './pages/auth/Login'
 import Profile from './pages/auth/Profile'
+import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
 import AdminUsers from './pages/admin/AdminUsers'
+import AdminAuditLogs from './pages/admin/AdminAuditLogs'
 
 /* =========================
    M2: ROUTES & MAP
@@ -80,6 +83,16 @@ function App() {
           <Route
             path="/register"
             element={<Register />}
+          />
+
+          <Route
+            path="/forgot-password"
+            element={<ForgotPassword />}
+          />
+
+          <Route
+            path="/reset-password"
+            element={<ResetPassword />}
           />
 
           <Route
@@ -190,9 +203,20 @@ function App() {
           <Route
             path="/admin/users"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <AdminUsers />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/audit-logs"
+            element={
+              <RoleGuard allowedRoles={['SUPER_ADMIN']}>
+                <AdminLayout>
+                  <AdminAuditLogs />
                 </AdminLayout>
               </RoleGuard>
             }

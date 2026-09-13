@@ -34,7 +34,13 @@ export default function Login() {
     setLoading(true)
 
     try {
-      await signIn(form)
+      const result = await signIn(form)
+
+      if (!result.success) {
+        setError(result.error.message)
+        return
+      }
+
       navigate('/profile')
     } catch (err) {
       setError(err.message)
@@ -54,7 +60,6 @@ export default function Login() {
       "
       onClick={() => navigate('/')}
     >
-
       {/* =======================================================
           หน้า Home จริง อยู่ด้านหลังแบบจาง ๆ
       ======================================================= */}
@@ -75,7 +80,6 @@ export default function Login() {
 
       {/* =======================================================
           ชั้นสีขาวจาง ๆ คลุม Home
-          ทำให้ Login เด่นขึ้น
       ======================================================= */}
       <div
         className="
@@ -117,7 +121,6 @@ export default function Login() {
             cursor-default
           "
         >
-
           {/* ===================================================
               ฝั่งซ้าย - รูปภาพ
           =================================================== */}
@@ -138,8 +141,6 @@ export default function Login() {
               backgroundImage: `url(${campusBg})`,
             }}
           >
-
-            {/* Overlay สีม่วง */}
             <div
               className="
                 absolute
@@ -151,7 +152,6 @@ export default function Login() {
               "
             />
 
-            {/* ข้อความ */}
             <div
               className="
                 relative
@@ -197,7 +197,6 @@ export default function Login() {
             "
           >
             <div className="w-full max-w-sm">
-
               <h2
                 className="
                   text-2xl
@@ -213,7 +212,6 @@ export default function Login() {
                 onSubmit={handleSubmit}
                 className="flex flex-col gap-3"
               >
-
                 {/* Email */}
                 <div className="relative">
                   <Mail
@@ -290,6 +288,22 @@ export default function Login() {
                   />
                 </div>
 
+                {/* Forgot Password */}
+                <div className="flex justify-end">
+                  <Link
+                    to="/forgot-password"
+                    onClick={(e) => e.stopPropagation()}
+                    className="
+                      text-sm
+                      text-primary
+                      font-medium
+                      hover:underline
+                    "
+                  >
+                    ลืมรหัสผ่าน?
+                  </Link>
+                </div>
+
                 {/* Error */}
                 {error && (
                   <div
@@ -346,7 +360,6 @@ export default function Login() {
               </p>
             </div>
           </div>
-
         </div>
       </div>
     </div>
