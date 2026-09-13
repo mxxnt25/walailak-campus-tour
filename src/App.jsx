@@ -242,7 +242,7 @@ function App() {
           <Route
             path="/admin/routes"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <AdminRoutes />
                 </AdminLayout>
@@ -253,7 +253,7 @@ function App() {
           <Route
             path="/admin/routes/new"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <RouteCreate />
                 </AdminLayout>
@@ -264,7 +264,7 @@ function App() {
           <Route
             path="/admin/routes/:id/edit"
             element={
-              <RoleGuard allowedRoles={['ADMIN']}>
+              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
                 <AdminLayout>
                   <RouteEdit />
                 </AdminLayout>
