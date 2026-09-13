@@ -127,9 +127,9 @@ BEGIN
 END;
 $$;
 
--- ==========================================
+
 -- 5. ฟังก์ชันจบงานรวดเดียว (Atomic Complete Tour)
--- ==========================================
+
 CREATE OR REPLACE FUNCTION public.complete_tour(p_schedule_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
