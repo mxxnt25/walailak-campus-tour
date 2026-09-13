@@ -180,21 +180,45 @@ export async function updateIncidentStatus(incidentId, status) {
     )
   }
 
-  const { data, error } = await supabase
-    .from('incidents')
-    .update({
-      status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', incidentId)
-    .select('*')
-    .single()
+  const { data, error } = await supabase.rpc(
+    'update_incident_status',
+    {
+      p_incident_id: incidentId,
+      p_status: status,
+    }
+  )
 
   if (error) {
-    if (error.code === '42501') {
+    const message = error.message || ''
+
+    if (message.includes('AUTH_REQUIRED')) {
+      return failure(
+        'AUTH_REQUIRED',
+        'กรุณาเข้าสู่ระบบก่อนเปลี่ยนสถานะเหตุการณ์'
+      )
+    }
+
+    if (
+      message.includes('FORBIDDEN') ||
+      error.code === '42501'
+    ) {
       return failure(
         'FORBIDDEN',
         'คุณไม่มีสิทธิ์เปลี่ยนสถานะเหตุการณ์'
+      )
+    }
+
+    if (message.includes('VALIDATION_ERROR')) {
+      return failure(
+        'VALIDATION_ERROR',
+        'ข้อมูลสถานะเหตุการณ์ไม่ถูกต้อง'
+      )
+    }
+
+    if (message.includes('NOT_FOUND')) {
+      return failure(
+        'NOT_FOUND',
+        'ไม่พบเหตุการณ์ที่ต้องการ'
       )
     }
 
@@ -204,5 +228,9 @@ export async function updateIncidentStatus(incidentId, status) {
     )
   }
 
-  return success(data)
+  const updatedIncident = Array.isArray(data)
+    ? data[0]
+    : data
+
+  return success(updatedIncident)
 }
