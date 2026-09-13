@@ -34,7 +34,13 @@ export default function Login() {
     setLoading(true)
 
     try {
-      await signIn(form)
+      const result = await signIn(form)
+
+      if (!result.success) {
+        setError(result.error.message)
+        return
+      }
+
       navigate('/profile')
     } catch (err) {
       setError(err.message)

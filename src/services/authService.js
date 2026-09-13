@@ -1,5 +1,24 @@
 import { supabase } from '../lib/supabase'
 
+function success(data = null) {
+  return {
+    success: true,
+    data,
+    error: null,
+  }
+}
+
+function failure(error) {
+  return {
+    success: false,
+    data: null,
+    error: {
+      code: error?.code || 'UNKNOWN_ERROR',
+      message: error?.message || 'เกิดข้อผิดพลาด',
+    },
+  }
+}
+
 export async function signUp({
   email,
   password,
@@ -12,14 +31,16 @@ export async function signUp({
     options: {
       data: {
         full_name: fullName,
-        member_type: memberType, // STUDENT | STAFF | EXTERNAL
+        member_type: memberType,
       },
     },
   })
 
-  if (error) throw error
+  if (error) {
+    return failure(error)
+  }
 
-  return data
+  return success(data)
 }
 
 export async function signIn({ email, password }) {
@@ -29,21 +50,31 @@ export async function signIn({ email, password }) {
       password,
     })
 
-  if (error) throw error
+  if (error) {
+    return failure(error)
+  }
 
-  return data
+  return success(data)
 }
 
 export async function signOut() {
   const { error } = await supabase.auth.signOut()
 
-  if (error) throw error
+  if (error) {
+    return failure(error)
+  }
+
+  return success()
 }
 
 export async function changePassword(newPassword) {
-  const { error } = await supabase.auth.updateUser({
+  const { data, error } = await supabase.auth.updateUser({
     password: newPassword,
   })
 
-  if (error) throw error
+  if (error) {
+    return failure(error)
+  }
+
+  return success(data)
 }

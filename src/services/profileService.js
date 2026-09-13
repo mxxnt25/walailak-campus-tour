@@ -1,5 +1,24 @@
 import { supabase } from '../lib/supabase'
 
+function success(data = null) {
+  return {
+    success: true,
+    data,
+    error: null,
+  }
+}
+
+function failure(error) {
+  return {
+    success: false,
+    data: null,
+    error: {
+      code: error?.code || 'UNKNOWN_ERROR',
+      message: error?.message || 'เกิดข้อผิดพลาด',
+    },
+  }
+}
+
 export async function getProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
@@ -7,9 +26,11 @@ export async function getProfile(userId) {
     .eq('id', userId)
     .single()
 
-  if (error) throw error
+  if (error) {
+    return failure(error)
+  }
 
-  return data
+  return success(data)
 }
 
 export async function updateProfile(userId, updates) {
@@ -20,9 +41,11 @@ export async function updateProfile(userId, updates) {
     .select()
     .single()
 
-  if (error) throw error
+  if (error) {
+    return failure(error)
+  }
 
-  return data
+  return success(data)
 }
 
 export async function listAllProfiles() {
@@ -31,9 +54,11 @@ export async function listAllProfiles() {
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (error) throw error
+  if (error) {
+    return failure(error)
+  }
 
-  return data
+  return success(data)
 }
 
 export async function updateUserRole(userId, role) {
@@ -45,9 +70,11 @@ export async function updateUserRole(userId, role) {
     }
   )
 
-  if (error) throw error
+  if (error) {
+    return failure(error)
+  }
 
-  return data
+  return success(data)
 }
 
 export async function deleteUserProfile(userId) {
@@ -59,16 +86,18 @@ export async function deleteUserProfile(userId) {
   )
 
   if (error) {
-    throw error
+    return failure(error)
   }
 
   if (!data?.success) {
-    throw new Error(
-      data?.error || 'ไม่สามารถจัดการผู้ใช้ได้'
-    )
+    return failure({
+      code: 'DELETE_USER_FAILED',
+      message:
+        data?.error || 'ไม่สามารถจัดการผู้ใช้ได้',
+    })
   }
 
-  return data
+  return success(data)
 }
 
 export async function uploadAvatar(userId, file) {
@@ -81,11 +110,15 @@ export async function uploadAvatar(userId, file) {
       upsert: true,
     })
 
-  if (uploadError) throw uploadError
+  if (uploadError) {
+    return failure(uploadError)
+  }
 
   const { data } = supabase.storage
     .from('avatars')
     .getPublicUrl(filePath)
 
-  return `${data.publicUrl}?t=${Date.now()}`
+  return success(
+    `${data.publicUrl}?t=${Date.now()}`
+  )
 }

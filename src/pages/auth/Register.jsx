@@ -36,12 +36,17 @@ export default function Register() {
     setLoading(true)
 
     try {
-      await signUp({
+      const result = await signUp({
         email: form.email,
         password: form.password,
         fullName: form.fullName,
         memberType: form.memberType,
       })
+
+      if (!result.success) {
+        setError(result.error.message)
+        return
+      }
 
       navigate('/login')
     } catch (err) {

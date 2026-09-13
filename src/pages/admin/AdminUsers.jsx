@@ -50,8 +50,13 @@ export default function AdminUsers() {
     setError('')
 
     try {
-      const data = await listAllProfiles()
-      setUsers(data)
+      const result = await listAllProfiles()
+
+      if (!result.success) {
+        throw new Error(result.error.message)
+      }
+
+      setUsers(result.data)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -113,10 +118,21 @@ export default function AdminUsers() {
     if (!confirmed) return
 
     try {
-      await updateUserRole(user.id, newRole)
+      const result = await updateUserRole(
+        user.id,
+        newRole
+      )
+
+      if (!result.success) {
+        throw new Error(result.error.message)
+      }
+
       await load()
     } catch (err) {
-      alert('เปลี่ยน Role ไม่สำเร็จ: ' + err.message)
+      alert(
+        'เปลี่ยน Role ไม่สำเร็จ: ' +
+          err.message
+      )
     }
   }
 
@@ -138,17 +154,27 @@ export default function AdminUsers() {
 
     const confirmed = window.confirm(
       `ยืนยันจัดการบัญชี "${user.full_name}" (${user.email})?\n\n` +
-      'หากบัญชีไม่มีประวัติการใช้งาน ระบบจะลบบัญชีถาวร\n' +
-      'หากมีประวัติ Booking / Review / Assignment / Incident ระบบจะเก็บประวัติและปิดการใช้งานบัญชีแทน'
+        'หากบัญชีไม่มีประวัติการใช้งาน ระบบจะลบบัญชีถาวร\n' +
+        'หากมีประวัติ Booking / Review / Assignment / Incident ระบบจะเก็บประวัติและปิดการใช้งานบัญชีแทน'
     )
 
     if (!confirmed) return
 
     try {
-      await deleteUserProfile(user.id)
+      const result = await deleteUserProfile(
+        user.id
+      )
+
+      if (!result.success) {
+        throw new Error(result.error.message)
+      }
+
       await load()
     } catch (err) {
-      alert('จัดการบัญชีไม่สำเร็จ: ' + err.message)
+      alert(
+        'จัดการบัญชีไม่สำเร็จ: ' +
+          err.message
+      )
     }
   }
 
@@ -176,8 +202,10 @@ export default function AdminUsers() {
         {users.map((user) => {
           const allowedRoles = getAllowedRoles(user)
           const manageable = canManageUser(user)
-          const isCurrentUser = user.id === currentUserId
-          const isInactive = user.is_active === false
+          const isCurrentUser =
+            user.id === currentUserId
+          const isInactive =
+            user.is_active === false
 
           return (
             <Card
@@ -249,15 +277,19 @@ export default function AdminUsers() {
               </div>
 
               <div className="flex items-center gap-2">
-                <Badge color={ROLE_COLORS[user.role]}>
-                  {ROLE_LABELS[user.role] || user.role}
+                <Badge
+                  color={ROLE_COLORS[user.role]}
+                >
+                  {ROLE_LABELS[user.role] ||
+                    user.role}
                 </Badge>
 
                 {isInactive ? (
                   <span className="text-sm text-textSecondary px-2">
                     บัญชีถูกปิดใช้งาน
                   </span>
-                ) : manageable && allowedRoles.length > 0 ? (
+                ) : manageable &&
+                  allowedRoles.length > 0 ? (
                   <select
                     value={user.role}
                     onChange={(e) =>
@@ -284,7 +316,8 @@ export default function AdminUsers() {
                         key={role}
                         value={role}
                       >
-                        {ROLE_LABELS[role] || role}
+                        {ROLE_LABELS[role] ||
+                          role}
                       </option>
                     ))}
                   </select>

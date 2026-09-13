@@ -10,7 +10,13 @@ export default function AdminLayout({ children }) {
   const { profile } = useAuth()
 
   async function handleSignOut() {
-    await signOut()
+    const result = await signOut()
+
+    if (!result.success) {
+      alert(result.error.message)
+      return
+    }
+
     navigate('/login')
   }
 
