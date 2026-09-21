@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { listOpenSchedules, createSchedule } from '../../services/scheduleService';
 import { assignGuide } from '../../services/assignmentService';
-import { listActiveRoutes } from '../../services/routeService'; 
-import { listAllProfiles } from '../../services/profileService'; 
+import { listActiveRoutes } from '../../services/routeService';
+import { listAllProfiles } from '../../services/profileService';
 
 export default function AdminSchedules() {
   // State สำหรับเก็บข้อมูลจริงจาก Database
   const [schedules, setSchedules] = useState([]);
-  const [routes, setRoutes] = useState([]); 
-  const [guides, setGuides] = useState([]); 
-  
+  const [routes, setRoutes] = useState([]);
+  const [guides, setGuides] = useState([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -32,7 +32,7 @@ export default function AdminSchedules() {
   const fetchData = async () => {
     setIsLoading(true);
     setErrorMsg('');
-    
+
     try {
       // 1. ดึงข้อมูลตารางทัวร์ทั้งหมดที่เปิดอยู่
       const schRes = await listOpenSchedules();
@@ -43,10 +43,21 @@ export default function AdminSchedules() {
       if (routeRes.success) setRoutes(routeRes.data);
 
       // 3. ดึงรายชื่อผู้ใช้งานทั้งหมด แล้วกรองเอาเฉพาะไกด์
-      const allProfiles = await listAllProfiles();
-      // สมมติว่าในระบบเก็บ role เป็น 'GUIDE' (ถ้าเพื่อนตั้งเป็นอย่างอื่นให้แก้ตรงนี้นะครับ)
-      const guidesOnly = allProfiles.filter(user => user.role === 'GUIDE');
-      setGuides(guidesOnly);
+      const profileRes = await listAllProfiles()
+
+      if (!profileRes.success) {
+        throw new Error(
+          profileRes.error?.message || 'ไม่สามารถดึงข้อมูลไกด์ได้'
+        )
+      }
+
+      const guidesOnly = (profileRes.data ?? []).filter(
+        (user) =>
+          user.role === 'GUIDE' &&
+          user.account_status === 'ACTIVE'
+      )
+
+      setGuides(guidesOnly)
 
     } catch (error) {
       setErrorMsg('เกิดข้อผิดพลาดในการดึงข้อมูล: ' + (error.message || 'ระบบขัดข้อง'));
@@ -70,30 +81,30 @@ export default function AdminSchedules() {
     }
 
     const { success, error } = await createSchedule(scheduleForm);
-    if (success) { 
-      setIsScheduleModalOpen(false); 
-      fetchData(); 
-    } else { 
-      setErrorMsg(error.message); 
+    if (success) {
+      setIsScheduleModalOpen(false);
+      fetchData();
+    } else {
+      setErrorMsg(error.message);
     }
-    
+
     setIsSubmitting(false);
   };
 
   const handleAssignGuide = async () => {
     if (!selectedGuideId || !selectedSchedule) return;
-    
+
     setErrorMsg('');
     setIsSubmitting(true);
 
     const { success, error } = await assignGuide({ scheduleId: selectedSchedule.id, guideId: selectedGuideId });
-    if (success) { 
-      setIsAssignModalOpen(false); 
-      fetchData(); 
-    } else { 
-      setErrorMsg(error.message); 
+    if (success) {
+      setIsAssignModalOpen(false);
+      fetchData();
+    } else {
+      setErrorMsg(error.message);
     }
-    
+
     setIsSubmitting(false);
   };
 
@@ -115,7 +126,7 @@ export default function AdminSchedules() {
             <h1 className="text-2xl font-bold text-[#1E293B]">Tour Schedules</h1>
             <p className="text-[#64748B] text-sm mt-1">จัดการรอบนำเที่ยวและตารางงาน</p>
           </div>
-          <button 
+          <button
             onClick={() => {
               setScheduleForm({ route_id: '', tour_date: '', start_time: '', end_time: '', max_participants: 1 });
               setIsScheduleModalOpen(true);
@@ -161,7 +172,7 @@ export default function AdminSchedules() {
                       <td className="px-6 py-4">{getStatusBadge(schedule.status)}</td>
                       <td className="px-6 py-4">
                         {schedule.guide_assignments ? (
-                          <button 
+                          <button
                             onClick={() => {
                               setSelectedSchedule(schedule);
                               setSelectedGuideId(schedule.guide_assignments.guide_id);
@@ -169,10 +180,13 @@ export default function AdminSchedules() {
                             }}
                             className="text-[#16A34A] text-sm font-medium hover:underline flex items-center gap-1"
                           >
-                            Assigned (เปลี่ยน)
+                            {guides.find(
+                              (guide) =>
+                                guide.id === schedule.guide_assignments.guide_id
+                            )?.full_name || 'มอบหมายแล้ว'} (เปลี่ยน)
                           </button>
                         ) : (
-                          <button 
+                          <button
                             onClick={() => {
                               setSelectedSchedule(schedule);
                               setSelectedGuideId('');
@@ -203,9 +217,9 @@ export default function AdminSchedules() {
               <div className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[#1E293B] mb-1">เส้นทาง (Route)</label>
-                  <select 
+                  <select
                     value={scheduleForm.route_id}
-                    onChange={(e) => setScheduleForm({...scheduleForm, route_id: e.target.value})}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, route_id: e.target.value })}
                     className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
                   >
                     <option value="">เลือกเส้นทาง...</option>
@@ -215,42 +229,42 @@ export default function AdminSchedules() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#1E293B] mb-1">วันที่ (Tour Date)</label>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={scheduleForm.tour_date}
-                    onChange={(e) => setScheduleForm({...scheduleForm, tour_date: e.target.value})}
-                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]" 
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, tour_date: e.target.value })}
+                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
                   />
                 </div>
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-[#1E293B] mb-1">เวลาเริ่ม</label>
-                    <input 
-                      type="time" 
+                    <input
+                      type="time"
                       value={scheduleForm.start_time}
-                      onChange={(e) => setScheduleForm({...scheduleForm, start_time: e.target.value})}
-                      className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]" 
+                      onChange={(e) => setScheduleForm({ ...scheduleForm, start_time: e.target.value })}
+                      className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
                     />
                   </div>
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-[#1E293B] mb-1">เวลาสิ้นสุด</label>
-                    <input 
-                      type="time" 
+                    <input
+                      type="time"
                       value={scheduleForm.end_time}
-                      onChange={(e) => setScheduleForm({...scheduleForm, end_time: e.target.value})}
-                      className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]" 
+                      onChange={(e) => setScheduleForm({ ...scheduleForm, end_time: e.target.value })}
+                      className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#1E293B] mb-1">ความจุสูงสุด (Max Participants)</label>
-                  <input 
-                    type="number" 
-                    min="1" 
+                  <input
+                    type="number"
+                    min="1"
                     value={scheduleForm.max_participants}
-                    onChange={(e) => setScheduleForm({...scheduleForm, max_participants: parseInt(e.target.value) || 1})}
-                    placeholder="เช่น 20" 
-                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]" 
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, max_participants: parseInt(e.target.value) || 1 })}
+                    placeholder="เช่น 20"
+                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
                   />
                 </div>
               </div>
@@ -277,7 +291,7 @@ export default function AdminSchedules() {
                   รอบทัวร์วันที่: <span className="text-[#1E293B] font-medium">{selectedSchedule?.tour_date}</span>
                 </p>
                 <label className="block text-sm font-medium text-[#1E293B] mb-1">เลือกไกด์ (จากผู้ใช้ที่ยืนยัน Role แล้ว)</label>
-                <select 
+                <select
                   value={selectedGuideId}
                   onChange={(e) => setSelectedGuideId(e.target.value)}
                   className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"

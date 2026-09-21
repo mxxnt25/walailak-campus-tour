@@ -3,10 +3,10 @@ import { supabase } from '../lib/supabase';
 const formatResponse = (data, error) => {
   if (error) {
     console.error('Supabase Error:', error);
-    return { 
-      success: false, 
-      data: null, 
-      error: { code: error.code || 'DATABASE_ERROR', message: error.message } 
+    return {
+      success: false,
+      data: null,
+      error: { code: error.code || 'DATABASE_ERROR', message: error.message }
     };
   }
   return { success: true, data, error: null };
@@ -15,7 +15,11 @@ const formatResponse = (data, error) => {
 export const listOpenSchedules = async (routeId = null) => {
   let query = supabase
     .from('tour_schedules')
-    .select('*, routes(name, duration_minutes)')
+    .select(`
+      *,
+      routes(name, duration_minutes),
+      guide_assignments(guide_id, status)
+    `)
     .eq('status', 'OPEN')
     .order('tour_date', { ascending: true })
     .order('start_time', { ascending: true });
