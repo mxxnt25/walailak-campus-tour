@@ -1,51 +1,118 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock } from 'lucide-react'
+import { useEffect, useState } from "react";
 
-import { signIn } from '../../services/authService'
-import Button from '../../components/common/Button'
-import campusBg from '../../assets/campus-bg.jpg'
+import { useNavigate, useLocation, Link } from "react-router-dom";
 
-import Home from '../Home'
-import PublicLayout from '../../layouts/PublicLayout'
+import { Mail, Lock } from "lucide-react";
+
+import { signIn } from "../../services/authService";
+import { getProfile } from "../../services/profileService";
+import { useAuth } from "../../hooks/useAuth";
+
+import Button from "../../components/common/Button";
+import campusBg from "../../assets/campus-bg.jpg";
+
+import Home from "../Home";
+import PublicLayout from "../../layouts/PublicLayout";
+
+function getRoleHome(role) {
+  switch (role) {
+    case "GUIDE":
+      return "/guide";
+
+    case "ADMIN":
+    case "SUPER_ADMIN":
+      return "/admin";
+
+    case "MEMBER":
+    default:
+      return "/";
+  }
+}
+
+function getSafeReturnTo(from) {
+  if (!from || typeof from.pathname !== "string") {
+    return null;
+  }
+
+  if (!from.pathname.startsWith("/") || from.pathname.startsWith("//")) {
+    return null;
+  }
+
+  return [from.pathname, from.search || "", from.hash || ""].join("");
+}
 
 export default function Login() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const { session, profile, loading: authLoading, profileLoading } = useAuth();
+
+  const returnTo = getSafeReturnTo(location.state?.from);
 
   const [form, setForm] = useState({
-    email: '',
-    password: '',
-  })
+    email: "",
+    password: "",
+  });
 
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (authLoading || profileLoading) {
+      return;
+    }
+
+    if (session && profile) {
+      navigate(returnTo || getRoleHome(profile.role), {
+        replace: true,
+      });
+    }
+  }, [session, profile, authLoading, profileLoading, navigate, returnTo]);
 
   function handleChange(e) {
     setForm({
       ...form,
       [e.target.name]: e.target.value,
-    })
+    });
   }
 
   async function handleSubmit(e) {
-    e.preventDefault()
+    e.preventDefault();
 
-    setError('')
-    setLoading(true)
+    setError("");
+    setLoading(true);
 
     try {
-      const result = await signIn(form)
+      const result = await signIn(form);
 
       if (!result.success) {
-        setError(result.error.message)
-        return
+        setError(result.error.message);
+        return;
       }
 
-      navigate('/profile')
+      const userId = result.data?.user?.id || result.data?.session?.user?.id;
+
+      if (!userId) {
+        setError("ไม่สามารถตรวจสอบข้อมูลผู้ใช้ได้");
+        return;
+      }
+
+      const profileResult = await getProfile(userId);
+
+      if (!profileResult.success) {
+        setError(
+          profileResult.error?.message || "ไม่สามารถโหลดข้อมูลสิทธิ์ผู้ใช้ได้",
+        );
+        return;
+      }
+
+      navigate(returnTo || getRoleHome(profileResult.data?.role), {
+        replace: true,
+      });
     } catch (err) {
-      setError(err.message)
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -58,7 +125,7 @@ export default function Login() {
         bg-background
         cursor-pointer
       "
-      onClick={() => navigate('/')}
+      onClick={() => navigate("/")}
     >
       {/* =======================================================
           หน้า Home จริง อยู่ด้านหลังแบบจาง ๆ
@@ -208,10 +275,7 @@ export default function Login() {
                 Login
               </h2>
 
-              <form
-                onSubmit={handleSubmit}
-                className="flex flex-col gap-3"
-              >
+              <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                 {/* Email */}
                 <div className="relative">
                   <Mail
@@ -329,9 +393,7 @@ export default function Login() {
                   disabled={loading}
                   className="!rounded-full mt-2"
                 >
-                  {loading
-                    ? 'กำลังเข้าสู่ระบบ...'
-                    : 'เข้าสู่ระบบ'}
+                  {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
                 </Button>
               </form>
 
@@ -344,8 +406,7 @@ export default function Login() {
                   mt-5
                 "
               >
-                ยังไม่มีบัญชี?{' '}
-
+                ยังไม่มีบัญชี?{" "}
                 <Link
                   to="/register"
                   onClick={(e) => e.stopPropagation()}
@@ -363,5 +424,5 @@ export default function Login() {
         </div>
       </div>
     </div>
-  )
+  );
 }

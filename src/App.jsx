@@ -1,70 +1,65 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-} from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-import { AuthProvider } from './hooks/useAuth'
+import { AuthProvider } from "./hooks/useAuth";
 
-import PublicLayout from './layouts/PublicLayout'
-import AdminLayout from './layouts/AdminLayout'
-import GuideLayout from './layouts/GuideLayout'
+import PublicLayout from "./layouts/PublicLayout";
+import AdminLayout from "./layouts/AdminLayout";
+import GuideLayout from "./layouts/GuideLayout";
 
-import RoleGuard from './components/common/RoleGuard'
+import RoleGuard from "./components/common/RoleGuard";
 
 /* =========================
    M1: HOME / AUTH
 ========================= */
-import Home from './pages/Home'
-import Register from './pages/auth/Register'
-import Login from './pages/auth/Login'
-import Profile from './pages/auth/Profile'
-import ForgotPassword from './pages/auth/ForgotPassword'
-import ResetPassword from './pages/auth/ResetPassword'
-import AdminUsers from './pages/admin/AdminUsers'
-import AdminAuditLogs from './pages/admin/AdminAuditLogs'
+import Home from "./pages/Home";
+import Register from "./pages/auth/Register";
+import Login from "./pages/auth/Login";
+import Profile from "./pages/auth/Profile";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
 
 /* =========================
    M2: ROUTES & MAP
 ========================= */
-import RoutesList from './pages/routes/RoutesList'
-import RouteDetail from './pages/routes/RouteDetail'
+import RoutesList from "./pages/routes/RoutesList";
+import RouteDetail from "./pages/routes/RouteDetail";
 
-import RouteEdit from './pages/admin/RouteEdit'
-import RouteCreate from './pages/admin/RouteCreate'
-import AdminRoutes from './pages/admin/AdminRoutes'
+import RouteEdit from "./pages/admin/RouteEdit";
+import RouteCreate from "./pages/admin/RouteCreate";
+import AdminRoutes from "./pages/admin/AdminRoutes";
 
 /* =========================
    M3: BOOKING
 ========================= */
-import BookTour from './pages/bookings/BookTour'
-import MyBookings from './pages/bookings/MyBookings'
-import BookingDetail from './pages/bookings/BookingDetail'
+import BookTour from "./pages/bookings/BookTour";
+import MyBookings from "./pages/bookings/MyBookings";
+import BookingDetail from "./pages/bookings/BookingDetail";
 
 /* =========================
    M5: INCIDENT REPORTING
 ========================= */
-import AdminIncidents from './pages/admin/Incidents'
-import IncidentDetail from './pages/admin/IncidentDetail'
-import GuideIncidents from './pages/guide/Incidents'
-import NewIncident from './pages/incidents/NewIncident'
+import AdminIncidents from "./pages/admin/Incidents";
+import IncidentDetail from "./pages/admin/IncidentDetail";
+import GuideIncidents from "./pages/guide/Incidents";
+import NewIncident from "./pages/incidents/NewIncident";
 
 /* =========================
    M6: REVIEW
 ========================= */
-import Review from './pages/reviews/Review'
-import AdminReviews from './pages/admin/AdminReviews'
+import Review from "./pages/reviews/Review";
+import AdminReviews from "./pages/admin/AdminReviews";
 
-import GuideDashboard from './pages/guide/Dashboard'
-import TourDetail from './pages/guide/TourDetail'
-import AdminSchedules from './pages/admin/Schedules'
+import GuideDashboard from "./pages/guide/Dashboard";
+import TourDetail from "./pages/guide/TourDetail";
+import AdminSchedules from "./pages/admin/Schedules";
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-
           {/* =========================
               M1: HOME
           ========================= */}
@@ -80,30 +75,15 @@ function App() {
           {/* =========================
               M1: AUTH
           ========================= */}
-          <Route
-            path="/login"
-            element={<Login />}
-          />
+          <Route path="/login" element={<Login />} />
 
-          <Route
-            path="/register"
-            element={<Register />}
-          />
+          <Route path="/register" element={<Register />} />
 
-          <Route
-            path="/forgot-password"
-            element={<ForgotPassword />}
-          />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
-          <Route
-            path="/reset-password"
-            element={<ResetPassword />}
-          />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
-          <Route
-            path="/profile"
-            element={<Profile />}
-          />
+          <Route path="/profile" element={<Profile />} />
 
           {/* =========================
               M2: CAMPUS ROUTES & MAP
@@ -129,30 +109,37 @@ function App() {
           {/* =========================
               M3: TOUR BOOKING
           ========================= */}
+
           <Route
             path="/book/:scheduleId"
             element={
-              <PublicLayout>
-                <BookTour />
-              </PublicLayout>
+              <RoleGuard allowedRoles={["MEMBER"]}>
+                <PublicLayout>
+                  <BookTour />
+                </PublicLayout>
+              </RoleGuard>
             }
           />
 
           <Route
             path="/my-bookings"
             element={
-              <PublicLayout>
-                <MyBookings />
-              </PublicLayout>
+              <RoleGuard allowedRoles={["MEMBER"]}>
+                <PublicLayout>
+                  <MyBookings />
+                </PublicLayout>
+              </RoleGuard>
             }
           />
 
           <Route
             path="/bookings/:id"
             element={
-              <PublicLayout>
-                <BookingDetail />
-              </PublicLayout>
+              <RoleGuard allowedRoles={["MEMBER"]}>
+                <PublicLayout>
+                  <BookingDetail />
+                </PublicLayout>
+              </RoleGuard>
             }
           />
 
@@ -171,7 +158,7 @@ function App() {
           <Route
             path="/reviews/new/:bookingId"
             element={
-              <RoleGuard allowedRoles={['MEMBER']}>
+              <RoleGuard allowedRoles={["MEMBER"]}>
                 <PublicLayout>
                   <Review />
                 </PublicLayout>
@@ -182,7 +169,7 @@ function App() {
           <Route
             path="/admin/reviews"
             element={
-              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
                 <AdminLayout>
                   <AdminReviews />
                 </AdminLayout>
@@ -196,7 +183,7 @@ function App() {
           <Route
             path="/guide"
             element={
-              <RoleGuard allowedRoles={['GUIDE']}>
+              <RoleGuard allowedRoles={["GUIDE"]}>
                 <GuideLayout>
                   <GuideDashboard />
                 </GuideLayout>
@@ -207,7 +194,7 @@ function App() {
           <Route
             path="/guide/tours/:scheduleId"
             element={
-              <RoleGuard allowedRoles={['GUIDE']}>
+              <RoleGuard allowedRoles={["GUIDE"]}>
                 <GuideLayout>
                   <TourDetail />
                 </GuideLayout>
@@ -217,7 +204,7 @@ function App() {
           <Route
             path="/guide/incidents"
             element={
-              <RoleGuard allowedRoles={['GUIDE']}>
+              <RoleGuard allowedRoles={["GUIDE"]}>
                 <GuideLayout>
                   <GuideIncidents />
                 </GuideLayout>
@@ -228,7 +215,7 @@ function App() {
           <Route
             path="/incidents/new"
             element={
-              <RoleGuard allowedRoles={['GUIDE']}>
+              <RoleGuard allowedRoles={["GUIDE"]}>
                 <GuideLayout>
                   <NewIncident />
                 </GuideLayout>
@@ -239,10 +226,20 @@ function App() {
           {/* =========================
               ADMIN - M1
           ========================= */}
+
+          <Route
+            path="/admin"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <Navigate to="/admin/users" replace />
+              </RoleGuard>
+            }
+          />
+
           <Route
             path="/admin/schedules"
             element={
-              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
                 <AdminLayout>
                   <AdminSchedules />
                 </AdminLayout>
@@ -252,7 +249,7 @@ function App() {
           <Route
             path="/admin/users"
             element={
-              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
                 <AdminLayout>
                   <AdminUsers />
                 </AdminLayout>
@@ -263,7 +260,7 @@ function App() {
           <Route
             path="/admin/audit-logs"
             element={
-              <RoleGuard allowedRoles={['SUPER_ADMIN']}>
+              <RoleGuard allowedRoles={["SUPER_ADMIN"]}>
                 <AdminLayout>
                   <AdminAuditLogs />
                 </AdminLayout>
@@ -277,7 +274,7 @@ function App() {
           <Route
             path="/admin/routes"
             element={
-              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
                 <AdminLayout>
                   <AdminRoutes />
                 </AdminLayout>
@@ -288,7 +285,7 @@ function App() {
           <Route
             path="/admin/routes/new"
             element={
-              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
                 <AdminLayout>
                   <RouteCreate />
                 </AdminLayout>
@@ -299,7 +296,7 @@ function App() {
           <Route
             path="/admin/routes/:id/edit"
             element={
-              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
                 <AdminLayout>
                   <RouteEdit />
                 </AdminLayout>
@@ -313,7 +310,7 @@ function App() {
           <Route
             path="/admin/incidents"
             element={
-              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
                 <AdminLayout>
                   <AdminIncidents />
                 </AdminLayout>
@@ -324,18 +321,17 @@ function App() {
           <Route
             path="/admin/incidents/:id"
             element={
-              <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
                 <AdminLayout>
                   <IncidentDetail />
                 </AdminLayout>
               </RoleGuard>
             }
           />
-
         </Routes>
       </BrowserRouter>
     </AuthProvider>
-  )
+  );
 }
 
-export default App
+export default App;
