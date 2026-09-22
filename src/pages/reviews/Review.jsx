@@ -18,6 +18,7 @@ import {
   createReview,
   getMyReviewByBookingId,
   getReviews,
+  updateReview,
 } from '../../services/review'
 
 import { listRouteStops } from '../../services/routeService'
@@ -116,6 +117,10 @@ function Review() {
   const [reviews, setReviews] = useState([])
   const [hasReviewed, setHasReviewed] = useState(false)
 
+  // เก็บรีวิวของผู้ใช้สำหรับการแก้ไข
+  const [myReview, setMyReview] = useState(null)
+  const [isEditing, setIsEditing] = useState(false)
+
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('')
 
@@ -146,6 +151,13 @@ function Review() {
       setTrip(null)
       setCanReview(false)
       setHasReviewed(false)
+      setMyReview(null)
+      setIsEditing(false)
+
+      setOverallRating(0)
+      setGuideRating(0)
+      setRouteRating(0)
+      setComment('')
 
       try {
         // ====================================================
@@ -290,7 +302,7 @@ function Review() {
 
         /*
          * Client-side eligibility ช่วย UX
-         * แต่ฐานข้อมูลใน 0015 เป็นผู้ตัดสินสุดท้าย
+         * แต่ฐานข้อมูลเป็นผู้ตัดสินสุดท้าย
          * ว่าสามารถสร้างรีวิวได้จริงหรือไม่
          */
         const finalCanReview =
@@ -336,15 +348,17 @@ function Review() {
           return
         }
 
+        const currentReview =
+          myReviewResult.data || null
+
         setTrip(loadedTrip)
 
         setReviews(
           reviewResult.data || [],
         )
 
-        setHasReviewed(
-          Boolean(myReviewResult.data),
-        )
+        setMyReview(currentReview)
+        setHasReviewed(Boolean(currentReview))
 
         setCanReview(finalCanReview)
       } catch (error) {
@@ -355,6 +369,9 @@ function Review() {
         setReviews([])
         setTrip(null)
         setCanReview(false)
+        setHasReviewed(false)
+        setMyReview(null)
+        setIsEditing(false)
 
         setMessage(
           error?.message ||
@@ -381,6 +398,51 @@ function Review() {
     setMessageType('')
   }
 
+  // ====================================================
+  // EDIT REVIEW
+  // ====================================================
+
+  const handleStartEdit = () => {
+    if (!myReview) {
+      setMessage(
+        'ไม่พบข้อมูลรีวิวที่ต้องการแก้ไข',
+      )
+      setMessageType('error')
+      return
+    }
+
+    setOverallRating(
+      Number(myReview.overall_rating || 0),
+    )
+
+    setGuideRating(
+      Number(myReview.guide_rating || 0),
+    )
+
+    setRouteRating(
+      Number(myReview.route_rating || 0),
+    )
+
+    setComment(myReview.comment || '')
+
+    setIsEditing(true)
+    clearMessage()
+  }
+
+  const handleCancelEdit = () => {
+    setOverallRating(0)
+    setGuideRating(0)
+    setRouteRating(0)
+    setComment('')
+
+    setIsEditing(false)
+    clearMessage()
+  }
+
+  // ====================================================
+  // CREATE / UPDATE REVIEW
+  // ====================================================
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     clearMessage()
@@ -393,7 +455,12 @@ function Review() {
       return
     }
 
-    if (!canReview) {
+    /*
+     * การสร้างรีวิวใหม่ต้องผ่านเงื่อนไข COMPLETED
+     * ส่วนการแก้ไข ใช้รีวิวเดิมที่มีอยู่และให้ Backend/RLS
+     * ตรวจสิทธิ์เจ้าของรีวิวอีกชั้นหนึ่ง
+     */
+    if (!isEditing && !canReview) {
       setMessage(
         'สามารถรีวิวได้หลังจากการจองและรอบนำเที่ยวเสร็จสิ้นแล้วเท่านั้น',
       )
@@ -435,6 +502,80 @@ function Review() {
     setIsSubmitting(true)
 
     try {
+      // ====================================================
+      // UPDATE EXISTING REVIEW
+      // ====================================================
+      if (isEditing) {
+        if (!myReview?.id) {
+          setMessage(
+            'ไม่พบรีวิวที่ต้องการแก้ไข',
+          )
+          setMessageType('error')
+          return
+        }
+
+        const updateResult =
+          await updateReview(
+            myReview.id,
+            {
+              overallRating,
+              guideRating,
+              routeRating,
+              comment:
+                normalizedComment,
+            },
+          )
+
+        if (!updateResult.success) {
+          setMessage(
+            getServiceError(
+              updateResult,
+              'ไม่สามารถแก้ไขรีวิวได้',
+            ),
+          )
+
+          setMessageType('error')
+          return
+        }
+
+        const updatedReview =
+          updateResult.data
+
+        if (updatedReview) {
+          setMyReview(updatedReview)
+
+          setReviews(
+            (currentReviews) =>
+              currentReviews.map(
+                (review) =>
+                  review.id ===
+                  updatedReview.id
+                    ? updatedReview
+                    : review,
+              ),
+          )
+        }
+
+        setOverallRating(0)
+        setGuideRating(0)
+        setRouteRating(0)
+        setComment('')
+
+        setIsEditing(false)
+        setHasReviewed(true)
+
+        setMessage(
+          'แก้ไขรีวิวสำเร็จ',
+        )
+        setMessageType('success')
+
+        return
+      }
+
+      // ====================================================
+      // CREATE NEW REVIEW
+      // ====================================================
+
       const createResult =
         await createReview({
           bookingId,
@@ -451,12 +592,25 @@ function Review() {
         ) {
           setHasReviewed(true)
 
-          const refreshedResult =
-            await getReviews(bookingId)
+          const [
+            refreshedResult,
+            myReviewResult,
+          ] = await Promise.all([
+            getReviews(bookingId),
+            getMyReviewByBookingId(
+              bookingId,
+            ),
+          ])
 
           if (refreshedResult.success) {
             setReviews(
               refreshedResult.data || [],
+            )
+          }
+
+          if (myReviewResult.success) {
+            setMyReview(
+              myReviewResult.data || null,
             )
           }
         }
@@ -475,6 +629,8 @@ function Review() {
       const newReview =
         createResult.data
 
+      setMyReview(newReview || null)
+
       if (newReview) {
         setReviews(
           (currentReviews) => [
@@ -491,6 +647,7 @@ function Review() {
       setGuideRating(0)
       setRouteRating(0)
       setComment('')
+
       setHasReviewed(true)
 
       setMessage('ส่งรีวิวสำเร็จ')
@@ -498,7 +655,9 @@ function Review() {
     } catch (error) {
       setMessage(
         error?.message ||
-          'ไม่สามารถส่งรีวิวได้',
+          (isEditing
+            ? 'ไม่สามารถแก้ไขรีวิวได้'
+            : 'ไม่สามารถส่งรีวิวได้'),
       )
 
       setMessageType('error')
@@ -674,7 +833,8 @@ function Review() {
             {bookingId &&
               !isLoading &&
               trip &&
-              (hasReviewed ? (
+              (hasReviewed &&
+              !isEditing ? (
                 <div className="rounded-xl border border-green-200 bg-green-50 p-5 text-center">
                   <CheckCircle2
                     size={34}
@@ -687,9 +847,21 @@ function Review() {
 
                   <p className="mt-1 text-sm text-green-700">
                     หนึ่งการจองสามารถส่งรีวิวได้หนึ่งครั้ง
+                    แต่สามารถแก้ไขรีวิวเดิมของคุณได้
                   </p>
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleStartEdit
+                    }
+                    className="mt-4 rounded-lg bg-purple-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-800"
+                  >
+                    แก้ไขรีวิว
+                  </button>
                 </div>
-              ) : !canReview ? (
+              ) : !canReview &&
+                !isEditing ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-center">
                   <Clock3
                     size={34}
@@ -709,6 +881,19 @@ function Review() {
                 <form
                   onSubmit={handleSubmit}
                 >
+                  {isEditing && (
+                    <div className="mb-5 rounded-xl border border-purple-200 bg-purple-50 p-4">
+                      <h3 className="font-semibold text-purple-800">
+                        กำลังแก้ไขรีวิวของคุณ
+                      </h3>
+
+                      <p className="mt-1 text-sm text-purple-700">
+                        คะแนนและความคิดเห็นเดิมถูกนำมาแสดงให้แล้ว
+                        คุณสามารถแก้ไขและบันทึกใหม่ได้
+                      </p>
+                    </div>
+                  )}
+
                   <div className="space-y-4">
                     <StarRating
                       label="ความประทับใจโดยรวม"
@@ -782,17 +967,38 @@ function Review() {
                     {comment.length}/500
                   </p>
 
-                  <button
-                    type="submit"
-                    disabled={
-                      isSubmitting
-                    }
-                    className="mt-3 rounded-lg bg-purple-700 px-8 py-2.5 font-semibold text-white transition hover:bg-purple-800 disabled:cursor-not-allowed disabled:bg-purple-300"
-                  >
-                    {isSubmitting
-                      ? 'กำลังส่ง...'
-                      : 'ส่งรีวิว'}
-                  </button>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <button
+                      type="submit"
+                      disabled={
+                        isSubmitting
+                      }
+                      className="rounded-lg bg-purple-700 px-8 py-2.5 font-semibold text-white transition hover:bg-purple-800 disabled:cursor-not-allowed disabled:bg-purple-300"
+                    >
+                      {isSubmitting
+                        ? isEditing
+                          ? 'กำลังบันทึก...'
+                          : 'กำลังส่ง...'
+                        : isEditing
+                          ? 'บันทึกการแก้ไข'
+                          : 'ส่งรีวิว'}
+                    </button>
+
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={
+                          handleCancelEdit
+                        }
+                        disabled={
+                          isSubmitting
+                        }
+                        className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        ยกเลิก
+                      </button>
+                    )}
+                  </div>
                 </form>
               ))}
           </section>
