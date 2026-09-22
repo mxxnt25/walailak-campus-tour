@@ -17,35 +17,36 @@ export default function PublicLayout({ children }) {
   async function handleSignOut() {
     const result = await signOut()
 
-    if (result && !result.success) {
-      alert(result.error?.message || 'ออกจากระบบไม่สำเร็จ')
+    if (result?.success === false) {
       return
     }
 
-    navigate('/login')
+    navigate('/login', {
+      replace: true,
+    })
   }
 
-  const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(
-    profile?.role
-  )
-
   const displayName =
-    profile?.full_name ||
-    session?.user?.email ||
+    profile?.full_name?.trim() ||
+    profile?.email ||
     'ผู้ใช้งาน'
+
+  const initial =
+    profile?.full_name?.trim()?.charAt(0)?.toUpperCase() ||
+    profile?.email?.charAt(0)?.toUpperCase() ||
+    '?'
 
   const roleLabel =
     ROLE_LABELS[profile?.role] ||
     profile?.role ||
-    'MEMBER'
+    'สมาชิก'
 
-  const initial = displayName
-    .charAt(0)
-    .toUpperCase()
+  const canManageSystem =
+    profile?.role === 'ADMIN' ||
+    profile?.role === 'SUPER_ADMIN'
 
   return (
     <div className="min-h-screen bg-background">
-
       {/* NAVBAR */}
       <nav
         className="
@@ -55,9 +56,8 @@ export default function PublicLayout({ children }) {
           w-full
           border-b
           border-border
-          bg-white/95
+          bg-white
           shadow-sm
-          backdrop-blur
         "
       >
         <div
@@ -69,7 +69,6 @@ export default function PublicLayout({ children }) {
             py-3
           "
         >
-
           {/* LOGO */}
           <Link
             to="/"
@@ -85,41 +84,27 @@ export default function PublicLayout({ children }) {
             <img
               src="/images/wu-logo.jpg"
               alt="ตรามหาวิทยาลัยวลัยลักษณ์"
-              className="
-                h-11
-                w-11
-                shrink-0
-                object-contain
-              "
+              style={{
+                width: '42px',
+                height: '42px',
+                objectFit: 'contain',
+                display: 'block',
+                flexShrink: 0,
+              }}
             />
 
             <div className="leading-tight">
-              <p
-                className="
-                  text-sm
-                  font-bold
-                  tracking-wide
-                  text-primary
-                "
-              >
+              <p className="text-sm font-bold text-primary">
                 WALAILAK
               </p>
 
-              <p
-                className="
-                  text-[10px]
-                  font-semibold
-                  tracking-[0.18em]
-                  text-textSecondary
-                "
-              >
+              <p className="text-[10px] font-semibold text-textSecondary">
                 CAMPUS TOUR
               </p>
             </div>
           </Link>
 
-
-          {/* DESKTOP MENU */}
+          {/* DESKTOP RIGHT */}
           <div
             className="
               ml-auto
@@ -157,18 +142,20 @@ export default function PublicLayout({ children }) {
 
             {session && (
               <>
-                <Link
-                  to="/my-bookings"
-                  className="
-                    text-sm
-                    font-medium
-                    text-textPrimary
-                    transition
-                    hover:text-primary
-                  "
-                >
-                  การจองของฉัน
-                </Link>
+                {profile?.role === 'MEMBER' && (
+                  <Link
+                    to="/my-bookings"
+                    className="
+                      text-sm
+                      font-medium
+                      text-textPrimary
+                      transition
+                      hover:text-primary
+                    "
+                  >
+                    การจองของฉัน
+                  </Link>
+                )}
 
                 <Link
                   to="/reviews"
@@ -215,14 +202,19 @@ export default function PublicLayout({ children }) {
               </>
             )}
 
-            <div className="h-7 w-px bg-border" />
-
+            <div className="h-8 w-px bg-border" />
 
             {/* ACCOUNT */}
             {session ? (
-              <div className="flex items-center gap-3">
+              <>
+                {canManageSystem && (
+                  <Link to="/admin">
+                    <Button variant="ghost">
+                      จัดการระบบ
+                    </Button>
+                  </Link>
+                )}
 
-                {/* PROFILE SUMMARY */}
                 <Link
                   to="/profile"
                   className="
@@ -233,10 +225,9 @@ export default function PublicLayout({ children }) {
                     px-2
                     py-1.5
                     transition
-                    hover:bg-gray-50
+                    hover:bg-background
                   "
                 >
-                  {/* AVATAR */}
                   <div
                     className="
                       flex
@@ -248,38 +239,25 @@ export default function PublicLayout({ children }) {
                       overflow-hidden
                       rounded-full
                       border
-                      border-border
+                      border-primary/20
                       bg-primary/10
                       text-sm
                       font-bold
                       text-primary
-                      shadow-sm
                     "
                   >
                     {profile?.avatar_url ? (
                       <img
                         src={profile.avatar_url}
-                        alt={displayName}
-                        className="
-                          h-full
-                          w-full
-                          object-cover
-                        "
+                        alt="รูปโปรไฟล์"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
                       initial
                     )}
                   </div>
 
-                  {/* NAME + ROLE */}
-                  <div
-                    className="
-                      hidden
-                      max-w-[160px]
-                      leading-tight
-                      lg:block
-                    "
-                  >
+                  <div className="max-w-[160px] leading-tight">
                     <p
                       className="
                         truncate
@@ -305,27 +283,15 @@ export default function PublicLayout({ children }) {
                   </div>
                 </Link>
 
-
-                {/* ADMIN BUTTON */}
-                {isAdmin && (
-                  <Link to="/admin/users">
-                    <Button variant="ghost">
-                      จัดการระบบ
-                    </Button>
-                  </Link>
-                )}
-
-
-                {/* LOGOUT */}
                 <Button
                   variant="secondary"
                   onClick={handleSignOut}
                 >
                   ออกจากระบบ
                 </Button>
-              </div>
+              </>
             ) : (
-              <div className="flex items-center gap-2">
+              <>
                 <Link to="/login">
                   <Button variant="ghost">
                     เข้าสู่ระบบ
@@ -337,164 +303,144 @@ export default function PublicLayout({ children }) {
                     สมัครสมาชิก
                   </Button>
                 </Link>
-              </div>
+              </>
             )}
           </div>
         </div>
 
-
-        {/* MOBILE MENU */}
+        {/* MOBILE */}
         <div
           className="
-            flex
-            items-center
-            gap-5
-            overflow-x-auto
             border-t
             border-border
             px-4
-            py-2
+            py-3
             md:hidden
           "
         >
-          <Link
-            to="/"
-            className="
-              whitespace-nowrap
-              text-xs
-              font-medium
-              text-textPrimary
-            "
-          >
-            หน้าแรก
-          </Link>
-
-          <Link
-            to="/routes"
-            className="
-              whitespace-nowrap
-              text-xs
-              font-medium
-              text-textPrimary
-            "
-          >
-            เส้นทางท่องเที่ยว
-          </Link>
-
-          {session ? (
-            <>
-              <Link
-                to="/my-bookings"
-                className="
-                  whitespace-nowrap
-                  text-xs
-                  font-medium
-                  text-textPrimary
-                "
-              >
-                การจองของฉัน
-              </Link>
-
-              <Link
-                to="/reviews"
-                className="
-                  whitespace-nowrap
-                  text-xs
-                  font-medium
-                  text-textPrimary
-                "
-              >
-                รีวิว
-              </Link>
-
-              {profile?.role === 'GUIDE' && (
-                <>
-                  <Link
-                    to="/guide/incidents"
-                    className="
-                      whitespace-nowrap
-                      text-xs
-                      font-medium
-                      text-textPrimary
-                    "
-                  >
-                    เหตุการณ์ของฉัน
-                  </Link>
-
-                  <Link
-                    to="/incidents/new"
-                    className="
-                      whitespace-nowrap
-                      text-xs
-                      font-medium
-                      text-textPrimary
-                    "
-                  >
-                    แจ้งเหตุ
-                  </Link>
-                </>
-              )}
-
-              <Link
-                to="/profile"
+          {session && (
+            <Link
+              to="/profile"
+              className="
+                mb-3
+                flex
+                items-center
+                gap-3
+                rounded-xl
+                border
+                border-border
+                bg-background
+                px-3
+                py-2
+              "
+            >
+              <div
                 className="
                   flex
+                  h-9
+                  w-9
                   shrink-0
                   items-center
-                  gap-2
-                  whitespace-nowrap
-                  text-xs
-                  font-semibold
+                  justify-center
+                  overflow-hidden
+                  rounded-full
+                  bg-primary/10
+                  text-sm
+                  font-bold
                   text-primary
                 "
               >
-                <div
-                  className="
-                    flex
-                    h-7
-                    w-7
-                    items-center
-                    justify-center
-                    overflow-hidden
-                    rounded-full
-                    bg-primary/10
-                    text-[10px]
-                    font-bold
-                    text-primary
-                  "
-                >
-                  {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={displayName}
-                      className="
-                        h-full
-                        w-full
-                        object-cover
-                      "
-                    />
-                  ) : (
-                    initial
-                  )}
-                </div>
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="รูปโปรไฟล์"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  initial
+                )}
+              </div>
 
-                {displayName}
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-textPrimary">
+                  {displayName}
+                </p>
+
+                <p className="truncate text-[10px] text-primary">
+                  {roleLabel}
+                </p>
+              </div>
+            </Link>
+          )}
+
+          <div
+            className="
+              flex
+              items-center
+              gap-5
+              overflow-x-auto
+            "
+          >
+            <Link
+              to="/"
+              className="whitespace-nowrap text-xs font-medium text-textPrimary"
+            >
+              หน้าแรก
+            </Link>
+
+            <Link
+              to="/routes"
+              className="whitespace-nowrap text-xs font-medium text-textPrimary"
+            >
+              เส้นทางท่องเที่ยว
+            </Link>
+
+            {session && profile?.role === 'MEMBER' && (
+              <Link
+                to="/my-bookings"
+                className="whitespace-nowrap text-xs font-medium text-textPrimary"
+              >
+                การจองของฉัน
               </Link>
+            )}
 
-              {isAdmin && (
+            {session && (
+              <Link
+                to="/reviews"
+                className="whitespace-nowrap text-xs font-medium text-textPrimary"
+              >
+                รีวิว
+              </Link>
+            )}
+
+            {session && profile?.role === 'GUIDE' && (
+              <>
                 <Link
-                  to="/admin/users"
-                  className="
-                    whitespace-nowrap
-                    text-xs
-                    font-medium
-                    text-textPrimary
-                  "
+                  to="/guide/incidents"
+                  className="whitespace-nowrap text-xs font-medium text-textPrimary"
                 >
-                  จัดการระบบ
+                  เหตุการณ์ของฉัน
                 </Link>
-              )}
 
+                <Link
+                  to="/incidents/new"
+                  className="whitespace-nowrap text-xs font-medium text-textPrimary"
+                >
+                  แจ้งเหตุ
+                </Link>
+              </>
+            )}
+
+            {session && canManageSystem && (
+              <Link
+                to="/admin"
+                className="whitespace-nowrap text-xs font-medium text-primary"
+              >
+                จัดการระบบ
+              </Link>
+            )}
+
+            {session ? (
               <button
                 type="button"
                 onClick={handleSignOut}
@@ -502,42 +448,31 @@ export default function PublicLayout({ children }) {
                   whitespace-nowrap
                   text-xs
                   font-medium
-                  text-red-600
+                  text-red-500
                 "
               >
                 ออกจากระบบ
               </button>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="
-                  whitespace-nowrap
-                  text-xs
-                  font-medium
-                  text-textPrimary
-                "
-              >
-                เข้าสู่ระบบ
-              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="whitespace-nowrap text-xs font-medium text-textPrimary"
+                >
+                  เข้าสู่ระบบ
+                </Link>
 
-              <Link
-                to="/register"
-                className="
-                  whitespace-nowrap
-                  text-xs
-                  font-semibold
-                  text-primary
-                "
-              >
-                สมัครสมาชิก
-              </Link>
-            </>
-          )}
+                <Link
+                  to="/register"
+                  className="whitespace-nowrap text-xs font-medium text-primary"
+                >
+                  สมัครสมาชิก
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </nav>
-
 
       {/* CONTENT */}
       <main
@@ -549,7 +484,6 @@ export default function PublicLayout({ children }) {
       >
         {children}
       </main>
-
     </div>
   )
 }

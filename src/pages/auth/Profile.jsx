@@ -10,9 +10,7 @@ import {
   Home,
   Mail,
   Phone,
-  MapPin,
-  Compass,
-  Settings,
+  IdCard,
 } from 'lucide-react'
 
 import { useAuth } from '../../hooks/useAuth'
@@ -68,6 +66,34 @@ const TABS = [
   },
 ]
 
+function MessageBox({
+  type = 'error',
+  children,
+}) {
+  if (!children) return null
+
+  const success = type === 'success'
+
+  return (
+    <div
+      className={`
+        rounded-xl
+        border
+        px-4
+        py-3
+        text-sm
+        ${
+          success
+            ? 'border-green-200 bg-green-50 text-green-700'
+            : 'border-red-200 bg-red-50 text-red-700'
+        }
+      `}
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function Profile() {
   const {
     profile,
@@ -78,36 +104,67 @@ export default function Profile() {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
-  const [activeTab, setActiveTab] = useState('info')
+  const [activeTab, setActiveTab] =
+    useState('info')
 
   const [form, setForm] = useState({
     full_name: '',
     phone: '',
   })
 
-  const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] =
+    useState(false)
+
+  const [infoMessage, setInfoMessage] =
+    useState({
+      type: '',
+      text: '',
+    })
+
+  const [uploading, setUploading] =
+    useState(false)
+
+  const [
+    avatarMessage,
+    setAvatarMessage,
+  ] = useState({
+    type: '',
+    text: '',
+  })
 
   const [pwForm, setPwForm] = useState({
     password: '',
     confirm: '',
   })
 
-  const [pwSaving, setPwSaving] = useState(false)
-  const [pwMessage, setPwMessage] = useState('')
+  const [pwSaving, setPwSaving] =
+    useState(false)
+
+  const [pwMessage, setPwMessage] =
+    useState({
+      type: '',
+      text: '',
+    })
+
+  const [
+    signOutMessage,
+    setSignOutMessage,
+  ] = useState('')
 
   useEffect(() => {
     if (!profile) return
 
     setForm({
-      full_name: profile.full_name || '',
-      phone: profile.phone || '',
+      full_name:
+        profile.full_name || '',
+      phone:
+        profile.phone || '',
     })
   }, [profile])
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <LoadingState />
       </div>
     )
@@ -115,12 +172,16 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+      <div className="min-h-screen bg-background flex flex-col gap-4 items-center justify-center">
         <p className="text-textSecondary">
           กรุณาเข้าสู่ระบบ
         </p>
 
-        <Button onClick={() => navigate('/login')}>
+        <Button
+          onClick={() =>
+            navigate('/login')
+          }
+        >
           เข้าสู่ระบบ
         </Button>
       </div>
@@ -129,143 +190,277 @@ export default function Profile() {
 
   async function handleSaveInfo(e) {
     e.preventDefault()
+
+    setInfoMessage({
+      type: '',
+      text: '',
+    })
+
+    const normalizedFullName =
+      form.full_name.trim()
+
+    if (!normalizedFullName) {
+      setInfoMessage({
+        type: 'error',
+        text: 'กรุณากรอกชื่อ-นามสกุล',
+      })
+      return
+    }
+
+    const rawPhone =
+      form.phone.trim()
+
+    const phoneDigits =
+      rawPhone.replace(/\D/g, '')
+
+    if (
+      rawPhone &&
+      !/^\d{9,10}$/.test(
+        phoneDigits
+      )
+    ) {
+      setInfoMessage({
+        type: 'error',
+        text: 'กรุณากรอกเบอร์โทรเป็นตัวเลข 9-10 หลัก',
+      })
+      return
+    }
+
     setSaving(true)
 
     try {
-      const result = await updateProfile(
-        profile.id,
-        {
-          full_name: form.full_name,
-          phone: form.phone,
-        }
-      )
+      const result =
+        await updateProfile(
+          profile.id,
+          {
+            full_name:
+              normalizedFullName,
+            phone:
+              phoneDigits || null,
+          }
+        )
 
       if (!result.success) {
-        throw new Error(result.error.message)
+        setInfoMessage({
+          type: 'error',
+          text:
+            result.error
+              ?.message ||
+            'ไม่สามารถบันทึกข้อมูลได้',
+        })
+        return
       }
 
       await refreshProfile()
-    } catch (err) {
-      alert(
-        'บันทึกไม่สำเร็จ: ' + err.message
-      )
+
+      setInfoMessage({
+        type: 'success',
+        text: 'บันทึกข้อมูลสำเร็จ',
+      })
+    } catch {
+      setInfoMessage({
+        type: 'error',
+        text: 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง',
+      })
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleAvatarChange(e) {
-    const file = e.target.files?.[0]
+  async function handleAvatarChange(
+    e
+  ) {
+    const file =
+      e.target.files?.[0]
+
+    setAvatarMessage({
+      type: '',
+      text: '',
+    })
 
     if (!file) return
 
-    if (!file.type.startsWith('image/')) {
-      alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น')
+    if (
+      !file.type.startsWith(
+        'image/'
+      )
+    ) {
+      setAvatarMessage({
+        type: 'error',
+        text: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น',
+      })
+
+      e.target.value = ''
       return
     }
 
-    if (file.size > 3 * 1024 * 1024) {
-      alert('ไฟล์ต้องมีขนาดไม่เกิน 3MB')
+    if (
+      file.size >
+      3 * 1024 * 1024
+    ) {
+      setAvatarMessage({
+        type: 'error',
+        text: 'ไฟล์ต้องมีขนาดไม่เกิน 3MB',
+      })
+
+      e.target.value = ''
       return
     }
 
     setUploading(true)
 
     try {
-      const uploadResult = await uploadAvatar(
-        profile.id,
-        file
-      )
-
-      if (!uploadResult.success) {
-        throw new Error(
-          uploadResult.error.message
+      const uploadResult =
+        await uploadAvatar(
+          profile.id,
+          file
         )
+
+      if (
+        !uploadResult.success
+      ) {
+        setAvatarMessage({
+          type: 'error',
+          text:
+            uploadResult.error
+              ?.message ||
+            'ไม่สามารถอัปโหลดรูปได้',
+        })
+        return
       }
 
-      const updateResult = await updateProfile(
-        profile.id,
-        {
-          avatar_url: uploadResult.data,
-        }
-      )
-
-      if (!updateResult.success) {
-        throw new Error(
-          updateResult.error.message
+      const updateResult =
+        await updateProfile(
+          profile.id,
+          {
+            avatar_url:
+              uploadResult.data,
+          }
         )
+
+      if (
+        !updateResult.success
+      ) {
+        setAvatarMessage({
+          type: 'error',
+          text:
+            updateResult.error
+              ?.message ||
+            'ไม่สามารถอัปเดตรูปโปรไฟล์ได้',
+        })
+        return
       }
 
       await refreshProfile()
-    } catch (err) {
-      alert(
-        'อัปโหลดรูปไม่สำเร็จ: ' +
-          err.message
-      )
+
+      setAvatarMessage({
+        type: 'success',
+        text: 'เปลี่ยนรูปโปรไฟล์สำเร็จ',
+      })
+    } catch {
+      setAvatarMessage({
+        type: 'error',
+        text: 'ไม่สามารถอัปโหลดรูปได้ กรุณาลองใหม่อีกครั้ง',
+      })
     } finally {
       setUploading(false)
+
+      if (
+        fileInputRef.current
+      ) {
+        fileInputRef.current.value =
+          ''
+      }
     }
   }
 
-  async function handleChangePassword(e) {
+  async function handleChangePassword(
+    e
+  ) {
     e.preventDefault()
 
-    setPwMessage('')
+    setPwMessage({
+      type: '',
+      text: '',
+    })
 
-    if (pwForm.password.length < 6) {
-      setPwMessage(
-        'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'
-      )
+    if (
+      pwForm.password.length <
+      6
+    ) {
+      setPwMessage({
+        type: 'error',
+        text: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
+      })
       return
     }
 
-    if (pwForm.password !== pwForm.confirm) {
-      setPwMessage(
-        'รหัสผ่านทั้งสองช่องไม่ตรงกัน'
-      )
+    if (
+      pwForm.password !==
+      pwForm.confirm
+    ) {
+      setPwMessage({
+        type: 'error',
+        text: 'รหัสผ่านทั้งสองช่องไม่ตรงกัน',
+      })
       return
     }
 
     setPwSaving(true)
 
     try {
-      const result = await changePassword(
-        pwForm.password
-      )
+      const result =
+        await changePassword(
+          pwForm.password
+        )
 
       if (!result.success) {
-        throw new Error(
-          result.error.message
-        )
+        setPwMessage({
+          type: 'error',
+          text:
+            result.error
+              ?.message ||
+            'ไม่สามารถเปลี่ยนรหัสผ่านได้',
+        })
+        return
       }
 
-      setPwMessage(
-        'เปลี่ยนรหัสผ่านสำเร็จแล้ว'
-      )
+      setPwMessage({
+        type: 'success',
+        text: 'เปลี่ยนรหัสผ่านสำเร็จแล้ว',
+      })
 
       setPwForm({
         password: '',
         confirm: '',
       })
-    } catch (err) {
-      setPwMessage(
-        'เปลี่ยนรหัสผ่านไม่สำเร็จ: ' +
-          err.message
-      )
+    } catch {
+      setPwMessage({
+        type: 'error',
+        text: 'ไม่สามารถเปลี่ยนรหัสผ่านได้ กรุณาลองใหม่อีกครั้ง',
+      })
     } finally {
       setPwSaving(false)
     }
   }
 
   async function handleSignOut() {
-    const result = await signOut()
+    setSignOutMessage('')
+
+    const result =
+      await signOut()
 
     if (!result.success) {
-      alert(result.error.message)
+      setSignOutMessage(
+        result.error?.message ||
+          'ออกจากระบบไม่สำเร็จ'
+      )
       return
     }
 
-    navigate('/login')
+    navigate('/login', {
+      replace: true,
+    })
   }
 
   const initial = (
@@ -274,1110 +469,869 @@ export default function Profile() {
     .charAt(0)
     .toUpperCase()
 
-  const roleLabel =
-    ROLE_LABELS[profile.role] ||
-    profile.role
-
-  const memberTypeLabel =
-    profile.member_type
-      ? MEMBER_TYPE_LABELS[
-          profile.member_type
-        ] || profile.member_type
-      : '-'
-
-  const isAdmin = [
-    'ADMIN',
-    'SUPER_ADMIN',
-  ].includes(profile.role)
+  const showInstitutionalId =
+    ['STUDENT', 'STAFF'].includes(
+      profile.member_type
+    )
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* HERO */}
-      <section
+    <div className="min-h-screen w-full bg-background flex">
+      {/* SIDEBAR */}
+      <aside
         className="
-          relative
-          overflow-hidden
-          border-b
-          border-border
-          bg-white
+          w-[280px]
+          shrink-0
+          min-h-screen
+          bg-gradient-to-b
+          from-primary
+          to-primary/90
+          text-white
+          flex
+          flex-col
+          px-5
+          py-6
         "
       >
-        <img
-          src="/images/home-campus.jpg"
-          alt="มหาวิทยาลัยวลัยลักษณ์"
+        <button
+          onClick={() =>
+            navigate('/')
+          }
           className="
-            absolute
-            inset-0
-            h-full
-            w-full
-            object-cover
-            opacity-[0.12]
-          "
-        />
-
-        <div
-          className="
-            absolute
-            inset-0
-            bg-gradient-to-r
-            from-white
-            via-white/95
-            to-white/70
-          "
-        />
-
-        <div
-          className="
-            relative
-            mx-auto
             flex
-            max-w-[1500px]
+            items-center
+            gap-2
+            text-sm
+            text-white/80
+            hover:text-white
+            transition
+            mb-7
+          "
+        >
+          <Home size={17} />
+          กลับหน้าแรก
+        </button>
+
+        <div
+          className="
+            flex
             flex-col
-            gap-6
-            px-[4vw]
-            py-8
-            lg:flex-row
-            lg:items-center
-            lg:justify-between
-            lg:py-10
+            items-center
+            text-center
+            border-b
+            border-white/20
+            pb-6
+            mb-6
+          "
+        >
+          <div className="relative">
+            <div
+              className="
+                w-24
+                h-24
+                rounded-full
+                border-4
+                border-white/30
+                bg-white/10
+                flex
+                items-center
+                justify-center
+                text-3xl
+                font-bold
+                overflow-hidden
+                shadow-lg
+              "
+            >
+              {profile.avatar_url ? (
+                <img
+                  src={
+                    profile.avatar_url
+                  }
+                  alt="avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                initial
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                fileInputRef.current?.click()
+              }
+              className="
+                absolute
+                bottom-0
+                right-0
+                w-8
+                h-8
+                rounded-full
+                bg-white
+                text-primary
+                flex
+                items-center
+                justify-center
+                shadow-md
+                hover:bg-white/90
+              "
+              title="เปลี่ยนรูปโปรไฟล์"
+            >
+              <Camera size={14} />
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={
+                handleAvatarChange
+              }
+            />
+          </div>
+
+          <h2 className="font-bold text-lg mt-4">
+            {profile.full_name}
+          </h2>
+
+          <p className="text-xs text-white/70 mt-1">
+            {profile.email}
+          </p>
+
+          <div className="mt-3">
+            <Badge
+              color={
+                ROLE_COLORS[
+                  profile.role
+                ]
+              }
+            >
+              {ROLE_LABELS[
+                profile.role
+              ] || profile.role}
+            </Badge>
+          </div>
+        </div>
+
+        <nav className="flex flex-col gap-2 flex-1">
+          {TABS.map((tab) => {
+            const Icon =
+              tab.icon
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() =>
+                  setActiveTab(
+                    tab.id
+                  )
+                }
+                className={`
+                  flex
+                  items-center
+                  gap-3
+                  px-4
+                  py-3
+                  rounded-xl
+                  text-sm
+                  text-left
+                  transition
+                  ${
+                    activeTab ===
+                    tab.id
+                      ? 'bg-white/20 font-semibold shadow-sm'
+                      : 'hover:bg-white/10'
+                  }
+                `}
+              >
+                <Icon size={17} />
+                {tab.label}
+              </button>
+            )
+          })}
+
+          {[
+            'ADMIN',
+            'SUPER_ADMIN',
+          ].includes(
+            profile.role
+          ) && (
+            <button
+              onClick={() =>
+                navigate(
+                  '/admin/users'
+                )
+              }
+              className="
+                flex
+                items-center
+                gap-3
+                px-4
+                py-3
+                rounded-xl
+                text-sm
+                text-left
+                hover:bg-white/10
+                transition
+                mt-2
+              "
+            >
+              <Shield
+                size={17}
+              />
+              จัดการผู้ใช้
+            </button>
+          )}
+        </nav>
+
+        {signOutMessage && (
+          <div className="mb-3 rounded-xl bg-red-500/20 px-3 py-2 text-xs text-white">
+            {signOutMessage}
+          </div>
+        )}
+
+        <button
+          onClick={
+            handleSignOut
+          }
+          className="
+            flex
+            items-center
+            gap-3
+            px-4
+            py-3
+            rounded-xl
+            text-sm
+            hover:bg-white/10
+            border-t
+            border-white/20
+            mt-4
+            pt-5
+          "
+        >
+          <LogOut size={17} />
+          ออกจากระบบ
+        </button>
+      </aside>
+
+      {/* MAIN */}
+      <main
+        className="
+          flex-1
+          min-w-0
+          min-h-screen
+          px-[4vw]
+          py-8
+          lg:px-[5vw]
+          xl:px-[6vw]
+        "
+      >
+        <div
+          className="
+            flex
+            items-end
+            justify-between
+            gap-5
+            mb-8
+            border-b
+            border-border
+            pb-6
           "
         >
           <div>
-            <div
+            <p
               className="
-                mb-3
-                inline-flex
-                items-center
-                gap-2
-                rounded-full
-                bg-primary/10
-                px-3
-                py-1.5
-                text-xs
+                text-sm
                 font-semibold
+                uppercase
+                tracking-wider
                 text-primary
+                mb-2
               "
             >
-              <Compass size={14} />
-              WALAILAK CAMPUS TOUR
-            </div>
+              MY ACCOUNT
+            </p>
 
             <h1
               className="
                 text-3xl
                 font-bold
                 text-textPrimary
-                lg:text-4xl
               "
             >
               บัญชีผู้ใช้ของฉัน
             </h1>
 
-            <p
-              className="
-                mt-3
-                max-w-2xl
-                text-sm
-                leading-6
-                text-textSecondary
-              "
-            >
+            <p className="text-sm text-textSecondary mt-2">
               จัดการข้อมูลส่วนตัว
               รูปโปรไฟล์
-              และความปลอดภัยของบัญชี
-              สำหรับการใช้งาน Walailak Campus Tour
+              และการตั้งค่าความปลอดภัยของบัญชี
             </p>
           </div>
 
           <Button
             variant="ghost"
-            onClick={() => navigate('/')}
+            onClick={() =>
+              navigate('/')
+            }
           >
-            <Home size={17} />
             กลับหน้าแรก
           </Button>
         </div>
-      </section>
 
-      {/* CONTENT */}
-      <main
-        className="
-          mx-auto
-          grid
-          w-full
-          max-w-[1500px]
-          grid-cols-1
-          gap-7
-          px-[4vw]
-          py-8
-          lg:grid-cols-[280px_minmax(0,1fr)]
-          lg:py-10
-        "
-      >
-        {/* LEFT PROFILE PANEL */}
-        <aside
-          className="
-            h-fit
-            overflow-hidden
-            rounded-2xl
-            border
-            border-border
-            bg-white
-            shadow-sm
-          "
-        >
-          {/* PROFILE HEADER */}
+        {/* INFO */}
+        {activeTab ===
+          'info' && (
           <div
             className="
-              relative
-              overflow-hidden
-              bg-gradient-to-br
-              from-primary
-              to-primary/80
-              px-6
-              py-7
-              text-white
+              grid
+              grid-cols-1
+              xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.7fr)]
+              gap-7
+              w-full
             "
           >
-            <MapPin
-              size={90}
+            <form
+              onSubmit={
+                handleSaveInfo
+              }
               className="
-                absolute
-                -bottom-5
-                -right-5
-                text-white/10
-              "
-            />
-
-            <div className="relative z-10">
-              <div className="flex items-center gap-4">
-                <div className="relative shrink-0">
-                  <div
-                    className="
-                      flex
-                      h-20
-                      w-20
-                      items-center
-                      justify-center
-                      overflow-hidden
-                      rounded-full
-                      border-4
-                      border-white/30
-                      bg-white/10
-                      text-2xl
-                      font-bold
-                      shadow-lg
-                    "
-                  >
-                    {profile.avatar_url ? (
-                      <img
-                        src={profile.avatar_url}
-                        alt={profile.full_name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      initial
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      fileInputRef.current?.click()
-                    }
-                    className="
-                      absolute
-                      -bottom-1
-                      -right-1
-                      flex
-                      h-8
-                      w-8
-                      items-center
-                      justify-center
-                      rounded-full
-                      bg-white
-                      text-primary
-                      shadow-md
-                      transition
-                      hover:scale-105
-                    "
-                    title="เปลี่ยนรูปโปรไฟล์"
-                  >
-                    <Camera size={14} />
-                  </button>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAvatarChange}
-                  />
-                </div>
-
-                <div className="min-w-0">
-                  <h2
-                    className="
-                      truncate
-                      text-lg
-                      font-bold
-                    "
-                  >
-                    {profile.full_name}
-                  </h2>
-
-                  <p
-                    className="
-                      mt-1
-                      truncate
-                      text-xs
-                      text-white/75
-                    "
-                  >
-                    {profile.email}
-                  </p>
-
-                  <div className="mt-3">
-                    <span
-                      className="
-                        inline-flex
-                        rounded-full
-                        bg-white/15
-                        px-3
-                        py-1
-                        text-xs
-                        font-semibold
-                        backdrop-blur-sm
-                      "
-                    >
-                      {roleLabel}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* MENU */}
-          <div className="p-4">
-            <p
-              className="
-                mb-3
-                px-3
-                text-[11px]
-                font-semibold
-                uppercase
-                tracking-wider
-                text-textSecondary
-              "
-            >
-              Account Settings
-            </p>
-
-            <nav className="flex flex-col gap-1">
-              {TABS.map((tab) => {
-                const Icon = tab.icon
-
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() =>
-                      setActiveTab(tab.id)
-                    }
-                    className={`
-                      flex
-                      w-full
-                      items-center
-                      gap-3
-                      rounded-xl
-                      px-4
-                      py-3
-                      text-left
-                      text-sm
-                      transition
-                      ${
-                        activeTab === tab.id
-                          ? 'bg-primary/10 font-semibold text-primary'
-                          : 'text-textPrimary hover:bg-background'
-                      }
-                    `}
-                  >
-                    <Icon size={17} />
-
-                    {tab.label}
-                  </button>
-                )
-              })}
-
-              {isAdmin && (
-                <>
-                  <div className="my-3 border-t border-border" />
-
-                  <p
-                    className="
-                      mb-2
-                      px-3
-                      text-[11px]
-                      font-semibold
-                      uppercase
-                      tracking-wider
-                      text-textSecondary
-                    "
-                  >
-                    Administration
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate('/admin/users')
-                    }
-                    className="
-                      flex
-                      w-full
-                      items-center
-                      gap-3
-                      rounded-xl
-                      px-4
-                      py-3
-                      text-left
-                      text-sm
-                      text-textPrimary
-                      transition
-                      hover:bg-background
-                    "
-                  >
-                    <Shield size={17} />
-                    จัดการระบบ
-                  </button>
-                </>
-              )}
-            </nav>
-
-            <div className="my-4 border-t border-border" />
-
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="
-                flex
+                bg-surface
+                border
+                border-border
+                rounded-2xl
+                shadow-sm
+                p-7
                 w-full
-                items-center
-                gap-3
-                rounded-xl
-                px-4
-                py-3
-                text-left
-                text-sm
-                font-medium
-                text-red-600
-                transition
-                hover:bg-red-50
               "
             >
-              <LogOut size={17} />
-              ออกจากระบบ
-            </button>
-          </div>
-        </aside>
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-textPrimary">
+                  ข้อมูลส่วนตัว
+                </h2>
 
-        {/* RIGHT CONTENT */}
-        <section className="min-w-0">
-          {/* INFO */}
-          {activeTab === 'info' && (
-            <div
-              className="
-                grid
-                grid-cols-1
-                gap-7
-                xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.75fr)]
-              "
-            >
-              <form
-                onSubmit={handleSaveInfo}
+                <p className="text-sm text-textSecondary mt-1">
+                  แก้ไขข้อมูลพื้นฐานของบัญชีผู้ใช้
+                </p>
+              </div>
+
+              <div
                 className="
-                  rounded-2xl
-                  border
-                  border-border
-                  bg-white
-                  p-7
-                  shadow-sm
+                  grid
+                  grid-cols-1
+                  lg:grid-cols-2
+                  gap-5
                 "
               >
-                <div className="mb-7">
-                  <div
-                    className="
-                      mb-3
-                      flex
-                      h-11
-                      w-11
-                      items-center
-                      justify-center
-                      rounded-xl
-                      bg-primary/10
-                      text-primary
-                    "
-                  >
-                    <User size={20} />
-                  </div>
+                <Input
+                  label="ชื่อ-นามสกุล"
+                  value={
+                    form.full_name
+                  }
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      full_name:
+                        e.target
+                          .value,
+                    })
+                  }
+                  required
+                />
 
-                  <h2
-                    className="
-                      text-xl
-                      font-bold
-                      text-textPrimary
-                    "
-                  >
-                    ข้อมูลส่วนตัว
-                  </h2>
+                <Input
+                  label="เบอร์โทร"
+                  value={
+                    form.phone
+                  }
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      phone:
+                        e.target
+                          .value,
+                    })
+                  }
+                  placeholder="08x-xxx-xxxx"
+                />
 
-                  <p
-                    className="
-                      mt-1
-                      text-sm
-                      text-textSecondary
-                    "
-                  >
-                    แก้ไขข้อมูลพื้นฐานของบัญชีผู้ใช้
-                  </p>
-                </div>
+                <Input
+                  label="อีเมล"
+                  value={
+                    profile.email
+                  }
+                  disabled
+                />
 
-                <div
-                  className="
-                    grid
-                    grid-cols-1
-                    gap-5
-                    lg:grid-cols-2
-                  "
-                >
+                {profile.member_type && (
                   <Input
-                    label="ชื่อ-นามสกุล"
-                    value={form.full_name}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        full_name:
-                          e.target.value,
-                      })
+                    label="ประเภทสมาชิก"
+                    value={
+                      MEMBER_TYPE_LABELS[
+                        profile
+                          .member_type
+                      ] ||
+                      profile.member_type
                     }
-                    required
-                  />
-
-                  <Input
-                    label="เบอร์โทร"
-                    value={form.phone}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        phone:
-                          e.target.value,
-                      })
-                    }
-                    placeholder="08x-xxx-xxxx"
-                  />
-
-                  <Input
-                    label="อีเมล"
-                    value={profile.email}
                     disabled
                   />
+                )}
 
-                  {profile.member_type && (
-                    <Input
-                      label="ประเภทสมาชิก"
-                      value={memberTypeLabel}
-                      disabled
-                    />
-                  )}
-                </div>
-
-                <div className="mt-7">
-                  <Button
-                    type="submit"
-                    disabled={saving}
-                  >
-                    {saving
-                      ? 'กำลังบันทึก...'
-                      : 'บันทึกข้อมูล'}
-                  </Button>
-                </div>
-              </form>
-
-              {/* ACCOUNT SUMMARY */}
-              <div
-                className="
-                  h-fit
-                  rounded-2xl
-                  border
-                  border-border
-                  bg-white
-                  p-7
-                  shadow-sm
-                "
-              >
-                <div className="mb-6">
-                  <h2
-                    className="
-                      text-lg
-                      font-bold
-                      text-textPrimary
-                    "
-                  >
-                    ข้อมูลบัญชี
-                  </h2>
-
-                  <p
-                    className="
-                      mt-1
-                      text-sm
-                      text-textSecondary
-                    "
-                  >
-                    ข้อมูลสรุปของบัญชีปัจจุบัน
-                  </p>
-                </div>
-
-                <div
-                  className="
-                    mb-7
-                    flex
-                    flex-col
-                    items-center
-                    text-center
-                  "
-                >
-                  <div
-                    className="
-                      flex
-                      h-28
-                      w-28
-                      items-center
-                      justify-center
-                      overflow-hidden
-                      rounded-full
-                      border-4
-                      border-background
-                      bg-primary/10
-                      text-4xl
-                      font-bold
-                      text-primary
-                      shadow-md
-                    "
-                  >
-                    {profile.avatar_url ? (
-                      <img
-                        src={profile.avatar_url}
-                        alt={profile.full_name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      initial
-                    )}
-                  </div>
-
-                  <h3
-                    className="
-                      mt-4
-                      text-lg
-                      font-bold
-                      text-textPrimary
-                    "
-                  >
-                    {profile.full_name}
-                  </h3>
-
-                  <div className="mt-2">
-                    <Badge
-                      color={
-                        ROLE_COLORS[
-                          profile.role
-                        ]
-                      }
-                    >
-                      {roleLabel}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                      rounded-xl
-                      bg-background
-                      p-4
-                    "
-                  >
-                    <Mail
-                      size={18}
-                      className="shrink-0 text-primary"
-                    />
-
-                    <div className="min-w-0">
-                      <p className="text-xs text-textSecondary">
-                        อีเมล
-                      </p>
-
-                      <p
-                        className="
-                          truncate
-                          text-sm
-                          font-medium
-                          text-textPrimary
-                        "
-                      >
-                        {profile.email}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                      rounded-xl
-                      bg-background
-                      p-4
-                    "
-                  >
-                    <Phone
-                      size={18}
-                      className="shrink-0 text-primary"
-                    />
-
-                    <div>
-                      <p className="text-xs text-textSecondary">
-                        เบอร์โทร
-                      </p>
-
-                      <p
-                        className="
-                          text-sm
-                          font-medium
-                          text-textPrimary
-                        "
-                      >
-                        {profile.phone ||
-                          'ยังไม่ได้ระบุ'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                      rounded-xl
-                      bg-background
-                      p-4
-                    "
-                  >
-                    <User
-                      size={18}
-                      className="shrink-0 text-primary"
-                    />
-
-                    <div>
-                      <p className="text-xs text-textSecondary">
-                        ประเภทสมาชิก
-                      </p>
-
-                      <p
-                        className="
-                          text-sm
-                          font-medium
-                          text-textPrimary
-                        "
-                      >
-                        {memberTypeLabel}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      gap-3
-                      rounded-xl
-                      bg-background
-                      p-4
-                    "
-                  >
-                    <Shield
-                      size={18}
-                      className="shrink-0 text-primary"
-                    />
-
-                    <div>
-                      <p className="text-xs text-textSecondary">
-                        สิทธิ์การใช้งาน
-                      </p>
-
-                      <p
-                        className="
-                          text-sm
-                          font-medium
-                          text-textPrimary
-                        "
-                      >
-                        {roleLabel}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                {showInstitutionalId && (
+                  <Input
+                    label={
+                      profile.member_type ===
+                      'STUDENT'
+                        ? 'รหัสนักศึกษา'
+                        : 'รหัสบุคลากร'
+                    }
+                    value={
+                      profile.institutional_id ||
+                      '-'
+                    }
+                    disabled
+                  />
+                )}
               </div>
-            </div>
-          )}
 
-          {/* AVATAR */}
-          {activeTab === 'avatar' && (
+              <div className="mt-5">
+                <MessageBox
+                  type={
+                    infoMessage.type
+                  }
+                >
+                  {infoMessage.text}
+                </MessageBox>
+              </div>
+
+              <div className="mt-7">
+                <Button
+                  type="submit"
+                  disabled={
+                    saving
+                  }
+                >
+                  {saving
+                    ? 'กำลังบันทึก...'
+                    : 'บันทึกข้อมูล'}
+                </Button>
+              </div>
+            </form>
+
             <div
               className="
-                grid
-                grid-cols-1
-                gap-7
-                xl:grid-cols-2
+                bg-surface
+                border
+                border-border
+                rounded-2xl
+                shadow-sm
+                p-7
+                h-fit
               "
             >
-              <div
-                className="
-                  flex
-                  min-h-[430px]
-                  flex-col
-                  items-center
-                  justify-center
-                  rounded-2xl
-                  border
-                  border-border
-                  bg-white
-                  p-8
-                  text-center
-                  shadow-sm
-                "
-              >
+              <h2 className="text-lg font-bold text-textPrimary">
+                ข้อมูลบัญชี
+              </h2>
+
+              <p className="text-sm text-textSecondary mt-1 mb-6">
+                ข้อมูลสรุปของบัญชีปัจจุบัน
+              </p>
+
+              <div className="flex flex-col items-center text-center mb-7">
                 <div
                   className="
+                    w-28
+                    h-28
+                    rounded-full
+                    bg-primary/10
+                    text-primary
                     flex
-                    h-44
-                    w-44
                     items-center
                     justify-center
+                    text-4xl
+                    font-bold
                     overflow-hidden
-                    rounded-full
                     border-4
                     border-background
-                    bg-primary/10
-                    text-5xl
-                    font-bold
-                    text-primary
-                    shadow-lg
+                    shadow-md
                   "
                 >
                   {profile.avatar_url ? (
                     <img
-                      src={profile.avatar_url}
-                      alt={profile.full_name}
-                      className="h-full w-full object-cover"
+                      src={
+                        profile.avatar_url
+                      }
+                      alt="avatar"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     initial
                   )}
                 </div>
 
-                <h2
-                  className="
-                    mt-6
-                    text-xl
-                    font-bold
-                    text-textPrimary
-                  "
-                >
-                  รูปโปรไฟล์ปัจจุบัน
-                </h2>
-
-                <p
-                  className="
-                    mt-2
-                    max-w-sm
-                    text-sm
-                    leading-6
-                    text-textSecondary
-                  "
-                >
-                  รูปนี้จะแสดงทั้งในหน้าโปรไฟล์
-                  และบริเวณบัญชีผู้ใช้บนแถบนำทาง
-                </p>
-              </div>
-
-              <div
-                className="
-                  flex
-                  min-h-[430px]
-                  flex-col
-                  justify-center
-                  rounded-2xl
-                  border
-                  border-border
-                  bg-white
-                  p-8
-                  shadow-sm
-                "
-              >
-                <div
-                  className="
-                    mb-5
-                    flex
-                    h-12
-                    w-12
-                    items-center
-                    justify-center
-                    rounded-xl
-                    bg-primary/10
-                    text-primary
-                  "
-                >
-                  <Camera size={22} />
-                </div>
-
-                <h2
-                  className="
-                    text-xl
-                    font-bold
-                    text-textPrimary
-                  "
-                >
-                  เปลี่ยนรูปโปรไฟล์
-                </h2>
-
-                <p
-                  className="
-                    mt-2
-                    mb-7
-                    max-w-lg
-                    text-sm
-                    leading-6
-                    text-textSecondary
-                  "
-                >
-                  รองรับไฟล์รูปภาพทั่วไป เช่น JPG
-                  และ PNG โดยไฟล์ต้องมีขนาดไม่เกิน
-                  3MB
-                </p>
-
-                {uploading && (
-                  <p
-                    className="
-                      mb-4
-                      text-sm
-                      text-textSecondary
-                    "
-                  >
-                    กำลังอัปโหลด...
-                  </p>
-                )}
-
-                <Button
-                  onClick={() =>
-                    fileInputRef.current?.click()
+                <h3 className="font-bold text-lg mt-4 text-textPrimary">
+                  {
+                    profile.full_name
                   }
-                  disabled={uploading}
-                  className="self-start"
-                >
-                  <Camera size={17} />
-                  เลือกรูปใหม่
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* PASSWORD */}
-          {activeTab === 'password' && (
-            <div
-              className="
-                grid
-                grid-cols-1
-                gap-7
-                xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]
-              "
-            >
-              <form
-                onSubmit={handleChangePassword}
-                className="
-                  rounded-2xl
-                  border
-                  border-border
-                  bg-white
-                  p-8
-                  shadow-sm
-                "
-              >
-                <div
-                  className="
-                    mb-5
-                    flex
-                    h-12
-                    w-12
-                    items-center
-                    justify-center
-                    rounded-xl
-                    bg-primary/10
-                    text-primary
-                  "
-                >
-                  <Lock size={22} />
-                </div>
-
-                <h2
-                  className="
-                    text-xl
-                    font-bold
-                    text-textPrimary
-                  "
-                >
-                  เปลี่ยนรหัสผ่าน
-                </h2>
-
-                <p
-                  className="
-                    mt-1
-                    mb-7
-                    text-sm
-                    text-textSecondary
-                  "
-                >
-                  ตั้งรหัสผ่านใหม่สำหรับบัญชีของคุณ
-                </p>
-
-                <div
-                  className="
-                    grid
-                    grid-cols-1
-                    gap-5
-                    lg:grid-cols-2
-                  "
-                >
-                  <Input
-                    label="รหัสผ่านใหม่"
-                    type="password"
-                    value={pwForm.password}
-                    onChange={(e) =>
-                      setPwForm({
-                        ...pwForm,
-                        password:
-                          e.target.value,
-                      })
-                    }
-                    placeholder="อย่างน้อย 6 ตัวอักษร"
-                    required
-                  />
-
-                  <Input
-                    label="ยืนยันรหัสผ่านใหม่"
-                    type="password"
-                    value={pwForm.confirm}
-                    onChange={(e) =>
-                      setPwForm({
-                        ...pwForm,
-                        confirm:
-                          e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-
-                {pwMessage && (
-                  <p
-                    className={`
-                      mt-5
-                      rounded-xl
-                      px-4
-                      py-3
-                      text-sm
-                      ${
-                        pwMessage.includes(
-                          'สำเร็จ'
-                        )
-                          ? 'bg-green-50 text-green-700'
-                          : 'bg-red-50 text-red-700'
-                      }
-                    `}
-                  >
-                    {pwMessage}
-                  </p>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={pwSaving}
-                  className="mt-7"
-                >
-                  {pwSaving
-                    ? 'กำลังบันทึก...'
-                    : 'เปลี่ยนรหัสผ่าน'}
-                </Button>
-              </form>
-
-              <div
-                className="
-                  h-fit
-                  rounded-2xl
-                  border
-                  border-primary/20
-                  bg-primary/5
-                  p-8
-                "
-              >
-                <div
-                  className="
-                    mb-5
-                    flex
-                    h-12
-                    w-12
-                    items-center
-                    justify-center
-                    rounded-xl
-                    bg-white
-                    text-primary
-                    shadow-sm
-                  "
-                >
-                  <Shield size={22} />
-                </div>
-
-                <h3
-                  className="
-                    text-lg
-                    font-bold
-                    text-textPrimary
-                  "
-                >
-                  ความปลอดภัยของบัญชี
                 </h3>
 
-                <p
-                  className="
-                    mt-3
-                    text-sm
-                    leading-6
-                    text-textSecondary
-                  "
+                <Badge
+                  color={
+                    ROLE_COLORS[
+                      profile.role
+                    ]
+                  }
                 >
-                  รหัสผ่านใหม่ควรมีอย่างน้อย
-                  6 ตัวอักษร
-                  และไม่ควรใช้รหัสผ่านเดียวกับบริการอื่น
-                  เพื่อช่วยรักษาความปลอดภัยของบัญชี
-                </p>
+                  {ROLE_LABELS[
+                    profile.role
+                  ] || profile.role}
+                </Badge>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 rounded-xl bg-background p-4">
+                  <Mail
+                    size={18}
+                    className="text-primary"
+                  />
+
+                  <div className="min-w-0">
+                    <p className="text-xs text-textSecondary">
+                      อีเมล
+                    </p>
+
+                    <p className="text-sm font-medium text-textPrimary truncate">
+                      {
+                        profile.email
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-xl bg-background p-4">
+                  <Phone
+                    size={18}
+                    className="text-primary"
+                  />
+
+                  <div>
+                    <p className="text-xs text-textSecondary">
+                      เบอร์โทร
+                    </p>
+
+                    <p className="text-sm font-medium text-textPrimary">
+                      {profile.phone ||
+                        'ยังไม่ได้ระบุ'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-xl bg-background p-4">
+                  <User
+                    size={18}
+                    className="text-primary"
+                  />
+
+                  <div>
+                    <p className="text-xs text-textSecondary">
+                      ประเภท
+                    </p>
+
+                    <p className="text-sm font-medium text-textPrimary">
+                      {profile.member_type
+                        ? MEMBER_TYPE_LABELS[
+                            profile
+                              .member_type
+                          ] ||
+                          profile.member_type
+                        : '-'}
+                    </p>
+                  </div>
+                </div>
+
+                {showInstitutionalId && (
+                  <div className="flex items-center gap-3 rounded-xl bg-background p-4">
+                    <IdCard
+                      size={18}
+                      className="text-primary"
+                    />
+
+                    <div>
+                      <p className="text-xs text-textSecondary">
+                        {profile.member_type ===
+                        'STUDENT'
+                          ? 'รหัสนักศึกษา'
+                          : 'รหัสบุคลากร'}
+                      </p>
+
+                      <p className="text-sm font-medium text-textPrimary">
+                        {profile.institutional_id ||
+                          'ยังไม่ได้ระบุ'}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </section>
+          </div>
+        )}
+
+        {/* AVATAR */}
+        {activeTab ===
+          'avatar' && (
+          <div
+            className="
+              grid
+              grid-cols-1
+              xl:grid-cols-[1fr_1fr]
+              gap-7
+              w-full
+            "
+          >
+            <div
+              className="
+                bg-surface
+                border
+                border-border
+                rounded-2xl
+                shadow-sm
+                p-8
+                min-h-[420px]
+                flex
+                flex-col
+                items-center
+                justify-center
+                text-center
+              "
+            >
+              <div
+                className="
+                  w-44
+                  h-44
+                  rounded-full
+                  bg-primary/10
+                  flex
+                  items-center
+                  justify-center
+                  text-5xl
+                  font-bold
+                  text-primary
+                  overflow-hidden
+                  border-4
+                  border-background
+                  shadow-lg
+                "
+              >
+                {profile.avatar_url ? (
+                  <img
+                    src={
+                      profile.avatar_url
+                    }
+                    alt="avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  initial
+                )}
+              </div>
+
+              <h2 className="text-xl font-bold text-textPrimary mt-6">
+                รูปโปรไฟล์ปัจจุบัน
+              </h2>
+
+              <p className="text-sm text-textSecondary mt-2">
+                ใช้รูปภาพที่มองเห็นใบหน้าได้ชัดเจน
+              </p>
+            </div>
+
+            <div
+              className="
+                bg-surface
+                border
+                border-border
+                rounded-2xl
+                shadow-sm
+                p-8
+                min-h-[420px]
+                flex
+                flex-col
+                justify-center
+              "
+            >
+              <ImageIcon
+                size={38}
+                className="text-primary mb-5"
+              />
+
+              <h2 className="text-xl font-bold text-textPrimary">
+                เปลี่ยนรูปโปรไฟล์
+              </h2>
+
+              <p className="text-sm text-textSecondary mt-2 mb-7">
+                รองรับไฟล์รูปภาพ
+                JPG, PNG และไฟล์รูปภาพทั่วไป
+                ขนาดไม่เกิน 3MB
+              </p>
+
+              <div className="mb-5">
+                <MessageBox
+                  type={
+                    avatarMessage.type
+                  }
+                >
+                  {
+                    avatarMessage.text
+                  }
+                </MessageBox>
+              </div>
+
+              {uploading && (
+                <p className="text-sm text-textSecondary mb-4">
+                  กำลังอัปโหลด...
+                </p>
+              )}
+
+              <Button
+                onClick={() =>
+                  fileInputRef.current?.click()
+                }
+                disabled={
+                  uploading
+                }
+                className="self-start"
+              >
+                <Camera
+                  size={17}
+                />
+                เลือกรูปใหม่
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* PASSWORD */}
+        {activeTab ===
+          'password' && (
+          <div
+            className="
+              grid
+              grid-cols-1
+              xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]
+              gap-7
+              w-full
+            "
+          >
+            <form
+              onSubmit={
+                handleChangePassword
+              }
+              className="
+                bg-surface
+                border
+                border-border
+                rounded-2xl
+                shadow-sm
+                p-8
+              "
+            >
+              <h2 className="text-xl font-bold text-textPrimary">
+                เปลี่ยนรหัสผ่าน
+              </h2>
+
+              <p className="text-sm text-textSecondary mt-1 mb-7">
+                ตั้งรหัสผ่านใหม่สำหรับบัญชีของคุณ
+              </p>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <Input
+                  label="รหัสผ่านใหม่"
+                  type="password"
+                  value={
+                    pwForm.password
+                  }
+                  onChange={(e) =>
+                    setPwForm({
+                      ...pwForm,
+                      password:
+                        e.target
+                          .value,
+                    })
+                  }
+                  placeholder="อย่างน้อย 6 ตัวอักษร"
+                  required
+                />
+
+                <Input
+                  label="ยืนยันรหัสผ่านใหม่"
+                  type="password"
+                  value={
+                    pwForm.confirm
+                  }
+                  onChange={(e) =>
+                    setPwForm({
+                      ...pwForm,
+                      confirm:
+                        e.target
+                          .value,
+                    })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="mt-5">
+                <MessageBox
+                  type={
+                    pwMessage.type
+                  }
+                >
+                  {
+                    pwMessage.text
+                  }
+                </MessageBox>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={
+                  pwSaving
+                }
+                className="mt-7"
+              >
+                {pwSaving
+                  ? 'กำลังบันทึก...'
+                  : 'เปลี่ยนรหัสผ่าน'}
+              </Button>
+            </form>
+
+            <div
+              className="
+                rounded-2xl
+                border
+                border-primary/20
+                bg-primary/5
+                p-8
+                h-fit
+              "
+            >
+              <Shield
+                size={34}
+                className="text-primary mb-5"
+              />
+
+              <h3 className="text-lg font-bold text-textPrimary">
+                ความปลอดภัยของบัญชี
+              </h3>
+
+              <p className="text-sm text-textSecondary mt-3 leading-6">
+                รหัสผ่านใหม่ควรมีอย่างน้อย
+                6 ตัวอักษร
+                และไม่ควรใช้รหัสผ่านเดียวกับบริการอื่น
+                เพื่อช่วยรักษาความปลอดภัยของบัญชี
+              </p>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
