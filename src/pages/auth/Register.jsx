@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { User, Mail, Lock } from 'lucide-react'
+import { User, Mail, Lock, IdCard } from 'lucide-react'
 
 import { signUp } from '../../services/authService'
 import Button from '../../components/common/Button'
@@ -8,6 +8,33 @@ import campusBg from '../../assets/campus-bg.jpg'
 
 import Home from '../Home'
 import PublicLayout from '../../layouts/PublicLayout'
+
+function validateForm(form) {
+  const fullName = form.fullName.trim()
+  const email = form.email.trim()
+  const institutionalId = form.institutionalId.trim()
+
+  if (!fullName) {
+    return 'กรุณากรอกชื่อ-นามสกุล'
+  }
+
+  if (!email) {
+    return 'กรุณากรอกอีเมล'
+  }
+
+  if (form.password.length < 6) {
+    return 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'
+  }
+
+  if (
+    ['STUDENT', 'STAFF'].includes(form.memberType) &&
+    !/^\d{8}$/.test(institutionalId)
+  ) {
+    return 'รหัสนักศึกษาหรือรหัสบุคลากรต้องเป็นตัวเลข 8 หลัก'
+  }
+
+  return ''
+}
 
 export default function Register() {
   const navigate = useNavigate()
@@ -17,22 +44,41 @@ export default function Register() {
     email: '',
     password: '',
     memberType: 'STUDENT',
+    institutionalId: '',
   })
 
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
   function handleChange(e) {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    })
+    const { name, value } = e.target
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+      ...(name === 'memberType' && value === 'EXTERNAL'
+        ? { institutionalId: '' }
+        : {}),
+    }))
+
+    setError('')
+    setSuccessMessage('')
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
 
     setError('')
+    setSuccessMessage('')
+
+    const validationError = validateForm(form)
+
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -41,16 +87,35 @@ export default function Register() {
         password: form.password,
         fullName: form.fullName,
         memberType: form.memberType,
+        institutionalId:
+          form.memberType === 'EXTERNAL'
+            ? null
+            : form.institutionalId,
       })
 
       if (!result.success) {
-        setError(result.error.message)
+        setError(
+          result.error?.message ||
+            'สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+        )
         return
       }
 
-      navigate('/login')
-    } catch (err) {
-      setError(err.message)
+      setSuccessMessage(
+        'สมัครสมาชิกสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อนเข้าสู่ระบบ',
+      )
+
+      setForm({
+        fullName: '',
+        email: '',
+        password: '',
+        memberType: 'STUDENT',
+        institutionalId: '',
+      })
+    } catch {
+      setError(
+        'สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+      )
     } finally {
       setLoading(false)
     }
@@ -67,9 +132,7 @@ export default function Register() {
       "
       onClick={() => navigate('/')}
     >
-      {/* =====================================================
-          หน้า Home อยู่ด้านหลังแบบจาง ๆ
-      ===================================================== */}
+      {/* HOME BACKGROUND */}
       <div
         className="
           absolute
@@ -85,9 +148,6 @@ export default function Register() {
         </PublicLayout>
       </div>
 
-      {/* =====================================================
-          ชั้นสีขาวจาง ๆ คลุม Home
-      ===================================================== */}
       <div
         className="
           absolute
@@ -98,9 +158,7 @@ export default function Register() {
         "
       />
 
-      {/* =====================================================
-          REGISTER CARD
-      ===================================================== */}
+      {/* REGISTER CARD */}
       <div
         className="
           relative
@@ -117,9 +175,9 @@ export default function Register() {
           onClick={(e) => e.stopPropagation()}
           className="
             w-[25cm]
-            h-[15cm]
+            min-h-[15cm]
             max-w-[calc(100vw-80px)]
-            max-h-[calc(100vh-80px)]
+            max-h-[calc(100vh-40px)]
             flex
             rounded-card
             overflow-hidden
@@ -128,14 +186,12 @@ export default function Register() {
             cursor-default
           "
         >
-          {/* ===================================================
-              ฝั่งซ้าย - รูปภาพ
-          =================================================== */}
+          {/* LEFT IMAGE */}
           <div
             className="
               relative
               w-1/2
-              h-full
+              min-h-full
               bg-cover
               bg-center
               flex
@@ -189,13 +245,10 @@ export default function Register() {
             </div>
           </div>
 
-          {/* ===================================================
-              ฝั่งขวา - Register Form
-          =================================================== */}
+          {/* REGISTER FORM */}
           <div
             className="
               w-1/2
-              h-full
               flex
               items-center
               justify-center
@@ -219,7 +272,7 @@ export default function Register() {
                 onSubmit={handleSubmit}
                 className="flex flex-col gap-3"
               >
-                {/* Full Name */}
+                {/* FULL NAME */}
                 <div className="relative">
                   <User
                     className="
@@ -238,7 +291,7 @@ export default function Register() {
                     placeholder="ชื่อ-นามสกุล"
                     value={form.fullName}
                     onChange={handleChange}
-                    required
+                    disabled={loading}
                     className="
                       w-full
                       rounded-full
@@ -253,11 +306,12 @@ export default function Register() {
                       focus:outline-none
                       focus:ring-2
                       focus:ring-primary
+                      disabled:opacity-60
                     "
                   />
                 </div>
 
-                {/* Email */}
+                {/* EMAIL */}
                 <div className="relative">
                   <Mail
                     className="
@@ -276,6 +330,7 @@ export default function Register() {
                     placeholder="อีเมล"
                     value={form.email}
                     onChange={handleChange}
+                    disabled={loading}
                     required
                     className="
                       w-full
@@ -291,11 +346,12 @@ export default function Register() {
                       focus:outline-none
                       focus:ring-2
                       focus:ring-primary
+                      disabled:opacity-60
                     "
                   />
                 </div>
 
-                {/* Password */}
+                {/* PASSWORD */}
                 <div className="relative">
                   <Lock
                     className="
@@ -314,6 +370,7 @@ export default function Register() {
                     placeholder="รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)"
                     value={form.password}
                     onChange={handleChange}
+                    disabled={loading}
                     required
                     minLength={6}
                     className="
@@ -330,15 +387,17 @@ export default function Register() {
                       focus:outline-none
                       focus:ring-2
                       focus:ring-primary
+                      disabled:opacity-60
                     "
                   />
                 </div>
 
-                {/* Member Type */}
+                {/* MEMBER TYPE */}
                 <select
                   name="memberType"
                   value={form.memberType}
                   onChange={handleChange}
+                  disabled={loading}
                   className="
                     w-full
                     rounded-full
@@ -352,6 +411,7 @@ export default function Register() {
                     focus:outline-none
                     focus:ring-2
                     focus:ring-primary
+                    disabled:opacity-60
                   "
                 >
                   <option value="STUDENT">🎓 นักศึกษา</option>
@@ -359,7 +419,65 @@ export default function Register() {
                   <option value="EXTERNAL">👤 บุคคลภายนอก</option>
                 </select>
 
-                {/* Error */}
+                {/* INSTITUTIONAL ID */}
+                {form.memberType !== 'EXTERNAL' && (
+                  <div className="relative">
+                    <IdCard
+                      className="
+                        absolute
+                        left-4
+                        top-1/2
+                        -translate-y-1/2
+                        text-textSecondary
+                      "
+                      size={18}
+                    />
+
+                    <input
+                      name="institutionalId"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={8}
+                      placeholder={
+                        form.memberType === 'STUDENT'
+                          ? 'รหัสนักศึกษา 8 หลัก'
+                          : 'รหัสบุคลากร 8 หลัก'
+                      }
+                      value={form.institutionalId}
+                      onChange={(e) => {
+                        const digitsOnly =
+                          e.target.value.replace(/\D/g, '')
+
+                        setForm((current) => ({
+                          ...current,
+                          institutionalId: digitsOnly,
+                        }))
+
+                        setError('')
+                        setSuccessMessage('')
+                      }}
+                      disabled={loading}
+                      className="
+                        w-full
+                        rounded-full
+                        border
+                        border-border
+                        pl-11
+                        pr-4
+                        py-2.5
+                        text-base
+                        bg-background
+                        text-textPrimary
+                        focus:outline-none
+                        focus:ring-2
+                        focus:ring-primary
+                        disabled:opacity-60
+                      "
+                    />
+                  </div>
+                )}
+
+                {/* ERROR */}
                 {error && (
                   <div
                     className="
@@ -377,7 +495,24 @@ export default function Register() {
                   </div>
                 )}
 
-                {/* Register Button */}
+                {/* SUCCESS */}
+                {successMessage && (
+                  <div
+                    className="
+                      border
+                      border-green-200
+                      bg-green-50
+                      text-green-700
+                      text-sm
+                      rounded-input
+                      px-3
+                      py-2
+                    "
+                  >
+                    {successMessage}
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   size="md"

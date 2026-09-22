@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import {
+  useNavigate,
+  useLocation,
+  useSearchParams,
+  Link,
+} from "react-router-dom";
 
 import { Mail, Lock } from "lucide-react";
 
@@ -9,6 +14,7 @@ import { getProfile } from "../../services/profileService";
 import { useAuth } from "../../hooks/useAuth";
 
 import Button from "../../components/common/Button";
+import LoadingState from "../../components/common/LoadingState";
 import campusBg from "../../assets/campus-bg.jpg";
 
 import Home from "../Home";
@@ -44,10 +50,22 @@ function getSafeReturnTo(from) {
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const { session, profile, loading: authLoading, profileLoading } = useAuth();
 
-  const returnTo = getSafeReturnTo(location.state?.from);
+  const returnToFromState = getSafeReturnTo(location.state?.from);
+
+  const returnToFromQuery = (() => {
+    const value = searchParams.get("returnTo");
+
+    if (!value) return null;
+    if (!value.startsWith("/") || value.startsWith("//")) return null;
+
+    return value;
+  })();
+
+  const returnTo = returnToFromState || returnToFromQuery;
 
   const [form, setForm] = useState({
     email: "",
@@ -114,6 +132,18 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (
+    authLoading ||
+    (session && profileLoading) ||
+    (session && profile)
+  ) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingState />
+      </div>
+    );
   }
 
   return (
