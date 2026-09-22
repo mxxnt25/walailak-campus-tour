@@ -10,6 +10,7 @@ import {
   Home,
   Mail,
   Phone,
+  IdCard,
 } from 'lucide-react'
 
 import { useAuth } from '../../hooks/useAuth'
@@ -65,6 +66,34 @@ const TABS = [
   },
 ]
 
+function MessageBox({
+  type = 'error',
+  children,
+}) {
+  if (!children) return null
+
+  const success = type === 'success'
+
+  return (
+    <div
+      className={`
+        rounded-xl
+        border
+        px-4
+        py-3
+        text-sm
+        ${
+          success
+            ? 'border-green-200 bg-green-50 text-green-700'
+            : 'border-red-200 bg-red-50 text-red-700'
+        }
+      `}
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function Profile() {
   const {
     profile,
@@ -75,30 +104,61 @@ export default function Profile() {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
-  const [activeTab, setActiveTab] = useState('info')
+  const [activeTab, setActiveTab] =
+    useState('info')
 
   const [form, setForm] = useState({
     full_name: '',
     phone: '',
   })
 
-  const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] =
+    useState(false)
+
+  const [infoMessage, setInfoMessage] =
+    useState({
+      type: '',
+      text: '',
+    })
+
+  const [uploading, setUploading] =
+    useState(false)
+
+  const [
+    avatarMessage,
+    setAvatarMessage,
+  ] = useState({
+    type: '',
+    text: '',
+  })
 
   const [pwForm, setPwForm] = useState({
     password: '',
     confirm: '',
   })
 
-  const [pwSaving, setPwSaving] = useState(false)
-  const [pwMessage, setPwMessage] = useState('')
+  const [pwSaving, setPwSaving] =
+    useState(false)
+
+  const [pwMessage, setPwMessage] =
+    useState({
+      type: '',
+      text: '',
+    })
+
+  const [
+    signOutMessage,
+    setSignOutMessage,
+  ] = useState('')
 
   useEffect(() => {
     if (!profile) return
 
     setForm({
-      full_name: profile.full_name || '',
-      phone: profile.phone || '',
+      full_name:
+        profile.full_name || '',
+      phone:
+        profile.phone || '',
     })
   }, [profile])
 
@@ -117,7 +177,11 @@ export default function Profile() {
           กรุณาเข้าสู่ระบบ
         </p>
 
-        <Button onClick={() => navigate('/login')}>
+        <Button
+          onClick={() =>
+            navigate('/login')
+          }
+        >
           เข้าสู่ระบบ
         </Button>
       </div>
@@ -126,143 +190,277 @@ export default function Profile() {
 
   async function handleSaveInfo(e) {
     e.preventDefault()
+
+    setInfoMessage({
+      type: '',
+      text: '',
+    })
+
+    const normalizedFullName =
+      form.full_name.trim()
+
+    if (!normalizedFullName) {
+      setInfoMessage({
+        type: 'error',
+        text: 'กรุณากรอกชื่อ-นามสกุล',
+      })
+      return
+    }
+
+    const rawPhone =
+      form.phone.trim()
+
+    const phoneDigits =
+      rawPhone.replace(/\D/g, '')
+
+    if (
+      rawPhone &&
+      !/^\d{9,10}$/.test(
+        phoneDigits
+      )
+    ) {
+      setInfoMessage({
+        type: 'error',
+        text: 'กรุณากรอกเบอร์โทรเป็นตัวเลข 9-10 หลัก',
+      })
+      return
+    }
+
     setSaving(true)
 
     try {
-      const result = await updateProfile(
-        profile.id,
-        {
-          full_name: form.full_name,
-          phone: form.phone,
-        }
-      )
+      const result =
+        await updateProfile(
+          profile.id,
+          {
+            full_name:
+              normalizedFullName,
+            phone:
+              phoneDigits || null,
+          }
+        )
 
       if (!result.success) {
-        throw new Error(result.error.message)
+        setInfoMessage({
+          type: 'error',
+          text:
+            result.error
+              ?.message ||
+            'ไม่สามารถบันทึกข้อมูลได้',
+        })
+        return
       }
 
       await refreshProfile()
-    } catch (err) {
-      alert(
-        'บันทึกไม่สำเร็จ: ' + err.message
-      )
+
+      setInfoMessage({
+        type: 'success',
+        text: 'บันทึกข้อมูลสำเร็จ',
+      })
+    } catch {
+      setInfoMessage({
+        type: 'error',
+        text: 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง',
+      })
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleAvatarChange(e) {
-    const file = e.target.files?.[0]
+  async function handleAvatarChange(
+    e
+  ) {
+    const file =
+      e.target.files?.[0]
+
+    setAvatarMessage({
+      type: '',
+      text: '',
+    })
 
     if (!file) return
 
-    if (!file.type.startsWith('image/')) {
-      alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น')
+    if (
+      !file.type.startsWith(
+        'image/'
+      )
+    ) {
+      setAvatarMessage({
+        type: 'error',
+        text: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น',
+      })
+
+      e.target.value = ''
       return
     }
 
-    if (file.size > 3 * 1024 * 1024) {
-      alert('ไฟล์ต้องมีขนาดไม่เกิน 3MB')
+    if (
+      file.size >
+      3 * 1024 * 1024
+    ) {
+      setAvatarMessage({
+        type: 'error',
+        text: 'ไฟล์ต้องมีขนาดไม่เกิน 3MB',
+      })
+
+      e.target.value = ''
       return
     }
 
     setUploading(true)
 
     try {
-      const uploadResult = await uploadAvatar(
-        profile.id,
-        file
-      )
-
-      if (!uploadResult.success) {
-        throw new Error(
-          uploadResult.error.message
+      const uploadResult =
+        await uploadAvatar(
+          profile.id,
+          file
         )
+
+      if (
+        !uploadResult.success
+      ) {
+        setAvatarMessage({
+          type: 'error',
+          text:
+            uploadResult.error
+              ?.message ||
+            'ไม่สามารถอัปโหลดรูปได้',
+        })
+        return
       }
 
-      const updateResult = await updateProfile(
-        profile.id,
-        {
-          avatar_url: uploadResult.data,
-        }
-      )
-
-      if (!updateResult.success) {
-        throw new Error(
-          updateResult.error.message
+      const updateResult =
+        await updateProfile(
+          profile.id,
+          {
+            avatar_url:
+              uploadResult.data,
+          }
         )
+
+      if (
+        !updateResult.success
+      ) {
+        setAvatarMessage({
+          type: 'error',
+          text:
+            updateResult.error
+              ?.message ||
+            'ไม่สามารถอัปเดตรูปโปรไฟล์ได้',
+        })
+        return
       }
 
       await refreshProfile()
-    } catch (err) {
-      alert(
-        'อัปโหลดรูปไม่สำเร็จ: ' +
-          err.message
-      )
+
+      setAvatarMessage({
+        type: 'success',
+        text: 'เปลี่ยนรูปโปรไฟล์สำเร็จ',
+      })
+    } catch {
+      setAvatarMessage({
+        type: 'error',
+        text: 'ไม่สามารถอัปโหลดรูปได้ กรุณาลองใหม่อีกครั้ง',
+      })
     } finally {
       setUploading(false)
+
+      if (
+        fileInputRef.current
+      ) {
+        fileInputRef.current.value =
+          ''
+      }
     }
   }
 
-  async function handleChangePassword(e) {
+  async function handleChangePassword(
+    e
+  ) {
     e.preventDefault()
 
-    setPwMessage('')
+    setPwMessage({
+      type: '',
+      text: '',
+    })
 
-    if (pwForm.password.length < 6) {
-      setPwMessage(
-        'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'
-      )
+    if (
+      pwForm.password.length <
+      6
+    ) {
+      setPwMessage({
+        type: 'error',
+        text: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
+      })
       return
     }
 
-    if (pwForm.password !== pwForm.confirm) {
-      setPwMessage(
-        'รหัสผ่านทั้งสองช่องไม่ตรงกัน'
-      )
+    if (
+      pwForm.password !==
+      pwForm.confirm
+    ) {
+      setPwMessage({
+        type: 'error',
+        text: 'รหัสผ่านทั้งสองช่องไม่ตรงกัน',
+      })
       return
     }
 
     setPwSaving(true)
 
     try {
-      const result = await changePassword(
-        pwForm.password
-      )
+      const result =
+        await changePassword(
+          pwForm.password
+        )
 
       if (!result.success) {
-        throw new Error(
-          result.error.message
-        )
+        setPwMessage({
+          type: 'error',
+          text:
+            result.error
+              ?.message ||
+            'ไม่สามารถเปลี่ยนรหัสผ่านได้',
+        })
+        return
       }
 
-      setPwMessage(
-        'เปลี่ยนรหัสผ่านสำเร็จแล้ว'
-      )
+      setPwMessage({
+        type: 'success',
+        text: 'เปลี่ยนรหัสผ่านสำเร็จแล้ว',
+      })
 
       setPwForm({
         password: '',
         confirm: '',
       })
-    } catch (err) {
-      setPwMessage(
-        'เปลี่ยนรหัสผ่านไม่สำเร็จ: ' +
-          err.message
-      )
+    } catch {
+      setPwMessage({
+        type: 'error',
+        text: 'ไม่สามารถเปลี่ยนรหัสผ่านได้ กรุณาลองใหม่อีกครั้ง',
+      })
     } finally {
       setPwSaving(false)
     }
   }
 
   async function handleSignOut() {
-    const result = await signOut()
+    setSignOutMessage('')
+
+    const result =
+      await signOut()
 
     if (!result.success) {
-      alert(result.error.message)
+      setSignOutMessage(
+        result.error?.message ||
+          'ออกจากระบบไม่สำเร็จ'
+      )
       return
     }
 
-    navigate('/login')
+    navigate('/login', {
+      replace: true,
+    })
   }
 
   const initial = (
@@ -270,6 +468,11 @@ export default function Profile() {
   )
     .charAt(0)
     .toUpperCase()
+
+  const showInstitutionalId =
+    ['STUDENT', 'STAFF'].includes(
+      profile.member_type
+    )
 
   return (
     <div className="min-h-screen w-full bg-background flex">
@@ -290,7 +493,9 @@ export default function Profile() {
         "
       >
         <button
-          onClick={() => navigate('/')}
+          onClick={() =>
+            navigate('/')
+          }
           className="
             flex
             items-center
@@ -338,7 +543,9 @@ export default function Profile() {
             >
               {profile.avatar_url ? (
                 <img
-                  src={profile.avatar_url}
+                  src={
+                    profile.avatar_url
+                  }
                   alt="avatar"
                   className="w-full h-full object-cover"
                 />
@@ -377,7 +584,9 @@ export default function Profile() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={handleAvatarChange}
+              onChange={
+                handleAvatarChange
+              }
             />
           </div>
 
@@ -392,24 +601,30 @@ export default function Profile() {
           <div className="mt-3">
             <Badge
               color={
-                ROLE_COLORS[profile.role]
+                ROLE_COLORS[
+                  profile.role
+                ]
               }
             >
-              {ROLE_LABELS[profile.role] ||
-                profile.role}
+              {ROLE_LABELS[
+                profile.role
+              ] || profile.role}
             </Badge>
           </div>
         </div>
 
         <nav className="flex flex-col gap-2 flex-1">
           {TABS.map((tab) => {
-            const Icon = tab.icon
+            const Icon =
+              tab.icon
 
             return (
               <button
                 key={tab.id}
                 onClick={() =>
-                  setActiveTab(tab.id)
+                  setActiveTab(
+                    tab.id
+                  )
                 }
                 className={`
                   flex
@@ -422,7 +637,8 @@ export default function Profile() {
                   text-left
                   transition
                   ${
-                    activeTab === tab.id
+                    activeTab ===
+                    tab.id
                       ? 'bg-white/20 font-semibold shadow-sm'
                       : 'hover:bg-white/10'
                   }
@@ -437,10 +653,14 @@ export default function Profile() {
           {[
             'ADMIN',
             'SUPER_ADMIN',
-          ].includes(profile.role) && (
+          ].includes(
+            profile.role
+          ) && (
             <button
               onClick={() =>
-                navigate('/admin/users')
+                navigate(
+                  '/admin/users'
+                )
               }
               className="
                 flex
@@ -456,14 +676,24 @@ export default function Profile() {
                 mt-2
               "
             >
-              <Shield size={17} />
+              <Shield
+                size={17}
+              />
               จัดการผู้ใช้
             </button>
           )}
         </nav>
 
+        {signOutMessage && (
+          <div className="mb-3 rounded-xl bg-red-500/20 px-3 py-2 text-xs text-white">
+            {signOutMessage}
+          </div>
+        )}
+
         <button
-          onClick={handleSignOut}
+          onClick={
+            handleSignOut
+          }
           className="
             flex
             items-center
@@ -484,7 +714,7 @@ export default function Profile() {
         </button>
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN */}
       <main
         className="
           flex-1
@@ -541,14 +771,17 @@ export default function Profile() {
 
           <Button
             variant="ghost"
-            onClick={() => navigate('/')}
+            onClick={() =>
+              navigate('/')
+            }
           >
             กลับหน้าแรก
           </Button>
         </div>
 
         {/* INFO */}
-        {activeTab === 'info' && (
+        {activeTab ===
+          'info' && (
           <div
             className="
               grid
@@ -559,7 +792,9 @@ export default function Profile() {
             "
           >
             <form
-              onSubmit={handleSaveInfo}
+              onSubmit={
+                handleSaveInfo
+              }
               className="
                 bg-surface
                 border
@@ -590,12 +825,15 @@ export default function Profile() {
               >
                 <Input
                   label="ชื่อ-นามสกุล"
-                  value={form.full_name}
+                  value={
+                    form.full_name
+                  }
                   onChange={(e) =>
                     setForm({
                       ...form,
                       full_name:
-                        e.target.value,
+                        e.target
+                          .value,
                     })
                   }
                   required
@@ -603,11 +841,15 @@ export default function Profile() {
 
                 <Input
                   label="เบอร์โทร"
-                  value={form.phone}
+                  value={
+                    form.phone
+                  }
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      phone: e.target.value,
+                      phone:
+                        e.target
+                          .value,
                     })
                   }
                   placeholder="08x-xxx-xxxx"
@@ -615,7 +857,9 @@ export default function Profile() {
 
                 <Input
                   label="อีเมล"
-                  value={profile.email}
+                  value={
+                    profile.email
+                  }
                   disabled
                 />
 
@@ -624,19 +868,48 @@ export default function Profile() {
                     label="ประเภทสมาชิก"
                     value={
                       MEMBER_TYPE_LABELS[
-                        profile.member_type
+                        profile
+                          .member_type
                       ] ||
                       profile.member_type
                     }
                     disabled
                   />
                 )}
+
+                {showInstitutionalId && (
+                  <Input
+                    label={
+                      profile.member_type ===
+                      'STUDENT'
+                        ? 'รหัสนักศึกษา'
+                        : 'รหัสบุคลากร'
+                    }
+                    value={
+                      profile.institutional_id ||
+                      '-'
+                    }
+                    disabled
+                  />
+                )}
+              </div>
+
+              <div className="mt-5">
+                <MessageBox
+                  type={
+                    infoMessage.type
+                  }
+                >
+                  {infoMessage.text}
+                </MessageBox>
               </div>
 
               <div className="mt-7">
                 <Button
                   type="submit"
-                  disabled={saving}
+                  disabled={
+                    saving
+                  }
                 >
                   {saving
                     ? 'กำลังบันทึก...'
@@ -697,7 +970,9 @@ export default function Profile() {
                 </div>
 
                 <h3 className="font-bold text-lg mt-4 text-textPrimary">
-                  {profile.full_name}
+                  {
+                    profile.full_name
+                  }
                 </h3>
 
                 <Badge
@@ -726,7 +1001,9 @@ export default function Profile() {
                     </p>
 
                     <p className="text-sm font-medium text-textPrimary truncate">
-                      {profile.email}
+                      {
+                        profile.email
+                      }
                     </p>
                   </div>
                 </div>
@@ -771,13 +1048,37 @@ export default function Profile() {
                     </p>
                   </div>
                 </div>
+
+                {showInstitutionalId && (
+                  <div className="flex items-center gap-3 rounded-xl bg-background p-4">
+                    <IdCard
+                      size={18}
+                      className="text-primary"
+                    />
+
+                    <div>
+                      <p className="text-xs text-textSecondary">
+                        {profile.member_type ===
+                        'STUDENT'
+                          ? 'รหัสนักศึกษา'
+                          : 'รหัสบุคลากร'}
+                      </p>
+
+                      <p className="text-sm font-medium text-textPrimary">
+                        {profile.institutional_id ||
+                          'ยังไม่ได้ระบุ'}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
         {/* AVATAR */}
-        {activeTab === 'avatar' && (
+        {activeTab ===
+          'avatar' && (
           <div
             className="
               grid
@@ -823,7 +1124,9 @@ export default function Profile() {
               >
                 {profile.avatar_url ? (
                   <img
-                    src={profile.avatar_url}
+                    src={
+                      profile.avatar_url
+                    }
                     alt="avatar"
                     className="w-full h-full object-cover"
                   />
@@ -865,10 +1168,22 @@ export default function Profile() {
               </h2>
 
               <p className="text-sm text-textSecondary mt-2 mb-7">
-                รองรับไฟล์รูปภาพ JPG, PNG
-                และไฟล์รูปภาพทั่วไป
+                รองรับไฟล์รูปภาพ
+                JPG, PNG และไฟล์รูปภาพทั่วไป
                 ขนาดไม่เกิน 3MB
               </p>
+
+              <div className="mb-5">
+                <MessageBox
+                  type={
+                    avatarMessage.type
+                  }
+                >
+                  {
+                    avatarMessage.text
+                  }
+                </MessageBox>
+              </div>
 
               {uploading && (
                 <p className="text-sm text-textSecondary mb-4">
@@ -880,10 +1195,14 @@ export default function Profile() {
                 onClick={() =>
                   fileInputRef.current?.click()
                 }
-                disabled={uploading}
+                disabled={
+                  uploading
+                }
                 className="self-start"
               >
-                <Camera size={17} />
+                <Camera
+                  size={17}
+                />
                 เลือกรูปใหม่
               </Button>
             </div>
@@ -891,7 +1210,8 @@ export default function Profile() {
         )}
 
         {/* PASSWORD */}
-        {activeTab === 'password' && (
+        {activeTab ===
+          'password' && (
           <div
             className="
               grid
@@ -902,7 +1222,9 @@ export default function Profile() {
             "
           >
             <form
-              onSubmit={handleChangePassword}
+              onSubmit={
+                handleChangePassword
+              }
               className="
                 bg-surface
                 border
@@ -931,7 +1253,8 @@ export default function Profile() {
                     setPwForm({
                       ...pwForm,
                       password:
-                        e.target.value,
+                        e.target
+                          .value,
                     })
                   }
                   placeholder="อย่างน้อย 6 ตัวอักษร"
@@ -941,39 +1264,38 @@ export default function Profile() {
                 <Input
                   label="ยืนยันรหัสผ่านใหม่"
                   type="password"
-                  value={pwForm.confirm}
+                  value={
+                    pwForm.confirm
+                  }
                   onChange={(e) =>
                     setPwForm({
                       ...pwForm,
                       confirm:
-                        e.target.value,
+                        e.target
+                          .value,
                     })
                   }
                   required
                 />
               </div>
 
-              {pwMessage && (
-                <p
-                  className={`
-                    text-sm
-                    mt-5
-                    ${
-                      pwMessage.includes(
-                        'สำเร็จ'
-                      )
-                        ? 'text-success'
-                        : 'text-danger'
-                    }
-                  `}
+              <div className="mt-5">
+                <MessageBox
+                  type={
+                    pwMessage.type
+                  }
                 >
-                  {pwMessage}
-                </p>
-              )}
+                  {
+                    pwMessage.text
+                  }
+                </MessageBox>
+              </div>
 
               <Button
                 type="submit"
-                disabled={pwSaving}
+                disabled={
+                  pwSaving
+                }
                 className="mt-7"
               >
                 {pwSaving
