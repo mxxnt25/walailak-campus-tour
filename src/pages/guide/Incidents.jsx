@@ -3,16 +3,10 @@ import Card from "../../components/common/Card";
 import Badge from "../../components/common/Badge";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
+import EmptyState from "../../components/common/EmptyState";
+import StatusBadge from "../../components/common/StatusBadge";
+import { formatDateTime } from "../../utils/dateTime";
 import { listMyRelatedIncidents } from "../../services/incidentService";
-
-function formatDateTime(value) {
-  if (!value) return "-";
-
-  return new Intl.DateTimeFormat("th-TH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 function getSeverityColor(severity) {
   switch (severity) {
@@ -25,32 +19,6 @@ function getSeverityColor(severity) {
       return "danger";
     default:
       return "primary";
-  }
-}
-
-function getStatusColor(status) {
-  switch (status) {
-    case "OPEN":
-      return "warning";
-    case "IN_PROGRESS":
-      return "primary";
-    case "RESOLVED":
-      return "success";
-    default:
-      return "primary";
-  }
-}
-
-function getStatusLabel(status) {
-  switch (status) {
-    case "OPEN":
-      return "OPEN";
-    case "IN_PROGRESS":
-      return "IN PROGRESS";
-    case "RESOLVED":
-      return "RESOLVED";
-    default:
-      return status || "-";
   }
 }
 
@@ -107,17 +75,10 @@ export default function GuideIncidents() {
       ) : error ? (
         <ErrorState message={error} />
       ) : incidents.length === 0 ? (
-        <Card>
-          <div className="py-8 text-center">
-            <p className="font-medium text-textPrimary">
-              ยังไม่มีเหตุการณ์ที่เกี่ยวข้อง
-            </p>
-
-            <p className="mt-1 text-sm text-textSecondary">
-              เหตุการณ์ของตารางนำเที่ยวที่คุณได้รับมอบหมายจะแสดงที่นี่
-            </p>
-          </div>
-        </Card>
+        <EmptyState
+          title="ยังไม่มีเหตุการณ์ที่เกี่ยวข้อง"
+          description="เหตุการณ์ของตารางนำเที่ยวที่คุณได้รับมอบหมายจะแสดงที่นี่"
+        />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {incidents.map((incident) => (
@@ -136,9 +97,7 @@ export default function GuideIncidents() {
                     {incident.severity}
                   </Badge>
 
-                  <Badge color={getStatusColor(incident.status)}>
-                    {getStatusLabel(incident.status)}
-                  </Badge>
+                  <StatusBadge status={incident.status} />
                 </div>
               </div>
 
