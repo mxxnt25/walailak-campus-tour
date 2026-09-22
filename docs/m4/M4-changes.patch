@@ -1,0 +1,4662 @@
+diff --git a/src/components/m4/Feedback.jsx b/src/components/m4/Feedback.jsx
+new file mode 100644
+index 0000000..5d53f5e
+--- /dev/null
++++ b/src/components/m4/Feedback.jsx
+@@ -0,0 +1,70 @@
++// Temporary M4-only adapter. M5 owns the eventual global feedback primitives.
++import { useEffect, useId, useRef } from "react";
++import Button from "../common/Button";
++export function Feedback({ error, success }) {
++  if (!error && !success) return null;
++  return (
++    <div
++      role={error ? "alert" : "status"}
++      className={`my-4 rounded-input border p-3 text-sm ${error ? "border-danger text-danger bg-danger/10" : "border-success text-textPrimary bg-success/10"}`}
++    >
++      {error || success}
++    </div>
++  );
++}
++export function Modal({ title, children, onClose, busy = false }) {
++  const ref = useRef(null);
++  const titleId = useId();
++  useEffect(() => {
++    const previous = document.activeElement;
++    const dialog = ref.current;
++    dialog.showModal();
++    return () => {
++      dialog.close();
++      previous?.focus();
++    };
++  }, []);
++  return (
++    <dialog
++      ref={ref}
++      aria-labelledby={titleId}
++      onCancel={(event) => {
++        event.preventDefault();
++        if (!busy) onClose();
++      }}
++      className="w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto rounded-card border border-border bg-surface p-6 text-textPrimary shadow-xl backdrop:bg-black/40"
++    >
++      <div className="mb-4 flex items-center justify-between gap-4">
++        <h2 id={titleId} className="text-lg font-semibold">
++          {title}
++        </h2>
++        <Button
++          type="button"
++          variant="ghost"
++          disabled={busy}
++          aria-label="ปิดหน้าต่าง"
++          onClick={onClose}
++        >
++          ✕
++        </Button>
++      </div>
++      {children}
++    </dialog>
++  );
++}
++export function Confirm({ title, children, busy, error, onConfirm, onClose }) {
++  return (
++    <Modal title={title} onClose={onClose} busy={busy}>
++      <p>{children}</p>
++      <Feedback error={error} />
++      <div className="mt-6 flex justify-end gap-3">
++        <Button disabled={busy} variant="secondary" onClick={onClose}>
++          ยกเลิก
++        </Button>
++        <Button disabled={busy} variant="danger" onClick={onConfirm}>
++          {busy ? "กำลังบันทึก…" : "ยืนยัน"}
++        </Button>
++      </div>
++    </Modal>
++  );
++}
+diff --git a/src/components/m4/Field.jsx b/src/components/m4/Field.jsx
+new file mode 100644
+index 0000000..785c00d
+--- /dev/null
++++ b/src/components/m4/Field.jsx
+@@ -0,0 +1,24 @@
++import { useId } from "react";
++export default function Field({ label, error, id: suppliedId, ...props }) {
++  const generated = useId();
++  const id = suppliedId || generated;
++  return (
++    <div className="flex flex-col gap-1">
++      <label htmlFor={id} className="text-sm text-textSecondary">
++        {label}
++      </label>
++      <input
++        id={id}
++        aria-invalid={!!error}
++        aria-describedby={error ? `${id}-error` : undefined}
++        className="rounded-input border border-border px-3 py-2 bg-surface text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
++        {...props}
++      />
++      {error && (
++        <span id={`${id}-error`} className="text-danger text-sm">
++          {error}
++        </span>
++      )}
++    </div>
++  );
++}
+diff --git a/src/pages/admin/AdminRoutes.jsx b/src/pages/admin/AdminRoutes.jsx
+index 94147f2..da91798 100644
+--- a/src/pages/admin/AdminRoutes.jsx
++++ b/src/pages/admin/AdminRoutes.jsx
+@@ -1,85 +1,107 @@
+-import { useEffect, useState } from 'react'
+-import { useNavigate } from 'react-router-dom'
++import { Confirm, Feedback } from "../../components/m4/Feedback";
++import { statusLabel } from "../../services/m4/rules";
++import { useEffect, useState } from "react";
++import { useNavigate } from "react-router-dom";
+ 
+-import {
+-  listAllRoutes,
+-  deleteRoute,
+-} from '../../services/routeService'
++import { listAllRoutes, deleteRoute } from "../../services/routeService";
+ 
+-import Card from '../../components/common/Card'
+-import Badge from '../../components/common/Badge'
+-import Button from '../../components/common/Button'
+-import LoadingState from '../../components/common/LoadingState'
+-import ErrorState from '../../components/common/ErrorState'
++import Card from "../../components/common/Card";
++import Badge from "../../components/common/Badge";
++import Button from "../../components/common/Button";
++import LoadingState from "../../components/common/LoadingState";
+ 
+ export default function AdminRoutes() {
+-  const navigate = useNavigate()
++  const navigate = useNavigate();
+ 
+-  const [routes, setRoutes] = useState([])
+-  const [loading, setLoading] = useState(true)
+-  const [error, setError] = useState('')
++  const [routes, setRoutes] = useState([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState("");
++  const [deleting, setDeleting] = useState(null);
++  const [busy, setBusy] = useState(false);
++  const [success, setSuccess] = useState("");
+ 
+   async function loadRoutes() {
+-    setLoading(true)
+-    setError('')
+-
+-    const result = await listAllRoutes()
+-
+-    if (!result.success) {
+-      setError(result.error.message)
+-      setLoading(false)
+-      return
++    setLoading(true);
++    setError("");
++
++    try {
++      const result = await listAllRoutes();
++
++      if (!result.success) {
++        setError(result.error.message);
++        setLoading(false);
++        return;
++      }
++
++      setRoutes(result.data || []);
++    } catch {
++      setError("โหลดเส้นทางไม่สำเร็จ กรุณาลองอีกครั้ง");
++    } finally {
++      setLoading(false);
+     }
+-
+-    setRoutes(result.data || [])
+-    setLoading(false)
+   }
+ 
+   async function handleDelete(route) {
+-    const confirmed = window.confirm(
+-      `ยืนยันลบเส้นทาง "${route.name}" ? การลบนี้ไม่สามารถย้อนกลับได้`,
+-    )
+-
+-    if (!confirmed) return
+-
+-    const result = await deleteRoute(route.id)
+-
+-    if (!result.success) {
+-      setError(result.error.message)
+-      return
++    if (busy) return;
++    setBusy(true);
++    setError("");
++    try {
++      const result = await deleteRoute(route.id);
++
++      if (!result.success) {
++        setError(result.error.message);
++        return;
++      }
++
++      setDeleting(null);
++      setSuccess("ลบเส้นทางเรียบร้อยแล้ว");
++      await loadRoutes();
++    } catch {
++      setError("ลบเส้นทางไม่สำเร็จ กรุณาลองอีกครั้ง");
++    } finally {
++      setBusy(false);
+     }
+-
+-    await loadRoutes()
+   }
+ 
+   useEffect(() => {
+-    loadRoutes()
+-  }, [])
++    const timer = setTimeout(loadRoutes, 0);
++    return () => clearTimeout(timer);
++  }, []);
+ 
+   if (loading) {
+-    return <LoadingState />
+-  }
+-
+-  if (error) {
+-    return <ErrorState message={error} />
++    return <LoadingState />;
+   }
+ 
+   return (
+     <div>
++      <Feedback error={error} success={success} />
++      {error && (
++        <Button onClick={loadRoutes} disabled={busy}>
++          โหลดข้อมูลใหม่
++        </Button>
++      )}
++      {deleting && (
++        <Confirm
++          title="ลบเส้นทาง"
++          busy={busy}
++          error={error}
++          onClose={() => setDeleting(null)}
++          onConfirm={() => handleDelete(deleting)}
++        >
++          ยืนยันลบเส้นทาง “{deleting.name}” หรือไม่?
++          หากมีประวัติใช้งานให้ปิดใช้งานแทน
++        </Confirm>
++      )}
+       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+         <div>
+-          <h1 className="text-2xl font-bold text-primary">
+-            จัดการเส้นทาง
+-          </h1>
++          <h1 className="text-2xl font-bold text-primary">จัดการเส้นทาง</h1>
+ 
+           <p className="mt-1 text-sm text-textSecondary">
+             เส้นทางทั้งหมด {routes.length} เส้นทาง
+           </p>
+         </div>
+ 
+-        <Button
+-          onClick={() => navigate('/admin/routes/new')}
+-        >
++        <Button onClick={() => navigate("/admin/routes/new")}>
+           + สร้างเส้นทาง
+         </Button>
+       </div>
+@@ -87,13 +109,11 @@ export default function AdminRoutes() {
+       {routes.length === 0 ? (
+         <Card>
+           <div className="py-10 text-center">
+-            <p className="text-textSecondary">
+-              ยังไม่มีเส้นทางที่เปิดใช้งาน
+-            </p>
++            <p className="text-textSecondary">ยังไม่มีเส้นทางที่เปิดใช้งาน</p>
+ 
+             <Button
+               className="mt-4"
+-              onClick={() => navigate('/admin/routes/new')}
++              onClick={() => navigate("/admin/routes/new")}
+             >
+               สร้างเส้นทางแรก
+             </Button>
+@@ -112,8 +132,10 @@ export default function AdminRoutes() {
+                     {route.name}
+                   </h2>
+ 
+-                  <Badge color={route.status === 'ACTIVE' ? 'success' : 'warning'}>
+-                    {route.status}
++                  <Badge
++                    color={route.status === "ACTIVE" ? "success" : "warning"}
++                  >
++                    {statusLabel(route.status)}
+                   </Badge>
+                 </div>
+ 
+@@ -124,10 +146,10 @@ export default function AdminRoutes() {
+                 )}
+ 
+                 <p className="mt-2 text-sm text-textSecondary">
+-                  ระยะเวลา:{' '}
++                  ระยะเวลา:{" "}
+                   {route.duration_minutes
+                     ? `${route.duration_minutes} นาที`
+-                    : 'ไม่ระบุ'}
++                    : "ไม่ระบุ"}
+                 </p>
+               </div>
+ 
+@@ -142,9 +164,7 @@ export default function AdminRoutes() {
+ 
+                 <Button
+                   size="sm"
+-                  onClick={() =>
+-                    navigate(`/admin/routes/${route.id}/edit`)
+-                  }
++                  onClick={() => navigate(`/admin/routes/${route.id}/edit`)}
+                 >
+                   แก้ไข
+                 </Button>
+@@ -152,7 +172,11 @@ export default function AdminRoutes() {
+                 <Button
+                   variant="danger"
+                   size="sm"
+-                  onClick={() => handleDelete(route)}
++                  disabled={busy}
++                  onClick={() => {
++                    setError("");
++                    setDeleting(route);
++                  }}
+                 >
+                   ลบ
+                 </Button>
+@@ -162,5 +186,5 @@ export default function AdminRoutes() {
+         </div>
+       )}
+     </div>
+-  )
+-}
+\ No newline at end of file
++  );
++}
+diff --git a/src/pages/admin/RouteCreate.jsx b/src/pages/admin/RouteCreate.jsx
+index 9af978c..275a7b4 100644
+--- a/src/pages/admin/RouteCreate.jsx
++++ b/src/pages/admin/RouteCreate.jsx
+@@ -1,172 +1,173 @@
+-import { useEffect, useState } from 'react'
+-import { useNavigate } from 'react-router-dom'
++import { useEffect, useState } from "react";
++import { useNavigate } from "react-router-dom";
+ 
+-import { createRoute } from '../../services/routeService'
++import { createRoute } from "../../services/routeService";
+ 
+-import Card from '../../components/common/Card'
+-import Input from '../../components/common/Input'
+-import Button from '../../components/common/Button'
++import Card from "../../components/common/Card";
++import Input from "../../components/m4/Field";
++import Button from "../../components/common/Button";
+ 
+ export default function RouteCreate() {
+-    const navigate = useNavigate()
+-
+-    const [form, setForm] = useState(() => {
+-        const savedDraft = sessionStorage.getItem('route-create-draft')
+-
+-        if (savedDraft) {
+-            try {
+-                return JSON.parse(savedDraft)
+-            } catch {
+-                // ถ้า draft เสีย ให้ใช้ค่าเริ่มต้น
+-            }
+-        }
+-
+-        return {
+-            name: '',
+-            description: '',
+-            duration_minutes: '',
+-            status: 'ACTIVE',
+-        }
+-    })
+-
+-    const [error, setError] = useState('')
+-    const [submitting, setSubmitting] = useState(false)
+-
+-    useEffect(() => {
+-        sessionStorage.setItem(
+-            'route-create-draft',
+-            JSON.stringify(form),
+-        )
+-    }, [form])
+-
+-    function handleChange(event) {
+-        const { name, value } = event.target
+-
+-        setForm((current) => ({
+-            ...current,
+-            [name]: value,
+-        }))
++  const navigate = useNavigate();
++
++  const [form, setForm] = useState(() => {
++    const savedDraft = sessionStorage.getItem("route-create-draft");
++
++    if (savedDraft) {
++      try {
++        return JSON.parse(savedDraft);
++      } catch {
++        // ถ้า draft เสีย ให้ใช้ค่าเริ่มต้น
++      }
+     }
+ 
+-    async function handleSubmit(event) {
+-        event.preventDefault()
++    return {
++      name: "",
++      description: "",
++      duration_minutes: "",
++      status: "ACTIVE",
++    };
++  });
+ 
+-        setError('')
+-        setSubmitting(true)
++  const [error, setError] = useState("");
++  const [submitting, setSubmitting] = useState(false);
+ 
+-        const result = await createRoute(form)
++  useEffect(() => {
++    sessionStorage.setItem("route-create-draft", JSON.stringify(form));
++  }, [form]);
+ 
+-        if (!result.success) {
+-            setError(result.error.message)
+-            setSubmitting(false)
+-            return
+-        }
++  function handleChange(event) {
++    const { name, value } = event.target;
+ 
+-        sessionStorage.removeItem('route-create-draft')
+-        
+-        navigate(`/admin/routes/${result.data.id}/edit`)
+-    }
++    setForm((current) => ({
++      ...current,
++      [name]: value,
++    }));
++  }
+ 
+-    return (
+-        <div className="max-w-3xl">
+-            <div className="mb-6">
+-                <h1 className="text-2xl font-bold text-primary">
+-                    สร้างเส้นทางใหม่
+-                </h1>
++  async function handleSubmit(event) {
++    event.preventDefault();
+ 
+-                <p className="mt-1 text-sm text-textSecondary">
+-                    กรอกข้อมูลพื้นฐานของเส้นทางนำเที่ยว
+-                </p>
+-            </div>
++    setError("");
++    setSubmitting(true);
++
++    try {
++      const result = await createRoute(form);
+ 
+-            <Card>
+-                <form
+-                    onSubmit={handleSubmit}
+-                    className="flex flex-col gap-5"
+-                >
+-                    {error && (
+-                        <div className="rounded-input border border-danger bg-danger/10 p-3 text-sm text-danger">
+-                            {error}
+-                        </div>
+-                    )}
+-
+-                    <Input
+-                        label="ชื่อเส้นทาง"
+-                        name="name"
+-                        value={form.name}
+-                        onChange={handleChange}
+-                        placeholder="เช่น Campus Highlights Route"
+-                        required
+-                    />
+-
+-                    <div className="flex flex-col gap-1">
+-                        <label className="text-sm text-textSecondary">
+-                            คำอธิบาย
+-                        </label>
+-
+-                        <textarea
+-                            name="description"
+-                            value={form.description}
+-                            onChange={handleChange}
+-                            rows={4}
+-                            placeholder="อธิบายรายละเอียดของเส้นทาง"
+-                            className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
+-                        />
+-                    </div>
+-
+-                    <Input
+-                        label="ระยะเวลาโดยประมาณ (นาที)"
+-                        name="duration_minutes"
+-                        type="number"
+-                        min="1"
+-                        step="1"
+-                        value={form.duration_minutes}
+-                        onChange={handleChange}
+-                        placeholder="เช่น 60"
+-                    />
+-
+-                    <div className="flex flex-col gap-1">
+-                        <label className="text-sm text-textSecondary">
+-                            สถานะ
+-                        </label>
+-
+-                        <select
+-                            name="status"
+-                            value={form.status}
+-                            onChange={handleChange}
+-                            className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
+-                        >
+-                            <option value="ACTIVE">
+-                                ACTIVE
+-                            </option>
+-
+-                            <option value="INACTIVE">
+-                                INACTIVE
+-                            </option>
+-                        </select>
+-                    </div>
+-
+-                    <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+-                        <Button
+-                            type="button"
+-                            variant="secondary"
+-                            disabled={submitting}
+-                            onClick={() => navigate('/admin/routes')}
+-                        >
+-                            ยกเลิก
+-                        </Button>
+-
+-                        <Button
+-                            type="submit"
+-                            disabled={submitting}
+-                        >
+-                            {submitting
+-                                ? 'กำลังบันทึก...'
+-                                : 'สร้างเส้นทาง'}
+-                        </Button>
+-                    </div>
+-                </form>
+-            </Card>
+-        </div>
+-    )
+-}
+\ No newline at end of file
++      if (!result.success) {
++        setError(result.error.message);
++        setSubmitting(false);
++        return;
++      }
++
++      sessionStorage.removeItem("route-create-draft");
++
++      navigate(`/admin/routes/${result.data.id}/edit`);
++    } catch {
++      setError("สร้างเส้นทางไม่สำเร็จ กรุณาลองอีกครั้ง");
++    } finally {
++      setSubmitting(false);
++    }
++  }
++
++  return (
++    <div className="max-w-3xl">
++      <div className="mb-6">
++        <h1 className="text-2xl font-bold text-primary">สร้างเส้นทางใหม่</h1>
++
++        <p className="mt-1 text-sm text-textSecondary">
++          กรอกข้อมูลพื้นฐานของเส้นทางนำเที่ยว
++        </p>
++      </div>
++
++      <Card>
++        <form
++          noValidate
++          onSubmit={handleSubmit}
++          className="flex flex-col gap-5"
++        >
++          {error && (
++            <div className="rounded-input border border-danger bg-danger/10 p-3 text-sm text-danger">
++              {error}
++            </div>
++          )}
++
++          <Input
++            label="ชื่อเส้นทาง"
++            name="name"
++            value={form.name}
++            onChange={handleChange}
++            placeholder="เช่น Campus Highlights Route"
++            required
++          />
++
++          <div className="flex flex-col gap-1">
++            <label
++              htmlFor="route-description"
++              className="text-sm text-textSecondary"
++            >
++              คำอธิบาย
++            </label>
++
++            <textarea
++              id="route-description"
++              name="description"
++              value={form.description}
++              onChange={handleChange}
++              rows={4}
++              placeholder="อธิบายรายละเอียดของเส้นทาง"
++              className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
++            />
++          </div>
++
++          <Input
++            label="ระยะเวลาโดยประมาณ (นาที)"
++            name="duration_minutes"
++            type="number"
++            min="1"
++            step="1"
++            value={form.duration_minutes}
++            onChange={handleChange}
++            placeholder="เช่น 60"
++          />
++
++          <div className="flex flex-col gap-1">
++            <label
++              htmlFor="route-status"
++              className="text-sm text-textSecondary"
++            >
++              สถานะ
++            </label>
++
++            <select
++              id="route-status"
++              name="status"
++              value={form.status}
++              onChange={handleChange}
++              className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
++            >
++              <option value="ACTIVE">เปิดใช้งาน</option>
++
++              <option value="INACTIVE">ปิดใช้งาน</option>
++            </select>
++          </div>
++
++          <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
++            <Button
++              type="button"
++              variant="secondary"
++              disabled={submitting}
++              onClick={() => navigate("/admin/routes")}
++            >
++              ยกเลิก
++            </Button>
++
++            <Button type="submit" disabled={submitting}>
++              {submitting ? "กำลังบันทึก..." : "สร้างเส้นทาง"}
++            </Button>
++          </div>
++        </form>
++      </Card>
++    </div>
++  );
++}
+diff --git a/src/pages/admin/RouteEdit.jsx b/src/pages/admin/RouteEdit.jsx
+index 90ca82c..fbafc4c 100644
+--- a/src/pages/admin/RouteEdit.jsx
++++ b/src/pages/admin/RouteEdit.jsx
+@@ -1,438 +1,554 @@
+-import { useEffect, useState } from 'react'
+-import { useNavigate, useParams } from 'react-router-dom'
++import { Feedback, Confirm } from "../../components/m4/Feedback";
++import { validateStop } from "../../services/m4/rules";
++import { useEffect, useState } from "react";
++import { useNavigate, useParams } from "react-router-dom";
+ 
+ import {
+-    getRouteDetail,
+-    listRouteStops,
+-    updateRoute,
+-    replaceRouteStops,
+-} from '../../services/routeService'
+-
+-import Card from '../../components/common/Card'
+-import Input from '../../components/common/Input'
+-import Button from '../../components/common/Button'
+-import LoadingState from '../../components/common/LoadingState'
+-import ErrorState from '../../components/common/ErrorState'
++  getRouteDetail,
++  listRouteStops,
++  updateRoute,
++  replaceRouteStops,
++} from "../../services/routeService";
++
++import Card from "../../components/common/Card";
++import Input from "../../components/m4/Field";
++import Button from "../../components/common/Button";
++import LoadingState from "../../components/common/LoadingState";
++import ErrorState from "../../components/common/ErrorState";
+ 
+ export default function RouteEdit() {
+-    const { id } = useParams()
+-    const navigate = useNavigate()
+-
+-    const [form, setForm] = useState({
+-        name: '',
+-        description: '',
+-        duration_minutes: '',
+-        status: 'ACTIVE',
+-    })
+-
+-    const [stops, setStops] = useState([])
+-    const [newStop, setNewStop] = useState({
+-        name: '',
+-        description: '',
+-        latitude: '',
+-        longitude: '',
+-        image_url: '',
+-    })
+-    const [loading, setLoading] = useState(true)
+-    const [error, setError] = useState('')
+-    const [stopError, setStopError] = useState('')
+-    const [submitting, setSubmitting] = useState(false)
+-    const [savingStops, setSavingStops] = useState(false)
+-
+-    useEffect(() => {
+-        async function load() {
+-            setLoading(true)
+-            setError('')
+-
+-            const routeResult = await getRouteDetail(id)
+-
+-            if (!routeResult.success) {
+-                setError(routeResult.error.message)
+-                setLoading(false)
+-                return
+-            }
+-
+-            const route = routeResult.data
+-
+-            setForm({
+-                name: route.name || '',
+-                description: route.description || '',
+-                duration_minutes: route.duration_minutes ?? '',
+-                status: route.status || 'ACTIVE',
+-            })
+-
+-            const stopsResult = await listRouteStops(id)
+-
+-            if (stopsResult.success) {
+-                setStops(stopsResult.data || [])
+-            }
+-
+-            setLoading(false)
++  const { id } = useParams();
++  const navigate = useNavigate();
++
++  const [form, setForm] = useState({
++    name: "",
++    description: "",
++    duration_minutes: "",
++    status: "ACTIVE",
++  });
++
++  const [stops, setStops] = useState([]);
++  const [editingStop, setEditingStop] = useState(null);
++  const [newStop, setNewStop] = useState({
++    name: "",
++    description: "",
++    latitude: "",
++    longitude: "",
++    image_url: "",
++  });
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState("");
++  const [stopError, setStopError] = useState("");
++  const [submitting, setSubmitting] = useState(false);
++  const [savingStops, setSavingStops] = useState(false);
++  const [success, setSuccess] = useState("");
++  const [confirmStops, setConfirmStops] = useState(false);
++  const [stopsLoaded, setStopsLoaded] = useState(false);
++
++  useEffect(() => {
++    let active = true;
++    async function load() {
++      try {
++        setLoading(true);
++        setError("");
++
++        const routeResult = await getRouteDetail(id);
++
++        if (!routeResult.success) {
++          setError(routeResult.error.message);
++          setLoading(false);
++          return;
+         }
+ 
+-        load()
+-    }, [id])
++        if (!active) return;
++        const route = routeResult.data;
+ 
+-    function handleChange(event) {
+-        const { name, value } = event.target
++        setForm({
++          name: route.name || "",
++          description: route.description || "",
++          duration_minutes: route.duration_minutes ?? "",
++          status: route.status || "ACTIVE",
++        });
+ 
+-        setForm((current) => ({
+-            ...current,
+-            [name]: value,
+-        }))
+-    }
+-
+-    function handleStopChange(event) {
+-        const { name, value } = event.target
+-
+-        setNewStop((current) => ({
+-            ...current,
+-            [name]: value,
+-        }))
+-    }
++        const stopsResult = await listRouteStops(id);
+ 
+-    function handleAddStop() {
+-        if (!newStop.name.trim()) {
+-            setStopError('กรุณากรอกชื่อจุดแวะ')
+-            return
++        if (stopsResult.success) {
++          setStops(stopsResult.data || []);
++          setStopsLoaded(true);
++        } else {
++          setStopError("โหลดจุดแวะไม่สำเร็จ กรุณาโหลดหน้าใหม่ก่อนแก้ไข");
+         }
+ 
+-        if (newStop.latitude === '' || newStop.longitude === '') {
+-            setStopError('กรุณากรอก Latitude และ Longitude')
+-            return
++        setLoading(false);
++      } catch {
++        if (active) {
++          setError("โหลดข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง");
++          setLoading(false);
+         }
+-
+-        setStops((current) => [
+-            ...current,
+-            {
+-                ...newStop,
+-                id: `temp-${Date.now()}`,
+-            },
+-        ])
+-
+-        setNewStop({
+-            name: '',
+-            description: '',
+-            latitude: '',
+-            longitude: '',
+-            image_url: '',
+-        })
+-
+-        setStopError('')
++      }
+     }
+ 
+-    function moveStop(index, direction) {
+-        setStops((current) => {
+-            const newIndex = index + direction
+-
+-            if (newIndex < 0 || newIndex >= current.length) {
+-                return current
+-            }
+-
+-            const updated = [...current]
+-
+-            const temp = updated[index]
+-            updated[index] = updated[newIndex]
+-            updated[newIndex] = temp
+-
+-            return updated
+-        })
++    load();
++    return () => {
++      active = false;
++    };
++  }, [id]);
++
++  function handleChange(event) {
++    const { name, value } = event.target;
++
++    setForm((current) => ({
++      ...current,
++      [name]: value,
++    }));
++  }
++
++  function handleStopChange(event) {
++    const { name, value } = event.target;
++
++    setNewStop((current) => ({
++      ...current,
++      [name]: value,
++    }));
++  }
++
++  function handleAddStop() {
++    const message = validateStop(newStop);
++    if (message) {
++      setStopError(message);
++      return;
+     }
+-
+-    async function handleSaveStops() {
+-        setStopError('')
+-        setSavingStops(true)
+-
+-        const result = await replaceRouteStops(id, stops)
+-
+-        if (!result.success) {
+-            setStopError(result.error.message)
+-            setSavingStops(false)
+-            return
+-        }
+-
+-        setStops(result.data || [])
+-        setSavingStops(false)
++    setStops((current) =>
++      editingStop === null
++        ? [...current, { ...newStop, id: `temp-${Date.now()}` }]
++        : current.map((stop, index) =>
++            index === editingStop ? { ...stop, ...newStop } : stop,
++          ),
++    );
++    setEditingStop(null);
++
++    setNewStop({
++      name: "",
++      description: "",
++      latitude: "",
++      longitude: "",
++      image_url: "",
++    });
++
++    setStopError("");
++  }
++
++  function moveStop(index, direction) {
++    setStops((current) => {
++      const newIndex = index + direction;
++
++      if (newIndex < 0 || newIndex >= current.length) {
++        return current;
++      }
++
++      const updated = [...current];
++
++      const temp = updated[index];
++      updated[index] = updated[newIndex];
++      updated[newIndex] = temp;
++
++      return updated;
++    });
++  }
++
++  async function handleSaveStops() {
++    if (!stopsLoaded || savingStops) return;
++    setStopError("");
++    setSuccess("");
++    setSavingStops(true);
++    try {
++      const result = await replaceRouteStops(id, stops);
++
++      if (!result.success) {
++        setStopError(result.error.message);
++        setSavingStops(false);
++        return;
++      }
++
++      setStops(result.data || []);
++      setConfirmStops(false);
++      setSuccess("บันทึกจุดแวะและลำดับเรียบร้อยแล้ว");
++    } catch {
++      setStopError("บันทึกจุดแวะไม่สำเร็จ กรุณาลองอีกครั้ง");
++    } finally {
++      setSavingStops(false);
+     }
++  }
+ 
+-    async function handleSubmit(event) {
+-        event.preventDefault()
+-
+-        setError('')
+-        setSubmitting(true)
++  async function handleSubmit(event) {
++    event.preventDefault();
+ 
+-        const result = await updateRoute(id, form)
++    setError("");
++    setSubmitting(true);
+ 
+-        if (!result.success) {
+-            setError(result.error.message)
+-            setSubmitting(false)
+-            return
+-        }
+-
+-        setSubmitting(false)
+-    }
++    setSuccess("");
++    try {
++      const result = await updateRoute(id, form);
+ 
+-    if (loading) {
+-        return <LoadingState />
+-    }
++      if (!result.success) {
++        setError(result.error.message);
++        setSubmitting(false);
++        return;
++      }
+ 
+-    if (error && !form.name) {
+-        return <ErrorState message={error} />
++      setSuccess("บันทึกเส้นทางเรียบร้อยแล้ว");
++    } catch {
++      setError("บันทึกเส้นทางไม่สำเร็จ กรุณาลองอีกครั้ง");
++    } finally {
++      setSubmitting(false);
+     }
+-
+-    return (
+-        <div className="max-w-3xl">
+-            <div className="mb-6">
+-                <h1 className="text-2xl font-bold text-primary">
+-                    แก้ไขเส้นทาง
+-                </h1>
+-
+-                <p className="mt-1 text-sm text-textSecondary">
+-                    แก้ไขข้อมูลเส้นทางและจัดการจุดแวะชม
+-                </p>
++  }
++
++  if (loading) {
++    return <LoadingState />;
++  }
++
++  if (error && !form.name) {
++    return <ErrorState message={error} />;
++  }
++
++  return (
++    <div className="max-w-3xl">
++      <Feedback success={success} />
++      {confirmStops && (
++        <Confirm
++          title="บันทึกจุดแวะทั้งหมด"
++          busy={savingStops}
++          error={stopError}
++          onClose={() => setConfirmStops(false)}
++          onConfirm={handleSaveStops}
++        >
++          ยืนยันใช้จุดแวะและลำดับที่แสดง {stops.length} จุด
++          แทนรายการเดิมหรือไม่?
++        </Confirm>
++      )}
++      <div className="mb-6">
++        <h1 className="text-2xl font-bold text-primary">แก้ไขเส้นทาง</h1>
++
++        <p className="mt-1 text-sm text-textSecondary">
++          แก้ไขข้อมูลเส้นทางและจัดการจุดแวะชม
++        </p>
++      </div>
++
++      <Card>
++        <form
++          noValidate
++          onSubmit={handleSubmit}
++          className="flex flex-col gap-5"
++        >
++          {error && (
++            <div className="rounded-input border border-danger bg-danger/10 p-3 text-sm text-danger">
++              {error}
+             </div>
+-
+-            <Card>
+-                <form
+-                    onSubmit={handleSubmit}
+-                    className="flex flex-col gap-5"
++          )}
++
++          <Input
++            label="ชื่อเส้นทาง"
++            name="name"
++            value={form.name}
++            onChange={handleChange}
++            required
++          />
++
++          <div className="flex flex-col gap-1">
++            <label
++              htmlFor="route-description"
++              className="text-sm text-textSecondary"
++            >
++              คำอธิบาย
++            </label>
++
++            <textarea
++              id="route-description"
++              name="description"
++              value={form.description}
++              onChange={handleChange}
++              rows={4}
++              className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
++            />
++          </div>
++
++          <Input
++            label="ระยะเวลาโดยประมาณ (นาที)"
++            name="duration_minutes"
++            type="number"
++            min="1"
++            step="1"
++            value={form.duration_minutes}
++            onChange={handleChange}
++          />
++
++          <div className="flex flex-col gap-1">
++            <label
++              htmlFor="route-status"
++              className="text-sm text-textSecondary"
++            >
++              สถานะ
++            </label>
++
++            <select
++              id="route-status"
++              name="status"
++              value={form.status}
++              onChange={handleChange}
++              className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
++            >
++              <option value="ACTIVE">เปิดใช้งาน</option>
++              <option value="INACTIVE">ปิดใช้งาน</option>
++            </select>
++          </div>
++
++          <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
++            <Button
++              type="button"
++              variant="secondary"
++              onClick={() => navigate("/admin/routes")}
++            >
++              กลับ
++            </Button>
++
++            <Button type="submit" disabled={submitting}>
++              {submitting ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
++            </Button>
++          </div>
++        </form>
++
++        {stops.length > 0 && (
++          <div className="mt-6 border-t border-border pt-5">
++            <h3 className="mb-3 font-semibold text-textPrimary">
++              รายการจุดแวะ
++            </h3>
++
++            <div className="flex flex-col gap-3">
++              {stops.map((stop, index) => (
++                <div
++                  key={stop.id || `${stop.name}-${index}`}
++                  className="flex flex-col gap-3 rounded-card border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between"
+                 >
+-                    {error && (
+-                        <div className="rounded-input border border-danger bg-danger/10 p-3 text-sm text-danger">
+-                            {error}
+-                        </div>
++                  <div>
++                    <p className="font-medium text-textPrimary">
++                      {index + 1}. {stop.name}
++                    </p>
++
++                    {stop.description && (
++                      <p className="mt-1 text-sm text-textSecondary">
++                        {stop.description}
++                      </p>
+                     )}
+ 
+-                    <Input
+-                        label="ชื่อเส้นทาง"
+-                        name="name"
+-                        value={form.name}
+-                        onChange={handleChange}
+-                        required
+-                    />
+-
+-                    <div className="flex flex-col gap-1">
+-                        <label className="text-sm text-textSecondary">
+-                            คำอธิบาย
+-                        </label>
+-
+-                        <textarea
+-                            name="description"
+-                            value={form.description}
+-                            onChange={handleChange}
+-                            rows={4}
+-                            className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
+-                        />
+-                    </div>
+-
+-                    <Input
+-                        label="ระยะเวลาโดยประมาณ (นาที)"
+-                        name="duration_minutes"
+-                        type="number"
+-                        min="1"
+-                        step="1"
+-                        value={form.duration_minutes}
+-                        onChange={handleChange}
+-                    />
+-
+-                    <div className="flex flex-col gap-1">
+-                        <label className="text-sm text-textSecondary">
+-                            สถานะ
+-                        </label>
+-
+-                        <select
+-                            name="status"
+-                            value={form.status}
+-                            onChange={handleChange}
+-                            className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
+-                        >
+-                            <option value="ACTIVE">ACTIVE</option>
+-                            <option value="INACTIVE">INACTIVE</option>
+-                        </select>
+-                    </div>
+-
+-                    <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+-                        <Button
+-                            type="button"
+-                            variant="secondary"
+-                            onClick={() => navigate('/admin/routes')}
+-                        >
+-                            กลับ
+-                        </Button>
+-
+-                        <Button
+-                            type="submit"
+-                            disabled={submitting}
+-                        >
+-                            {submitting
+-                                ? 'กำลังบันทึก...'
+-                                : 'บันทึกการแก้ไข'}
+-                        </Button>
+-                    </div>
+-                </form>
+-
+-                {stops.length > 0 && (
+-                    <div className="mt-6 border-t border-border pt-5">
+-                        <h3 className="mb-3 font-semibold text-textPrimary">
+-                            รายการจุดแวะ
+-                        </h3>
+-
+-                        <div className="flex flex-col gap-3">
+-                            {stops.map((stop, index) => (
+-                                <div
+-                                    key={stop.id || `${stop.name}-${index}`}
+-                                    className="flex flex-col gap-3 rounded-card border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between"
+-                                >
+-                                    <div>
+-                                        <p className="font-medium text-textPrimary">
+-                                            {index + 1}. {stop.name}
+-                                        </p>
+-
+-                                        {stop.description && (
+-                                            <p className="mt-1 text-sm text-textSecondary">
+-                                                {stop.description}
+-                                            </p>
+-                                        )}
+-
+-                                        <p className="mt-1 text-xs text-textSecondary">
+-                                            Lat: {stop.latitude} / Lng: {stop.longitude}
+-                                        </p>
+-                                    </div>
+-
+-                                    <div className="flex gap-2">
+-                                        <Button
+-                                            type="button"
+-                                            variant="secondary"
+-                                            size="sm"
+-                                            disabled={index === 0}
+-                                            onClick={() => moveStop(index, -1)}
+-                                        >
+-                                            ↑
+-                                        </Button>
+-
+-                                        <Button
+-                                            type="button"
+-                                            variant="secondary"
+-                                            size="sm"
+-                                            disabled={index === stops.length - 1}
+-                                            onClick={() => moveStop(index, 1)}
+-                                        >
+-                                            ↓
+-                                        </Button>
+-
+-                                        <Button
+-                                            type="button"
+-                                            variant="danger"
+-                                            size="sm"
+-                                            onClick={() => {
+-                                                setStops((current) =>
+-                                                    current.filter((_, stopIndex) => stopIndex !== index),
+-                                                )
+-                                            }}
+-                                        >
+-                                            ลบ
+-                                        </Button>
+-                                    </div>
+-                                </div>
+-                            ))}
+-                        </div>
+-                    </div>
+-                )}
+-            </Card>
+-
+-            <Card className="mt-6">
+-                <div className="mb-5">
+-                    <h2 className="text-lg font-semibold text-textPrimary">
+-                        จุดแวะชม
+-                    </h2>
+-
+-                    <p className="mt-1 text-sm text-textSecondary">
+-                        ตอนนี้มี {stops.length} จุด
++                    <p className="mt-1 text-xs text-textSecondary">
++                      Lat: {stop.latitude} / Lng: {stop.longitude}
+                     </p>
+-                </div>
++                  </div>
+ 
+-                {stopError && (
+-                    <div className="mb-4 rounded-input border border-danger bg-danger/10 p-3 text-sm text-danger">
+-                        {stopError}
+-                    </div>
+-                )}
+-
+-                <div className="flex flex-col gap-4">
+-                    <Input
+-                        label="ชื่อจุดแวะ"
+-                        name="name"
+-                        value={newStop.name}
+-                        onChange={handleStopChange}
+-                        placeholder="เช่น อาคารเรียนรวม"
+-                    />
+-
+-                    <div className="flex flex-col gap-1">
+-                        <label className="text-sm text-textSecondary">
+-                            คำอธิบาย
+-                        </label>
+-
+-                        <textarea
+-                            name="description"
+-                            value={newStop.description}
+-                            onChange={handleStopChange}
+-                            rows={3}
+-                            placeholder="รายละเอียดของจุดแวะ"
+-                            className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
+-                        />
+-                    </div>
+-
+-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+-                        <Input
+-                            label="Latitude"
+-                            name="latitude"
+-                            type="number"
+-                            step="any"
+-                            value={newStop.latitude}
+-                            onChange={handleStopChange}
+-                            placeholder="เช่น 8.641234"
+-                        />
+-
+-                        <Input
+-                            label="Longitude"
+-                            name="longitude"
+-                            type="number"
+-                            step="any"
+-                            value={newStop.longitude}
+-                            onChange={handleStopChange}
+-                            placeholder="เช่น 99.898765"
+-                        />
+-                    </div>
+-
+-                    <Input
+-                        label="Image URL"
+-                        name="image_url"
+-                        value={newStop.image_url}
+-                        onChange={handleStopChange}
+-                        placeholder="https://..."
+-                    />
+-
+-                    <div className="flex justify-end">
+-                        <Button
+-                            type="button"
+-                            onClick={handleAddStop}
+-                        >
+-                            + เพิ่มจุดแวะ
+-                        </Button>
+-                    </div>
+-                </div>
++                  <div className="flex gap-2">
++                    <Button
++                      type="button"
++                      size="sm"
++                      variant="secondary"
++                      disabled={savingStops || !stopsLoaded}
++                      onClick={() => {
++                        setEditingStop(index);
++                        setNewStop({ ...stop });
++                        setStopError("");
++                      }}
++                    >
++                      แก้ไขจุดแวะ
++                    </Button>
++                    <Button
++                      type="button"
++                      variant="secondary"
++                      size="sm"
++                      disabled={
++                        savingStops ||
++                        !stopsLoaded ||
++                        editingStop !== null ||
++                        index === 0
++                      }
++                      aria-label="เลื่อนจุดแวะขึ้น"
++                      onClick={() => moveStop(index, -1)}
++                    >
++                      ↑
++                    </Button>
+ 
+-                <div className="mt-6 flex justify-end border-t border-border pt-4">
+                     <Button
+-                        type="button"
+-                        disabled={savingStops}
+-                        onClick={handleSaveStops}
++                      type="button"
++                      variant="secondary"
++                      size="sm"
++                      disabled={
++                        savingStops ||
++                        !stopsLoaded ||
++                        editingStop !== null ||
++                        index === stops.length - 1
++                      }
++                      aria-label="เลื่อนจุดแวะลง"
++                      onClick={() => moveStop(index, 1)}
+                     >
+-                        {savingStops
+-                            ? 'กำลังบันทึก...'
+-                            : 'บันทึกจุดแวะทั้งหมด'}
++                      ↓
+                     </Button>
++
++                    <Button
++                      type="button"
++                      variant="danger"
++                      disabled={
++                        savingStops || !stopsLoaded || editingStop !== null
++                      }
++                      size="sm"
++                      onClick={() => {
++                        setStops((current) =>
++                          current.filter((_, stopIndex) => stopIndex !== index),
++                        );
++                      }}
++                    >
++                      ลบ
++                    </Button>
++                  </div>
+                 </div>
+-            </Card>
++              ))}
++            </div>
++          </div>
++        )}
++      </Card>
++
++      <Card className="mt-6">
++        <div className="mb-5">
++          <h2 className="text-lg font-semibold text-textPrimary">จุดแวะชม</h2>
++
++          <p className="mt-1 text-sm text-textSecondary">
++            ตอนนี้มี {stops.length} จุด
++          </p>
++        </div>
++
++        {stopError && (
++          <div className="mb-4 rounded-input border border-danger bg-danger/10 p-3 text-sm text-danger">
++            {stopError}
++          </div>
++        )}
++
++        <div className="flex flex-col gap-4">
++          <Input
++            label="ชื่อจุดแวะ"
++            name="name"
++            value={newStop.name}
++            onChange={handleStopChange}
++            placeholder="เช่น อาคารเรียนรวม"
++          />
++
++          <div className="flex flex-col gap-1">
++            <label
++              htmlFor="stop-description"
++              className="text-sm text-textSecondary"
++            >
++              คำอธิบาย
++            </label>
++
++            <textarea
++              id="stop-description"
++              name="description"
++              value={newStop.description}
++              onChange={handleStopChange}
++              rows={3}
++              placeholder="รายละเอียดของจุดแวะ"
++              className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary"
++            />
++          </div>
++
++          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++            <Input
++              label="Latitude"
++              name="latitude"
++              type="number"
++              step="any"
++              value={newStop.latitude}
++              onChange={handleStopChange}
++              placeholder="เช่น 8.641234"
++            />
++
++            <Input
++              label="Longitude"
++              name="longitude"
++              type="number"
++              step="any"
++              value={newStop.longitude}
++              onChange={handleStopChange}
++              placeholder="เช่น 99.898765"
++            />
++          </div>
++
++          <Input
++            label="Image URL"
++            name="image_url"
++            value={newStop.image_url}
++            onChange={handleStopChange}
++            placeholder="https://..."
++          />
++
++          <div className="flex justify-end">
++            <Button
++              type="button"
++              disabled={savingStops || !stopsLoaded}
++              onClick={handleAddStop}
++            >
++              {editingStop === null ? "+ เพิ่มจุดแวะ" : "ยืนยันแก้ไขจุดแวะ"}
++            </Button>
++          </div>
++        </div>
++
++        {(editingStop !== null ||
++          newStop.name ||
++          newStop.latitude ||
++          newStop.longitude ||
++          newStop.description ||
++          newStop.image_url) && (
++          <div className="mt-4 text-sm text-textSecondary">
++            มีข้อมูลจุดแวะที่ยังไม่เพิ่มในรายการ
++            กรุณายืนยันจุดแวะก่อนบันทึกทั้งหมด{" "}
++            <Button
++              type="button"
++              variant="secondary"
++              disabled={savingStops}
++              onClick={() => {
++                setEditingStop(null);
++                setNewStop({
++                  name: "",
++                  description: "",
++                  latitude: "",
++                  longitude: "",
++                  image_url: "",
++                });
++                setStopError("");
++              }}
++            >
++              ยกเลิกข้อมูลจุดแวะที่กำลังกรอก
++            </Button>
++          </div>
++        )}
++        <div className="mt-6 flex justify-end border-t border-border pt-4">
++          <Button
++            type="button"
++            disabled={
++              savingStops ||
++              !stopsLoaded ||
++              editingStop !== null ||
++              !!(
++                newStop.name ||
++                newStop.latitude ||
++                newStop.longitude ||
++                newStop.description ||
++                newStop.image_url
++              )
++            }
++            onClick={() => setConfirmStops(true)}
++          >
++            {savingStops ? "กำลังบันทึก..." : "บันทึกจุดแวะทั้งหมด"}
++          </Button>
+         </div>
+-    )
+-}
+\ No newline at end of file
++      </Card>
++    </div>
++  );
++}
+diff --git a/src/pages/admin/Schedules.jsx b/src/pages/admin/Schedules.jsx
+index b6cd25b..ec3e778 100644
+--- a/src/pages/admin/Schedules.jsx
++++ b/src/pages/admin/Schedules.jsx
+@@ -1,318 +1,338 @@
+-import React, { useState, useEffect } from 'react';
+-import { listOpenSchedules, createSchedule } from '../../services/scheduleService';
+-import { assignGuide } from '../../services/assignmentService';
+-import { listActiveRoutes } from '../../services/routeService';
+-import { listAllProfiles } from '../../services/profileService';
+-
++import { useEffect, useState } from "react";
++import {
++  listAdminSchedules,
++  createSchedule,
++} from "../../services/scheduleService";
++import { assignGuide } from "../../services/assignmentService";
++import { listActiveRoutes } from "../../services/routeService";
++import { listAllProfiles } from "../../services/profileService";
++import Button from "../../components/common/Button";
++import { Feedback, Modal } from "../../components/m4/Feedback";
++import {
++  validateSchedule,
++  canAssign,
++  isUpcoming,
++  thaiToday,
++  formatDate,
++  formatTime,
++  statusLabel,
++} from "../../services/m4/rules";
++const scheduleStatusColors = {
++  OPEN: "bg-green-100 text-green-800 border-green-200",
++  FULL: "bg-amber-100 text-amber-900 border-amber-200",
++  CLOSED: "bg-slate-100 text-slate-700 border-slate-300",
++  CANCELLED: "bg-red-100 text-red-800 border-red-200",
++  COMPLETED: "bg-blue-100 text-blue-800 border-blue-200",
++};
++const emptyForm = {
++  route_id: "",
++  tour_date: "",
++  start_time: "",
++  end_time: "",
++  max_participants: 1,
++};
++const fieldStyle =
++  "w-full rounded-input border border-border bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary";
+ export default function AdminSchedules() {
+-  // State สำหรับเก็บข้อมูลจริงจาก Database
+   const [schedules, setSchedules] = useState([]);
+   const [routes, setRoutes] = useState([]);
+   const [guides, setGuides] = useState([]);
+-
+-  const [isLoading, setIsLoading] = useState(true);
+-  const [errorMsg, setErrorMsg] = useState('');
+-
+-  // State สำหรับจัดการ Modal และ Form
+-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+-  const [selectedSchedule, setSelectedSchedule] = useState(null);
+-
+-  const [scheduleForm, setScheduleForm] = useState({
+-    route_id: '',
+-    tour_date: '',
+-    start_time: '',
+-    end_time: '',
+-    max_participants: 1
+-  });
+-  const [selectedGuideId, setSelectedGuideId] = useState('');
+-  const [isSubmitting, setIsSubmitting] = useState(false);
+-
+-  // ดึงข้อมูลทั้งหมดเมื่อเข้าสู่หน้าจอ
+-  const fetchData = async () => {
+-    setIsLoading(true);
+-    setErrorMsg('');
+-
++  const [loading, setLoading] = useState(true);
++  const [reload, setReload] = useState(0);
++  const [error, setError] = useState("");
++  const [success, setSuccess] = useState("");
++  const [modal, setModal] = useState(null);
++  const [selected, setSelected] = useState(null);
++  const [form, setForm] = useState(emptyForm);
++  const [guideId, setGuideId] = useState("");
++  const [busy, setBusy] = useState(false);
++  const [errors, setErrors] = useState({});
++  const [actionError, setActionError] = useState("");
++  useEffect(() => {
++    let active = true;
++    Promise.all([listAdminSchedules(), listActiveRoutes(), listAllProfiles()])
++      .then(([s, r, g]) => {
++        if (!active) return;
++        if (!s.success || !r.success || !g.success) {
++          setError(
++            "โหลดตาราง เส้นทาง หรือรายชื่อไกด์ไม่สำเร็จ กรุณาลองอีกครั้ง",
++          );
++          return;
++        }
++        setSchedules(s.data || []);
++        setRoutes(r.data || []);
++        setGuides(
++          (g.data || []).filter(
++            (x) => x.role === "GUIDE" && x.account_status === "ACTIVE",
++          ),
++        );
++        setError("");
++      })
++      .catch(() => {
++        if (active) setError("เชื่อมต่อไม่สำเร็จ กรุณาลองอีกครั้ง");
++      })
++      .finally(() => {
++        if (active) setLoading(false);
++      });
++    return () => {
++      active = false;
++    };
++  }, [reload]);
++  function open(kind, schedule) {
++    setActionError("");
++    setErrors({});
++    setSuccess("");
++    setModal(kind);
++    setSelected(schedule);
++    setForm(emptyForm);
++    const assignment = Array.isArray(schedule?.guide_assignments)
++      ? schedule.guide_assignments[0]
++      : schedule?.guide_assignments;
++    setGuideId(assignment?.guide_id || "");
++  }
++  async function submit(event) {
++    event.preventDefault();
++    if (busy) return;
++    const next =
++      modal === "create"
++        ? validateSchedule(form)
++        : !guideId
++          ? { guide: "กรุณาเลือกไกด์" }
++          : {};
++    setErrors(next);
++    setActionError("");
++    if (Object.keys(next).length) return;
++    setBusy(true);
+     try {
+-      // 1. ดึงข้อมูลตารางทัวร์ทั้งหมดที่เปิดอยู่
+-      const schRes = await listOpenSchedules();
+-      if (schRes.success) setSchedules(schRes.data);
+-
+-      // 2. ดึงข้อมูลเส้นทางทัวร์ที่เปิดใช้งาน
+-      const routeRes = await listActiveRoutes();
+-      if (routeRes.success) setRoutes(routeRes.data);
+-
+-      // 3. ดึงรายชื่อผู้ใช้งานทั้งหมด แล้วกรองเอาเฉพาะไกด์
+-      const profileRes = await listAllProfiles()
+-
+-      if (!profileRes.success) {
+-        throw new Error(
+-          profileRes.error?.message || 'ไม่สามารถดึงข้อมูลไกด์ได้'
+-        )
++      const result =
++        modal === "create"
++          ? await createSchedule(form)
++          : await assignGuide({ scheduleId: selected.id, guideId });
++      if (!result.success) {
++        setActionError(result.error.message);
++        return;
+       }
+-
+-      const guidesOnly = (profileRes.data ?? []).filter(
+-        (user) =>
+-          user.role === 'GUIDE' &&
+-          user.account_status === 'ACTIVE'
+-      )
+-
+-      setGuides(guidesOnly)
+-
+-    } catch (error) {
+-      setErrorMsg('เกิดข้อผิดพลาดในการดึงข้อมูล: ' + (error.message || 'ระบบขัดข้อง'));
++      setSuccess(
++        modal === "create"
++          ? "สร้างรอบนำเที่ยวเรียบร้อยแล้ว"
++          : "มอบหมายไกด์เรียบร้อยแล้ว",
++      );
++      setModal(null);
++      setReload((x) => x + 1);
++    } catch {
++      setActionError("บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง");
+     } finally {
+-      setIsLoading(false);
+-    }
+-  };
+-
+-  useEffect(() => {
+-    fetchData();
+-  }, []);
+-
+-  const handleCreateSchedule = async () => {
+-    setErrorMsg('');
+-    setIsSubmitting(true);
+-
+-    if (!scheduleForm.route_id || !scheduleForm.tour_date || !scheduleForm.start_time || scheduleForm.max_participants < 1) {
+-      setErrorMsg('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วนและถูกต้อง');
+-      setIsSubmitting(false);
+-      return;
+-    }
+-
+-    const { success, error } = await createSchedule(scheduleForm);
+-    if (success) {
+-      setIsScheduleModalOpen(false);
+-      fetchData();
+-    } else {
+-      setErrorMsg(error.message);
++      setBusy(false);
+     }
+-
+-    setIsSubmitting(false);
+-  };
+-
+-  const handleAssignGuide = async () => {
+-    if (!selectedGuideId || !selectedSchedule) return;
+-
+-    setErrorMsg('');
+-    setIsSubmitting(true);
+-
+-    const { success, error } = await assignGuide({ scheduleId: selectedSchedule.id, guideId: selectedGuideId });
+-    if (success) {
+-      setIsAssignModalOpen(false);
+-      fetchData();
+-    } else {
+-      setErrorMsg(error.message);
+-    }
+-
+-    setIsSubmitting(false);
+-  };
+-
+-  const getStatusBadge = (status) => {
+-    const badges = {
+-      'OPEN': <span className="bg-[#16A34A] text-white px-3 py-1 rounded-full text-xs font-medium">OPEN</span>,
+-      'FULL': <span className="bg-[#F59E0B] text-white px-3 py-1 rounded-full text-xs font-medium">FULL</span>,
+-      'CANCELLED': <span className="bg-[#DC2626] text-white px-3 py-1 rounded-full text-xs font-medium">CANCELLED</span>,
+-      'COMPLETED': <span className="bg-[#64748B] text-white px-3 py-1 rounded-full text-xs font-medium">COMPLETED</span>,
+-    };
+-    return badges[status] || null;
+-  };
+-
++  }
++  const fields = [
++    ["tour_date", "วันที่ (เวลาไทย) *", "date"],
++    ["start_time", "เวลาเริ่ม *", "time"],
++    ["end_time", "เวลาสิ้นสุด *", "time"],
++    ["max_participants", "จำนวนผู้เข้าร่วมสูงสุด *", "number"],
++  ];
+   return (
+-    <div className="min-h-screen bg-[#F8FAFC] p-6 lg:p-8">
+-      <div className="max-w-7xl mx-auto">
+-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+-          <div>
+-            <h1 className="text-2xl font-bold text-[#1E293B]">Tour Schedules</h1>
+-            <p className="text-[#64748B] text-sm mt-1">จัดการรอบนำเที่ยวและตารางงาน</p>
+-          </div>
+-          <button
+-            onClick={() => {
+-              setScheduleForm({ route_id: '', tour_date: '', start_time: '', end_time: '', max_participants: 1 });
+-              setIsScheduleModalOpen(true);
+-            }}
+-            className="bg-[#7B5AA6] hover:bg-[#684b8f] text-white px-5 py-2.5 rounded-[10px] font-medium shadow-sm transition-colors flex items-center gap-2"
+-          >
+-            + สร้างรอบนำเที่ยว
+-          </button>
++    <section className="mx-auto max-w-7xl text-textPrimary">
++      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
++        <div>
++          <h1 className="text-2xl font-bold text-primary">ตารางนำเที่ยว</h1>
++          <p className="mt-1 text-textSecondary">วันและเวลาแสดงตามประเทศไทย</p>
+         </div>
+-
+-        {errorMsg && (
+-          <div className="mb-4 p-4 bg-[#DC2626]/10 border border-[#DC2626] rounded-[10px] text-[#DC2626] text-sm">
+-            {errorMsg}
+-          </div>
+-        )}
+-
+-        <div className="bg-[#FFFFFF] rounded-[12px] border border-[#E2E8F0] shadow-sm overflow-hidden mb-8">
+-          <div className="overflow-x-auto">
+-            <table className="w-full text-left border-collapse">
+-              <thead>
+-                <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] text-sm uppercase tracking-wider">
+-                  <th className="px-6 py-4 font-medium">Date & Time</th>
+-                  <th className="px-6 py-4 font-medium">Route</th>
+-                  <th className="px-6 py-4 font-medium">Capacity</th>
+-                  <th className="px-6 py-4 font-medium">Status</th>
+-                  <th className="px-6 py-4 font-medium">Guide</th>
+-                </tr>
+-              </thead>
+-              <tbody className="divide-y divide-[#E2E8F0]">
+-                {isLoading ? (
+-                  <tr><td colSpan="5" className="px-6 py-12 text-center text-[#64748B]">กำลังโหลดข้อมูล...</td></tr>
+-                ) : schedules.length === 0 ? (
+-                  <tr><td colSpan="5" className="px-6 py-12 text-center text-[#64748B]">ไม่มีข้อมูลรอบนำเที่ยว</td></tr>
+-                ) : (
+-                  schedules.map((schedule) => (
+-                    <tr key={schedule.id} className="hover:bg-[#F8FAFC] transition-colors">
+-                      <td className="px-6 py-4">
+-                        <div className="text-[#1E293B] font-medium">{schedule.tour_date}</div>
+-                        <div className="text-[#64748B] text-sm">{schedule.start_time} - {schedule.end_time}</div>
+-                      </td>
+-                      <td className="px-6 py-4 text-[#1E293B]">{schedule.routes?.name}</td>
+-                      <td className="px-6 py-4 text-[#1E293B]">{schedule.max_participants} pax</td>
+-                      <td className="px-6 py-4">{getStatusBadge(schedule.status)}</td>
+-                      <td className="px-6 py-4">
+-                        {schedule.guide_assignments ? (
+-                          <button
+-                            onClick={() => {
+-                              setSelectedSchedule(schedule);
+-                              setSelectedGuideId(schedule.guide_assignments.guide_id);
+-                              setIsAssignModalOpen(true);
+-                            }}
+-                            className="text-[#16A34A] text-sm font-medium hover:underline flex items-center gap-1"
+-                          >
+-                            {guides.find(
+-                              (guide) =>
+-                                guide.id === schedule.guide_assignments.guide_id
+-                            )?.full_name || 'มอบหมายแล้ว'} (เปลี่ยน)
+-                          </button>
+-                        ) : (
+-                          <button
+-                            onClick={() => {
+-                              setSelectedSchedule(schedule);
+-                              setSelectedGuideId('');
+-                              setIsAssignModalOpen(true);
+-                            }}
+-                            className="text-[#F37321] text-sm font-medium hover:underline"
+-                          >
+-                            + Assign Guide
+-                          </button>
++        <Button onClick={() => open("create")} disabled={loading || !!error}>
++          + สร้างรอบนำเที่ยว
++        </Button>
++      </div>
++      <Feedback error={error} success={success} />
++      {error && (
++        <Button
++          onClick={() => {
++            setLoading(true);
++            setReload((x) => x + 1);
++          }}
++        >
++          ลองอีกครั้ง
++        </Button>
++      )}
++      <div className="overflow-x-auto rounded-card border border-border bg-surface">
++        <table className="w-full text-left text-sm">
++          <thead className="bg-background">
++            <tr>
++              {["วันและเวลา", "เส้นทาง", "ความจุ", "สถานะ", "ไกด์"].map((x) => (
++                <th key={x} className="p-4">
++                  {x}
++                </th>
++              ))}
++            </tr>
++          </thead>
++          <tbody>
++            {loading ? (
++              <tr>
++                <td colSpan="5" className="p-8 text-center">
++                  กำลังโหลด…
++                </td>
++              </tr>
++            ) : schedules.length === 0 ? (
++              <tr>
++                <td colSpan="5" className="p-8 text-center">
++                  ยังไม่มีรอบนำเที่ยว เริ่มด้วยปุ่มสร้างรอบนำเที่ยว
++                </td>
++              </tr>
++            ) : (
++              schedules.map((s) => {
++                const a = Array.isArray(s.guide_assignments)
++                  ? s.guide_assignments[0]
++                  : s.guide_assignments;
++                return (
++                  <tr key={s.id} className="border-t border-border">
++                    <td className="p-4 whitespace-nowrap">
++                      {formatDate(s.tour_date)}
++                      <p className="text-textSecondary">
++                        {formatTime(s.start_time)} – {formatTime(s.end_time)}
++                      </p>
++                    </td>
++                    <td className="p-4">{s.routes?.name || "ไม่พบเส้นทาง"}</td>
++                    <td className="p-4">{s.max_participants}{" "}<span role="img" aria-label="คน">👤</span></td>
++                    <td className="p-4">
++                      <span
++                        className={`inline-flex min-w-24 items-center justify-center whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold ${scheduleStatusColors[s.status] || "bg-slate-100 text-slate-700 border-slate-300"}`}
++                      >
++                        {statusLabel(s.status)}
++                      </span>
++                      {["OPEN", "FULL"].includes(s.status) &&
++                        !isUpcoming(s) && (
++                          <p className="text-danger">
++                            ผ่านเวลาเริ่มแล้ว · จองไม่ได้
++                          </p>
+                         )}
+-                      </td>
+-                    </tr>
+-                  ))
+-                )}
+-              </tbody>
+-            </table>
+-          </div>
+-        </div>
+-
+-        {/* Modal 1: สร้างรอบนำเที่ยว */}
+-        {isScheduleModalOpen && (
+-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+-            <div className="bg-[#FFFFFF] rounded-[12px] shadow-xl w-full max-w-lg overflow-hidden">
+-              <div className="px-6 py-4 border-b border-[#E2E8F0] flex justify-between items-center">
+-                <h2 className="text-lg font-bold text-[#1E293B]">สร้างรอบนำเที่ยวใหม่</h2>
+-                <button onClick={() => setIsScheduleModalOpen(false)} className="text-[#64748B] hover:text-[#1E293B]">✕</button>
+-              </div>
+-              <div className="p-6 space-y-4">
+-                <div>
+-                  <label className="block text-sm font-medium text-[#1E293B] mb-1">เส้นทาง (Route)</label>
++                    </td>
++                    <td className="p-4">
++                      <p>
++                        {a
++                          ? guides.find((g) => g.id === a.guide_id)
++                              ?.full_name || "ไกด์ที่ได้รับมอบหมาย"
++                          : "ยังไม่มอบหมาย"}
++                      </p>
++                      {a && (
++                        <p className="text-textSecondary">
++                          {statusLabel(a.status)}
++                        </p>
++                      )}
++                      <Button
++                        className="mt-2"
++                        size="sm"
++                        variant="secondary"
++                        disabled={!canAssign(s) || !!error}
++                        onClick={() => open("assign", s)}
++                      >
++                        {a ? "เปลี่ยนไกด์" : "มอบหมายไกด์"}
++                      </Button>
++                    </td>
++                  </tr>
++                );
++              })
++            )}
++          </tbody>
++        </table>
++      </div>
++      {modal && (
++        <Modal
++          title={modal === "create" ? "สร้างรอบนำเที่ยว" : "มอบหมายไกด์"}
++          busy={busy}
++          onClose={() => setModal(null)}
++        >
++          <form onSubmit={submit} noValidate>
++            <Feedback error={actionError} />
++            <fieldset disabled={busy} className="space-y-4">
++              {modal === "create" ? (
++                <>
++                  <label className="block" htmlFor="m4-route">
++                    เส้นทาง *
++                    <select
++                      id="m4-route"
++                      className={fieldStyle}
++                      value={form.route_id}
++                      onChange={(e) =>
++                        setForm({ ...form, route_id: e.target.value })
++                      }
++                      aria-invalid={!!errors.route_id}
++                    >
++                      <option value="">เลือกเส้นทาง</option>
++                      {routes.map((r) => (
++                        <option key={r.id} value={r.id}>
++                          {r.name}
++                        </option>
++                      ))}
++                    </select>
++                    <span className="text-sm text-danger">
++                      {errors.route_id}
++                    </span>
++                  </label>
++                  {fields.map(([key, label, type]) => (
++                    <label className="block" key={key} htmlFor={`m4-${key}`}>
++                      {label}
++                      <input
++                        id={`m4-${key}`}
++                        className={fieldStyle}
++                        type={type}
++                        min={
++                          type === "date"
++                            ? thaiToday()
++                            : type === "number"
++                              ? 1
++                              : undefined
++                        }
++                        step={type === "number" ? 1 : undefined}
++                        value={form[key]}
++                        onChange={(e) =>
++                          setForm({ ...form, [key]: e.target.value })
++                        }
++                        aria-invalid={!!errors[key]}
++                      />
++                      <span
++                        role={errors[key] ? "alert" : undefined}
++                        className="text-sm text-danger"
++                      >
++                        {errors[key]}
++                      </span>
++                    </label>
++                  ))}
++                </>
++              ) : (
++                <label className="block" htmlFor="m4-guide">
++                  ไกด์ *
+                   <select
+-                    value={scheduleForm.route_id}
+-                    onChange={(e) => setScheduleForm({ ...scheduleForm, route_id: e.target.value })}
+-                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
++                    id="m4-guide"
++                    className={fieldStyle}
++                    value={guideId}
++                    onChange={(e) => setGuideId(e.target.value)}
+                   >
+-                    <option value="">เลือกเส้นทาง...</option>
+-                    {/* ใช้ข้อมูลจริงจาก routes (M2) แทน mockRoutes */}
+-                    {routes.map(route => <option key={route.id} value={route.id}>{route.name}</option>)}
++                    <option value="">เลือกไกด์</option>
++                    {guides.map((g) => (
++                      <option key={g.id} value={g.id}>
++                        {g.full_name}
++                      </option>
++                    ))}
+                   </select>
+-                </div>
+-                <div>
+-                  <label className="block text-sm font-medium text-[#1E293B] mb-1">วันที่ (Tour Date)</label>
+-                  <input
+-                    type="date"
+-                    value={scheduleForm.tour_date}
+-                    onChange={(e) => setScheduleForm({ ...scheduleForm, tour_date: e.target.value })}
+-                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
+-                  />
+-                </div>
+-                <div className="flex gap-4">
+-                  <div className="flex-1">
+-                    <label className="block text-sm font-medium text-[#1E293B] mb-1">เวลาเริ่ม</label>
+-                    <input
+-                      type="time"
+-                      value={scheduleForm.start_time}
+-                      onChange={(e) => setScheduleForm({ ...scheduleForm, start_time: e.target.value })}
+-                      className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
+-                    />
+-                  </div>
+-                  <div className="flex-1">
+-                    <label className="block text-sm font-medium text-[#1E293B] mb-1">เวลาสิ้นสุด</label>
+-                    <input
+-                      type="time"
+-                      value={scheduleForm.end_time}
+-                      onChange={(e) => setScheduleForm({ ...scheduleForm, end_time: e.target.value })}
+-                      className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
+-                    />
+-                  </div>
+-                </div>
+-                <div>
+-                  <label className="block text-sm font-medium text-[#1E293B] mb-1">ความจุสูงสุด (Max Participants)</label>
+-                  <input
+-                    type="number"
+-                    min="1"
+-                    value={scheduleForm.max_participants}
+-                    onChange={(e) => setScheduleForm({ ...scheduleForm, max_participants: parseInt(e.target.value) || 1 })}
+-                    placeholder="เช่น 20"
+-                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
+-                  />
+-                </div>
+-              </div>
+-              <div className="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2E8F0] flex justify-end gap-3">
+-                <button onClick={() => setIsScheduleModalOpen(false)} disabled={isSubmitting} className="px-4 py-2 rounded-[10px] text-[#64748B] font-medium hover:bg-[#E2E8F0] transition-colors">ยกเลิก</button>
+-                <button onClick={handleCreateSchedule} disabled={isSubmitting} className="px-4 py-2 rounded-[10px] bg-[#7B5AA6] text-white font-medium hover:bg-[#684b8f] transition-colors">
+-                  {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+-                </button>
+-              </div>
+-            </div>
+-          </div>
+-        )}
+-
+-        {/* Modal 2: มอบหมายไกด์ */}
+-        {isAssignModalOpen && (
+-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+-            <div className="bg-[#FFFFFF] rounded-[12px] shadow-xl w-full max-w-md overflow-hidden">
+-              <div className="px-6 py-4 border-b border-[#E2E8F0] flex justify-between items-center">
+-                <h2 className="text-lg font-bold text-[#1E293B]">มอบหมายผู้นำเที่ยว (Assign Guide)</h2>
+-                <button onClick={() => setIsAssignModalOpen(false)} className="text-[#64748B] hover:text-[#1E293B]">✕</button>
+-              </div>
+-              <div className="p-6">
+-                <p className="text-sm text-[#64748B] mb-4">
+-                  รอบทัวร์วันที่: <span className="text-[#1E293B] font-medium">{selectedSchedule?.tour_date}</span>
+-                </p>
+-                <label className="block text-sm font-medium text-[#1E293B] mb-1">เลือกไกด์ (จากผู้ใช้ที่ยืนยัน Role แล้ว)</label>
+-                <select
+-                  value={selectedGuideId}
+-                  onChange={(e) => setSelectedGuideId(e.target.value)}
+-                  className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
++                  <span className="text-sm text-danger">{errors.guide}</span>
++                  {guides.length === 0 && <p>ไม่มีไกด์ที่เปิดใช้งาน</p>}
++                </label>
++              )}
++              <div className="flex justify-end gap-3">
++                <Button
++                  variant="secondary"
++                  type="button"
++                  onClick={() => setModal(null)}
+                 >
+-                  <option value="">เลือกผู้นำเที่ยว...</option>
+-                  {/* ใช้ข้อมูลจริงจาก guides (M1) แทน mockGuides */}
+-                  {guides.map(guide => (
+-                    <option key={guide.id} value={guide.id}>{guide.full_name}</option>
+-                  ))}
+-                </select>
++                  ยกเลิก
++                </Button>
++                <Button type="submit">
++                  {busy ? "กำลังบันทึก…" : "บันทึก"}
++                </Button>
+               </div>
+-              <div className="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2E8F0] flex justify-end gap-3">
+-                <button onClick={() => setIsAssignModalOpen(false)} disabled={isSubmitting} className="px-4 py-2 rounded-[10px] text-[#64748B] font-medium hover:bg-[#E2E8F0] transition-colors">ยกเลิก</button>
+-                <button onClick={handleAssignGuide} disabled={isSubmitting} className="px-4 py-2 rounded-[10px] bg-[#F37321] text-white font-medium hover:bg-[#d9631a] transition-colors">
+-                  {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันการมอบหมาย'}
+-                </button>
+-              </div>
+-            </div>
+-          </div>
+-        )}
+-      </div>
+-    </div>
++            </fieldset>
++          </form>
++        </Modal>
++      )}
++    </section>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/src/pages/guide/Dashboard.jsx b/src/pages/guide/Dashboard.jsx
+index 2919128..189a15b 100644
+--- a/src/pages/guide/Dashboard.jsx
++++ b/src/pages/guide/Dashboard.jsx
+@@ -1,17 +1,24 @@
+-import React, { useState, useEffect } from 'react';
+-import { useNavigate } from 'react-router-dom';
+-import { listMyGuideAssignments, updateMyAssignmentStatus } from '../../services/assignmentService';
+-import { getBookedParticipantCount } from '../../services/bookingService';
++import { Feedback } from "../../components/m4/Feedback";
++import { canAssign, formatDate, formatTime } from "../../services/m4/rules";
++import { useState, useEffect, useCallback } from "react";
++import { useNavigate } from "react-router-dom";
++import {
++  listMyGuideAssignments,
++  updateMyAssignmentStatus,
++} from "../../services/assignmentService";
++import { getBookedParticipantCount } from "../../services/bookingService";
+ 
+ export default function GuideDashboard() {
+   const navigate = useNavigate();
+   const [assignments, setAssignments] = useState([]);
+   const [isLoading, setIsLoading] = useState(true);
+-  const [errorMsg, setErrorMsg] = useState('');
++  const [errorMsg, setErrorMsg] = useState("");
++  const [busy, setBusy] = useState(false);
++  const [success, setSuccess] = useState("");
+ 
+-  const fetchAssignments = async () => {
++  const fetchAssignments = useCallback(async () => {
+     setIsLoading(true);
+-    setErrorMsg('');
++    setErrorMsg("");
+ 
+     try {
+       const res = await listMyGuideAssignments();
+@@ -20,54 +27,83 @@ export default function GuideDashboard() {
+         const assignmentsWithCount = await Promise.all(
+           res.data.map(async (task) => {
+             const countRes = await getBookedParticipantCount(task.schedule_id);
+-            const bookedCount = countRes.success ? countRes.data : 0;
++            const bookedCount = countRes.success ? countRes.data : null;
+             return { ...task, bookedCount };
+-          })
++          }),
+         );
+ 
+         setAssignments(assignmentsWithCount);
+       } else {
+         setErrorMsg(res.error.message);
+       }
+-    } catch (error) {
+-      setErrorMsg('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
++    } catch {
++      setErrorMsg("โหลดตารางงานไม่สำเร็จ กรุณาลองอีกครั้ง");
+     } finally {
+       setIsLoading(false);
+     }
+-  };
++  }, []);
+ 
+   useEffect(() => {
+-    fetchAssignments();
+-  }, []);
++    const timer = setTimeout(fetchAssignments, 0);
++    return () => clearTimeout(timer);
++  }, [fetchAssignments]);
+ 
+   // อัปเดตให้บันทึกลง Database จริง (Persisted Accept/Decline)
+   const handleUpdateAssignmentStatus = async (assignmentId, newStatus) => {
++    if (busy) return;
++    setBusy(true);
++    setErrorMsg("");
++    setSuccess("");
+     try {
+-      const res = await updateMyAssignmentStatus(
+-        assignmentId,
+-        newStatus
+-      );
++      const res = await updateMyAssignmentStatus(assignmentId, newStatus);
+ 
+       if (!res.success) {
+         throw new Error(
+-          res.error?.message || 'Unable to update assignment status'
++          res.error?.message || "Unable to update assignment status",
+         );
+       }
+ 
+-      setAssignments(prev =>
+-        prev.map(task => task.id === assignmentId ? { ...task, status: newStatus } : task)
++      setAssignments((prev) =>
++        prev.map((task) =>
++          task.id === assignmentId ? { ...task, status: newStatus } : task,
++        ),
+       );
+-    } catch (err) {
+-      alert('ไม่สามารถอัปเดตสถานะงานได้: ' + err.message);
++      setSuccess(
++        newStatus === "ACCEPTED"
++          ? "รับงานเรียบร้อยแล้ว"
++          : "ปฏิเสธงานเรียบร้อยแล้ว",
++      );
++    } catch {
++      setErrorMsg(
++        "อัปเดตงานไม่สำเร็จ รอบอาจหมดเวลาหรือไกด์มีงานทับซ้อน กรุณาโหลดใหม่",
++      );
++    } finally {
++      setBusy(false);
+     }
+   };
+ 
+   const getStatusBadge = (status) => {
+     const badges = {
+-      'ASSIGNED': <span className="bg-[#F59E0B] text-white px-3 py-1 rounded-full text-xs font-medium">รอการตอบรับ</span>,
+-      'ACCEPTED': <span className="bg-[#16A34A] text-white px-3 py-1 rounded-full text-xs font-medium">ยืนยันรับงานแล้ว</span>,
+-      'DECLINED': <span className="bg-[#DC2626] text-white px-3 py-1 rounded-full text-xs font-medium">ปฏิเสธงาน</span>,
+-      'COMPLETED': <span className="bg-[#64748B] text-white px-3 py-1 rounded-full text-xs font-medium">เสร็จสิ้น</span>
++      ASSIGNED: (
++        <span className="inline-flex items-center justify-center whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold bg-amber-100 text-amber-900 border-amber-200">
++          รอการตอบรับ
++        </span>
++      ),
++      ACCEPTED: (
++        <span className="inline-flex items-center justify-center whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold bg-green-100 text-green-800 border-green-200">
++          ยืนยันรับงานแล้ว
++        </span>
++      ),
++      DECLINED: (
++        <span className="inline-flex items-center justify-center whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold bg-red-100 text-red-800 border-red-200">
++          ปฏิเสธงาน
++        </span>
++      ),
++      COMPLETED: (
++        <span className="inline-flex items-center justify-center whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold bg-blue-100 text-blue-800 border-blue-200">
++          เสร็จสิ้น
++        </span>
++      ),
+     };
+     return badges[status] || null;
+   };
+@@ -77,7 +113,9 @@ export default function GuideDashboard() {
+       <div className="max-w-5xl mx-auto">
+         <div className="mb-8">
+           <h1 className="text-2xl font-bold text-[#1E293B]">Guide Dashboard</h1>
+-          <p className="text-[#64748B] text-sm mt-1">ตรวจสอบและจัดการตารางนำเที่ยวของคุณแบบสรุป</p>
++          <p className="text-[#64748B] text-sm mt-1">
++            ตรวจสอบและจัดการตารางนำเที่ยวของคุณแบบสรุป
++          </p>
+         </div>
+ 
+         {errorMsg && (
+@@ -86,48 +124,117 @@ export default function GuideDashboard() {
+           </div>
+         )}
+ 
++        <Feedback success={success} />
++        <button
++          type="button"
++          disabled={busy || isLoading}
++          onClick={fetchAssignments}
++          className="mb-4 underline"
++        >
++          โหลดข้อมูลใหม่
++        </button>
+         <div className="space-y-4">
+-          <h2 className="text-lg font-semibold text-[#1E293B] mb-4">ตารางงานของคุณ</h2>
++          <h2 className="text-lg font-semibold text-[#1E293B] mb-4">
++            ตารางงานของคุณ
++          </h2>
+ 
+           {isLoading ? (
+-            <div className="text-center py-10 text-[#64748B]">กำลังโหลดข้อมูล...</div>
++            <div className="text-center py-10 text-[#64748B]">
++              กำลังโหลดข้อมูล...
++            </div>
+           ) : assignments.length === 0 ? (
+-            <div className="bg-[#FFFFFF] p-8 rounded-[12px] border border-[#E2E8F0] text-center text-[#64748B] shadow-sm">คุณยังไม่มีตารางนำเที่ยวที่ได้รับมอบหมาย</div>
++            <div className="bg-[#FFFFFF] p-8 rounded-[12px] border border-[#E2E8F0] text-center text-[#64748B] shadow-sm">
++              คุณยังไม่มีตารางนำเที่ยวที่ได้รับมอบหมาย
++            </div>
+           ) : (
+             <div className="grid gap-4 md:grid-cols-2">
+               {assignments.map((assignment) => {
+-                const isFull = assignment.bookedCount >= assignment.tour_schedules.max_participants;
++                if (!assignment.tour_schedules) return null;
++                const isFull =
++                  assignment.bookedCount !== null &&
++                  assignment.bookedCount >=
++                    assignment.tour_schedules.max_participants;
+ 
+                 return (
+-                  <div key={assignment.id} className="bg-[#FFFFFF] p-6 rounded-[12px] border border-[#E2E8F0] shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
++                  <div
++                    key={assignment.id}
++                    className="bg-[#FFFFFF] p-6 rounded-[12px] border border-[#E2E8F0] shadow-sm hover:shadow-md transition-shadow flex flex-col h-full"
++                  >
+                     <div className="flex justify-between items-start mb-4">
+                       {getStatusBadge(assignment.status)}
+-                      <span className="text-[#7B5AA6] font-medium text-sm">{assignment.tour_schedules.tour_date}</span>
++                      <span className="text-[#7B5AA6] font-medium text-sm">
++                        {formatDate(assignment.tour_schedules.tour_date)}
++                      </span>
+                     </div>
+ 
+-                    <h3 className="text-xl font-bold text-[#1E293B] mb-2">{assignment.tour_schedules.routes?.name}</h3>
++                    <h3 className="text-xl font-bold text-[#1E293B] mb-2">
++                      {assignment.tour_schedules.routes?.name}
++                    </h3>
+ 
+                     <div className="space-y-2 text-[#64748B] text-sm mb-6 flex-grow">
+-                      <p>เวลา: {assignment.tour_schedules.start_time} - {assignment.tour_schedules.end_time}</p>
+-                      <p className={`font-medium ${isFull ? 'text-[#DC2626]' : 'text-[#1E293B]'}`}>
+-                        ผู้เข้าร่วม: {assignment.bookedCount} / {assignment.tour_schedules.max_participants} ท่าน
+-                        {isFull && <span className="text-xs bg-[#DC2626] text-white px-2 py-0.5 rounded-full ml-2">เต็มแล้ว</span>}
++                      <p>
++                        เวลา: {formatTime(assignment.tour_schedules.start_time)}{" "}
++                        - {formatTime(assignment.tour_schedules.end_time)}
++                      </p>
++                      <p
++                        className={`font-medium ${isFull ? "text-[#DC2626]" : "text-[#1E293B]"}`}
++                      >
++                        ผู้เข้าร่วม: {assignment.bookedCount ?? "โหลดไม่สำเร็จ"}{" "}
++                        / {assignment.tour_schedules.max_participants}{" "}
++                        <span role="img" aria-label="คน">👤</span>
++                        {isFull && (
++                          <span className="inline-flex rounded-md border border-amber-200 bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 ml-2">
++                            เต็มแล้ว
++                          </span>
++                        )}
+                       </p>
+                     </div>
+ 
+                     {/* ปุ่มสำหรับสถานะ รอการตอบรับ */}
+-                    {assignment.status === 'ASSIGNED' && (
++                    {assignment.status === "ASSIGNED" &&
++                      !canAssign(assignment.tour_schedules) && (
++                        <p className="text-danger">
++                          รอบนี้ไม่พร้อมรับงานหรือผ่านเวลาเริ่มแล้ว
++                        </p>
++                      )}
++                    {assignment.status === "ASSIGNED" && (
+                       <div className="flex gap-3 mt-auto pt-4 border-t border-[#E2E8F0]">
+-                        <button onClick={() => handleUpdateAssignmentStatus(assignment.id, 'ACCEPTED')} className="flex-1 bg-[#7B5AA6] hover:bg-[#684b8f] text-white py-2 rounded-[10px] font-medium transition-colors">รับงานนี้</button>
+-                        <button onClick={() => handleUpdateAssignmentStatus(assignment.id, 'DECLINED')} className="flex-1 bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#E2E8F0] text-[#64748B] py-2 rounded-[10px] font-medium transition-colors">ปฏิเสธ</button>
++                        <button
++                          disabled={
++                            busy || !canAssign(assignment.tour_schedules)
++                          }
++                          onClick={() =>
++                            handleUpdateAssignmentStatus(
++                              assignment.id,
++                              "ACCEPTED",
++                            )
++                          }
++                          className="flex-1 bg-[#7B5AA6] hover:bg-[#684b8f] text-white py-2 rounded-[10px] font-medium transition-colors"
++                        >
++                          รับงานนี้
++                        </button>
++                        <button
++                          disabled={busy}
++                          onClick={() =>
++                            handleUpdateAssignmentStatus(
++                              assignment.id,
++                              "DECLINED",
++                            )
++                          }
++                          className="flex-1 bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#E2E8F0] text-[#64748B] py-2 rounded-[10px] font-medium transition-colors"
++                        >
++                          ปฏิเสธ
++                        </button>
+                       </div>
+                     )}
+ 
+                     {/* ปุ่มสำหรับสถานะ ยืนยันรับงานแล้ว ให้กดเข้าไปดูรายชื่อลูกทัวร์ */}
+-                    {assignment.status === 'ACCEPTED' && (
++                    {["ACCEPTED", "COMPLETED"].includes(assignment.status) && (
+                       <div className="mt-auto pt-4 border-t border-[#E2E8F0]">
+                         <button
+-                          onClick={() => navigate(`/guide/tours/${assignment.schedule_id}`)}
++                          onClick={() =>
++                            navigate(`/guide/tours/${assignment.schedule_id}`)
++                          }
+                           className="w-full bg-[#16A34A] hover:bg-[#15803d] text-white py-2 rounded-[10px] font-medium transition-colors"
+                         >
+                           จัดการลูกทัวร์ / เช็กชื่อ
+@@ -143,4 +250,4 @@ export default function GuideDashboard() {
+       </div>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/src/pages/guide/TourDetail.jsx b/src/pages/guide/TourDetail.jsx
+index 26728e7..6427eb9 100644
+--- a/src/pages/guide/TourDetail.jsx
++++ b/src/pages/guide/TourDetail.jsx
+@@ -1,69 +1,95 @@
+-import React, { useState, useEffect } from 'react';
+-import { useParams, useNavigate } from 'react-router-dom';
++import {
++  formatDate,
++  formatTime,
++  statusLabel,
++  canComplete,
++} from "../../services/m4/rules";
++import { Confirm, Feedback } from "../../components/m4/Feedback";
++import { useState, useEffect, useCallback } from "react";
++import { useParams, useNavigate } from "react-router-dom";
+ import {
+   getMyTourManifest,
+   updateTourAttendance,
+-} from '../../services/assignmentService';
+-import { completeTour } from '../../services/scheduleService';
++} from "../../services/assignmentService";
++import {
++  completeTour,
++  getScheduleDetail,
++} from "../../services/scheduleService";
+ export default function TourDetail() {
+   const { scheduleId } = useParams();
+   const navigate = useNavigate();
+-
+   // State สำหรับจัดการ UI
+   const [manifest, setManifest] = useState([]);
++  const [schedule, setSchedule] = useState(null);
+   const [isLoading, setIsLoading] = useState(true);
+-  const [errorMsg, setErrorMsg] = useState('');
++  const [errorMsg, setErrorMsg] = useState("");
+   const [isCompleting, setIsCompleting] = useState(false);
++  const [confirming, setConfirming] = useState(false);
++  const [busy, setBusy] = useState(false);
++  const [success, setSuccess] = useState("");
+ 
+-  const fetchManifest = async () => {
++  const fetchManifest = useCallback(async () => {
+     setIsLoading(true);
+-    setErrorMsg('');
++    setErrorMsg("");
+     try {
+       // เรียกใช้ฟังก์ชัน SQL แบบ Strict Privacy
+-      const res = await getMyTourManifest(scheduleId);
++      const [res, detail] = await Promise.all([
++        getMyTourManifest(scheduleId),
++        getScheduleDetail(scheduleId),
++      ]);
++      if (!detail.success) throw new Error("LOAD_FAILED");
++      setSchedule(detail.data);
+ 
+       if (!res.success) {
+-        throw new Error(
+-          res.error?.message || 'Unable to load tour manifest'
+-        );
++        throw new Error(res.error?.message || "Unable to load tour manifest");
+       }
+ 
+       setManifest(res.data || []);
+-    } catch (err) {
+-      setErrorMsg('เกิดข้อผิดพลาดในการโหลดรายชื่อลูกทัวร์: ' + err.message);
++    } catch {
++      setErrorMsg("โหลดรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง");
+     } finally {
+       setIsLoading(false);
+     }
+-  };
++  }, [scheduleId]);
+ 
+   useEffect(() => {
+-    fetchManifest();
+-  }, [scheduleId]);
++    const timer = setTimeout(fetchManifest, 0);
++    return () => clearTimeout(timer);
++  }, [fetchManifest]);
+ 
+   const handleAttendance = async (bookingId, status) => {
++    if (busy || isCompleting) return;
++    setBusy(true);
++    setErrorMsg("");
++    setSuccess("");
+     try {
+-      const res = await updateTourAttendance(
+-        bookingId,
+-        status
+-      );
++      const res = await updateTourAttendance(bookingId, status);
+ 
+       if (!res.success) {
+-        throw new Error(
+-          res.error?.message || 'Unable to update attendance'
+-        );
++        throw new Error(res.error?.message || "Unable to update attendance");
+       }
+ 
+       // อัปเดตหน้าจอโดยไม่ต้องโหลดใหม่ทั้งหมด
+-      setManifest(prev => prev.map(b =>
+-        b.booking_id === bookingId ? { ...b, attendance_status: status } : b
+-      ));
+-    } catch (err) {
+-      alert('ไม่สามารถอัปเดตสถานะการเช็กอินได้: ' + err.message);
++      setManifest((prev) =>
++        prev.map((b) =>
++          b.booking_id === bookingId ? { ...b, attendance_status: status } : b,
++        ),
++      );
++      setSuccess("บันทึกการเช็กชื่อเรียบร้อยแล้ว");
++    } catch {
++      setErrorMsg("บันทึกการเช็กชื่อไม่สำเร็จ กรุณาโหลดข้อมูลใหม่");
++    } finally {
++      setBusy(false);
+     }
+   };
+ 
+   const handleCompleteTour = async () => {
+-    if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการกดจบการนำเที่ยวรอบนี้? (การกระทำนี้ไม่สามารถย้อนกลับได้)')) return;
++    if (busy || isCompleting) return;
++    if (!canComplete(schedule)) {
++      setErrorMsg("สถานะรอบนี้ไม่อนุญาตให้จบการนำเที่ยว");
++      return;
++    }
++    setErrorMsg("");
+ 
+     setIsCompleting(true);
+     try {
+@@ -71,24 +97,37 @@ export default function TourDetail() {
+       const res = await completeTour(scheduleId);
+ 
+       if (!res.success) {
+-        throw new Error(
+-          res.error?.message || 'Unable to complete tour'
+-        );
++        setErrorMsg(res.error?.message || "จบทัวร์ไม่สำเร็จ กรุณาลองอีกครั้ง");
++        return;
+       }
+ 
+-      alert('จบการนำเที่ยวเรียบร้อยแล้ว!');
+-      navigate('/guide'); // กลับไปหน้า Dashboard
+-    } catch (err) {
+-      alert('ไม่สามารถจบการนำเที่ยวได้: ' + err.message);
++      setSuccess("จบการนำเที่ยวเรียบร้อยแล้ว");
++      setConfirming(false);
++      await fetchManifest();
++    } catch {
++      setErrorMsg("จบทัวร์ไม่สำเร็จ กรุณาลองอีกครั้ง");
++    } finally {
+       setIsCompleting(false);
+     }
+   };
+ 
+   const getAttendanceBadge = (status) => {
+     const badges = {
+-      'NOT_CHECKED_IN': <span className="bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] px-2 py-1 rounded text-xs font-medium">ยังไม่เช็กอิน</span>,
+-      'CHECKED_IN': <span className="bg-[#16A34A] text-white px-2 py-1 rounded text-xs font-medium">เช็กอินแล้ว</span>,
+-      'NO_SHOW': <span className="bg-[#DC2626] text-white px-2 py-1 rounded text-xs font-medium">ไม่มาปรากฏตัว</span>,
++      NOT_CHECKED_IN: (
++        <span className="bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] px-2 py-1 rounded text-xs font-medium">
++          ยังไม่เช็กอิน
++        </span>
++      ),
++      CHECKED_IN: (
++        <span className="bg-[#16A34A] text-white px-2 py-1 rounded text-xs font-medium">
++          เช็กอินแล้ว
++        </span>
++      ),
++      NO_SHOW: (
++        <span className="bg-[#DC2626] text-white px-2 py-1 rounded text-xs font-medium">
++          ไม่มาปรากฏตัว
++        </span>
++      ),
+     };
+     return badges[status] || null;
+   };
+@@ -97,22 +136,28 @@ export default function TourDetail() {
+     <div className="min-h-screen bg-[#F8FAFC] p-4 lg:p-8">
+       <div className="max-w-4xl mx-auto">
+         <button
+-          onClick={() => navigate('/guide')}
++          onClick={() => navigate("/guide")}
+           className="text-[#64748B] hover:text-[#7B5AA6] text-sm mb-6 flex items-center gap-1 font-medium transition-colors"
+         >
+-          ← กลับไปหน้า Dashboard
++          ← กลับไปตารางงาน
+         </button>
+ 
+         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+           <div>
+-            <h1 className="text-2xl font-bold text-[#1E293B]">รายละเอียดการนำเที่ยว (Tour Detail)</h1>
+-            <p className="text-[#64748B] text-sm mt-1">จัดการรายชื่อผู้เข้าร่วม เช็กอิน และดำเนินการนำเที่ยว</p>
++            <h1 className="text-2xl font-bold text-[#1E293B]">
++              รายละเอียดการนำเที่ยว
++            </h1>
++            <p className="text-[#64748B] text-sm mt-1">
++              จัดการรายชื่อผู้เข้าร่วม เช็กอิน และดำเนินการนำเที่ยว
++            </p>
+           </div>
+ 
+           <div className="flex flex-wrap gap-3">
+             {/* ปุ่มแจ้งเหตุ (เชื่อมกับโมดูล M5) */}
+             <button
+-              onClick={() => navigate(`/incidents/new?scheduleId=${scheduleId}`)}
++              onClick={() =>
++                navigate(`/incidents/new?scheduleId=${scheduleId}`)
++              }
+               className="bg-[#F59E0B] hover:bg-[#d97706] text-white px-4 py-2.5 rounded-[10px] font-medium shadow-sm transition-colors flex items-center gap-2"
+             >
+               ⚠️ แจ้งเหตุฉุกเฉิน
+@@ -120,15 +165,48 @@ export default function TourDetail() {
+ 
+             {/* ปุ่มจบงาน (ของโมดูล M4) */}
+             <button
+-              onClick={handleCompleteTour}
+-              disabled={isCompleting || isLoading}
++              onClick={() => {
++                setErrorMsg("");
++                setConfirming(true);
++              }}
++              disabled={
++                isCompleting || isLoading || busy || !canComplete(schedule)
++              }
+               className="bg-[#16A34A] hover:bg-[#15803d] disabled:bg-[#94A3B8] text-white px-5 py-2.5 rounded-[10px] font-medium shadow-sm transition-colors flex items-center gap-2"
+             >
+-              {isCompleting ? 'กำลังประมวลผล...' : '✓ จบการนำเที่ยว (Complete)'}
++              {isCompleting ? "กำลังประมวลผล..." : "จบการนำเที่ยว"}
+             </button>
+           </div>
+         </div>
+ 
++        <Feedback success={success} />
++        {schedule && (
++          <p className="mb-4 text-textSecondary">
++            {schedule.routes?.name} · {formatDate(schedule.tour_date)}{" "}
++            {formatTime(schedule.start_time)} – {formatTime(schedule.end_time)}{" "}
++            · {statusLabel(schedule.status)}
++          </p>
++        )}
++        {confirming && (
++          <Confirm
++            title="ยืนยันจบการนำเที่ยว"
++            busy={isCompleting}
++            error={errorMsg}
++            onClose={() => setConfirming(false)}
++            onConfirm={handleCompleteTour}
++          >
++            การจบทัวร์จะเปลี่ยนสถานะรอบและการจองที่ยืนยันแล้ว
++            การกระทำนี้ย้อนกลับไม่ได้
++          </Confirm>
++        )}
++        <button
++          type="button"
++          disabled={busy || isCompleting || isLoading}
++          onClick={fetchManifest}
++          className="mb-4 underline"
++        >
++          โหลดรายชื่อใหม่
++        </button>
+         {/* Error State */}
+         {errorMsg && (
+           <div className="mb-6 p-4 bg-[#DC2626]/10 border border-[#DC2626] rounded-[10px] text-[#DC2626] text-sm">
+@@ -152,21 +230,47 @@ export default function TourDetail() {
+               <tbody className="divide-y divide-[#E2E8F0]">
+                 {/* Loading State */}
+                 {isLoading ? (
+-                  <tr><td colSpan="5" className="px-6 py-12 text-center text-[#64748B]">กำลังโหลดข้อมูลผู้เข้าร่วม...</td></tr>
++                  <tr>
++                    <td
++                      colSpan="5"
++                      className="px-6 py-12 text-center text-[#64748B]"
++                    >
++                      กำลังโหลดข้อมูลผู้เข้าร่วม...
++                    </td>
++                  </tr>
+                 ) : manifest.length === 0 ? (
+                   /* Empty State */
+-                  <tr><td colSpan="5" className="px-6 py-12 text-center text-[#64748B]">ยังไม่มีผู้เข้าร่วมที่ยืนยันการจองในรอบนี้</td></tr>
++                  <tr>
++                    <td
++                      colSpan="5"
++                      className="px-6 py-12 text-center text-[#64748B]"
++                    >
++                      ยังไม่มีผู้เข้าร่วมที่ยืนยันการจองในรอบนี้
++                    </td>
++                  </tr>
+                 ) : (
+                   /* Data State */
+                   manifest.map((participant) => (
+-                    <tr key={participant.booking_id} className="hover:bg-[#F8FAFC] transition-colors">
++                    <tr
++                      key={participant.booking_id}
++                      className="hover:bg-[#F8FAFC] transition-colors"
++                    >
+                       <td className="px-6 py-4">
+-                        <div className="text-[#1E293B] font-medium">{participant.full_name}</div>
+-                        <div className="text-[#64748B] text-sm">{participant.phone || 'ไม่มีเบอร์โทร'}</div>
++                        <div className="text-[#1E293B] font-medium">
++                          {participant.full_name}
++                        </div>
++                        <div className="text-[#64748B] text-sm">
++                          {participant.phone || "ไม่มีเบอร์โทร"}
++                        </div>
++                      </td>
++                      <td className="px-6 py-4 text-[#1E293B]">
++                        {participant.participant_count} ท่าน
+                       </td>
+-                      <td className="px-6 py-4 text-[#1E293B]">{participant.participant_count} ท่าน</td>
+-                      <td className="px-6 py-4 text-[#64748B] text-sm max-w-[200px] truncate" title={participant.special_request}>
+-                        {participant.special_request || '-'}
++                      <td
++                        className="px-6 py-4 text-[#64748B] text-sm max-w-[200px] truncate"
++                        title={participant.special_request}
++                      >
++                        {participant.special_request || "-"}
+                       </td>
+                       <td className="px-6 py-4">
+                         {getAttendanceBadge(participant.attendance_status)}
+@@ -174,13 +278,39 @@ export default function TourDetail() {
+                       <td className="px-6 py-4">
+                         <div className="flex gap-2">
+                           <button
+-                            onClick={() => handleAttendance(participant.booking_id, 'CHECKED_IN')}
++                            disabled={
++                              busy ||
++                              isCompleting ||
++                              participant.booking_status !== "CONFIRMED" ||
++                              !["OPEN", "FULL", "CLOSED"].includes(
++                                schedule?.status,
++                              )
++                            }
++                            onClick={() =>
++                              handleAttendance(
++                                participant.booking_id,
++                                "CHECKED_IN",
++                              )
++                            }
+                             className="px-3 py-1 bg-[#F8FAFC] border border-[#E2E8F0] text-[#1E293B] rounded hover:bg-[#16A34A] hover:text-white hover:border-[#16A34A] text-xs font-medium transition-colors"
+                           >
+                             มา
+                           </button>
+                           <button
+-                            onClick={() => handleAttendance(participant.booking_id, 'NO_SHOW')}
++                            disabled={
++                              busy ||
++                              isCompleting ||
++                              participant.booking_status !== "CONFIRMED" ||
++                              !["OPEN", "FULL", "CLOSED"].includes(
++                                schedule?.status,
++                              )
++                            }
++                            onClick={() =>
++                              handleAttendance(
++                                participant.booking_id,
++                                "NO_SHOW",
++                              )
++                            }
+                             className="px-3 py-1 bg-[#F8FAFC] border border-[#E2E8F0] text-[#1E293B] rounded hover:bg-[#DC2626] hover:text-white hover:border-[#DC2626] text-xs font-medium transition-colors"
+                           >
+                             ไม่มา
+@@ -197,4 +327,4 @@ export default function TourDetail() {
+       </div>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/src/services/assignmentService.js b/src/services/assignmentService.js
+index ae29ec2..a0d05dc 100644
+--- a/src/services/assignmentService.js
++++ b/src/services/assignmentService.js
+@@ -1,32 +1,19 @@
+-import { supabase } from '../lib/supabase';
+-
+-const formatResponse = (data, error) => {
+-  if (error) {
+-    console.error('Supabase Error:', error);
+-    return { 
+-      success: false, 
+-      data: null, 
+-      error: { code: error.code || 'DATABASE_ERROR', message: error.message } 
+-    };
+-  }
+-  return { success: true, data, error: null };
+-};
++import { supabase } from "../lib/supabase";
++
++import { formatResponse } from "./m4/response";
+ 
+ export const assignGuide = async ({ scheduleId, guideId }) => {
+   if (!scheduleId || !guideId) {
+     return formatResponse(null, {
+-      code: 'VALIDATION_ERROR',
+-      message: 'scheduleId and guideId are required',
++      code: "VALIDATION_ERROR",
++      message: "scheduleId and guideId are required",
+     });
+   }
+ 
+-  const { data, error } = await supabase.rpc(
+-    'assign_guide',
+-    {
+-      p_schedule_id: scheduleId,
+-      p_guide_id: guideId,
+-    },
+-  );
++  const { data, error } = await supabase.rpc("assign_guide", {
++    p_schedule_id: scheduleId,
++    p_guide_id: guideId,
++  });
+ 
+   return formatResponse(data, error);
+ };
+@@ -34,14 +21,18 @@ export const assignGuide = async ({ scheduleId, guideId }) => {
+ export const listMyGuideAssignments = async () => {
+   const { data: authData, error: authError } = await supabase.auth.getUser();
+   if (authError || !authData?.user) {
+-    return formatResponse(null, { code: 'AUTH_REQUIRED', message: 'User is not authenticated' });
++    return formatResponse(null, {
++      code: "AUTH_REQUIRED",
++      message: "User is not authenticated",
++    });
+   }
+ 
+   const userId = authData.user.id;
+ 
+   const { data, error } = await supabase
+-    .from('guide_assignments')
+-    .select(`
++    .from("guide_assignments")
++    .select(
++      `
+       *,
+       tour_schedules (
+         tour_date,
+@@ -51,93 +42,71 @@ export const listMyGuideAssignments = async () => {
+         max_participants,
+         routes (name)
+       )
+-    `)
+-    .eq('guide_id', userId)
+-    .order('assigned_at', { ascending: false });
++    `,
++    )
++    .eq("guide_id", userId)
++    .order("assigned_at", { ascending: false });
+ 
+   return formatResponse(data, error);
+ };
+ 
+-export const updateMyAssignmentStatus = async (
+-  assignmentId,
+-  status
+-) => {
++export const updateMyAssignmentStatus = async (assignmentId, status) => {
+   if (!assignmentId) {
+     return formatResponse(null, {
+-      code: 'VALIDATION_ERROR',
+-      message: 'assignmentId is required',
++      code: "VALIDATION_ERROR",
++      message: "assignmentId is required",
+     });
+   }
+ 
+-  if (!['ACCEPTED', 'DECLINED'].includes(status)) {
++  if (!["ACCEPTED", "DECLINED"].includes(status)) {
+     return formatResponse(null, {
+-      code: 'VALIDATION_ERROR',
+-      message: 'status must be ACCEPTED or DECLINED',
++      code: "VALIDATION_ERROR",
++      message: "status must be ACCEPTED or DECLINED",
+     });
+   }
+ 
+-  const { data, error } = await supabase.rpc(
+-    'update_my_assignment_status',
+-    {
+-      p_assignment_id: assignmentId,
+-      p_status: status,
+-    },
+-  );
++  const { data, error } = await supabase.rpc("update_my_assignment_status", {
++    p_assignment_id: assignmentId,
++    p_status: status,
++  });
+ 
+   return formatResponse(data, error);
+ };
+ 
+-
+ export const getMyTourManifest = async (scheduleId) => {
+   if (!scheduleId) {
+     return formatResponse(null, {
+-      code: 'VALIDATION_ERROR',
+-      message: 'scheduleId is required',
++      code: "VALIDATION_ERROR",
++      message: "scheduleId is required",
+     });
+   }
+ 
+-  const { data, error } = await supabase.rpc(
+-    'get_my_tour_manifest',
+-    {
+-      p_schedule_id: scheduleId,
+-    },
+-  );
++  const { data, error } = await supabase.rpc("get_my_tour_manifest", {
++    p_schedule_id: scheduleId,
++  });
+ 
+   return formatResponse(data, error);
+ };
+ 
+-
+-export const updateTourAttendance = async (
+-  bookingId,
+-  status
+-) => {
++export const updateTourAttendance = async (bookingId, status) => {
+   if (!bookingId) {
+     return formatResponse(null, {
+-      code: 'VALIDATION_ERROR',
+-      message: 'bookingId is required',
++      code: "VALIDATION_ERROR",
++      message: "bookingId is required",
+     });
+   }
+ 
+-  if (
+-    ![
+-      'NOT_CHECKED_IN',
+-      'CHECKED_IN',
+-      'NO_SHOW',
+-    ].includes(status)
+-  ) {
++  if (!["NOT_CHECKED_IN", "CHECKED_IN", "NO_SHOW"].includes(status)) {
+     return formatResponse(null, {
+-      code: 'VALIDATION_ERROR',
+-      message: 'Invalid attendance status',
++      code: "VALIDATION_ERROR",
++      message: "Invalid attendance status",
+     });
+   }
+ 
+-  const { data, error } = await supabase.rpc(
+-    'update_tour_attendance',
+-    {
+-      p_booking_id: bookingId,
+-      p_status: status,
+-    },
+-  );
++  const { data, error } = await supabase.rpc("update_tour_attendance", {
++    p_booking_id: bookingId,
++    p_status: status,
++  });
+ 
+   return formatResponse(data, error);
+-};
+\ No newline at end of file
++};
+diff --git a/src/services/m4/response.js b/src/services/m4/response.js
+new file mode 100644
+index 0000000..7754888
+--- /dev/null
++++ b/src/services/m4/response.js
+@@ -0,0 +1,44 @@
++const messages = {
++  TOUR_NOT_ENDED: "ยังไม่ถึงเวลาสิ้นสุดทัวร์ กรุณารอแล้วลองอีกครั้ง",
++  AUTH_REQUIRED: "กรุณาเข้าสู่ระบบอีกครั้ง",
++  FORBIDDEN: "คุณไม่มีสิทธิ์ดำเนินการนี้",
++  NOT_FOUND: "ไม่พบข้อมูลที่ต้องการ กรุณาโหลดข้อมูลใหม่",
++  VALIDATION_ERROR: "กรุณาตรวจสอบข้อมูลให้ครบถ้วนและถูกต้อง",
++  INVALID_STATE: "สถานะปัจจุบันไม่อนุญาตให้ดำเนินการนี้ กรุณาโหลดข้อมูลใหม่",
++  SCHEDULE_PAST: "วันและเวลาเริ่มต้องอยู่ในอนาคต (เวลาไทย)",
++  TIME_ORDER: "เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม",
++  SCHEDULE_EXPIRED: "รอบนี้ผ่านเวลาเริ่มแล้ว ไม่สามารถจองหรือรับงานได้",
++  GUIDE_OVERLAP: "ไกด์มีงานอื่นในช่วงเวลานี้ กรุณาเลือกไกด์หรือเวลาอื่น",
++  ROUTE_INACTIVE: "เส้นทางนี้ไม่ได้เปิดใช้งาน",
++  CAPACITY_INVALID: "จำนวนที่รับต้องเป็นจำนวนเต็มบวกและไม่น้อยกว่ายอดจอง",
++  23503: "ข้อมูลนี้มีประวัติใช้งานอยู่ จึงลบไม่ได้ กรุณาปิดใช้งานแทน",
++  23505: "ข้อมูลซ้ำกับรายการที่มีอยู่ กรุณาโหลดข้อมูลใหม่",
++  "40P01": "มีการแก้ไขพร้อมกัน กรุณาลองอีกครั้ง",
++};
++export function safeMessage(error) {
++  return (
++    messages[error?.message] ||
++    messages[error?.code] ||
++    "ไม่สามารถดำเนินการได้ กรุณาลองอีกครั้ง"
++  );
++}
++export function formatResponse(data, error) {
++  return error
++    ? {
++        success: false,
++        data: null,
++        error: {
++          code: error.code || error.message || "DATABASE_ERROR",
++          message: safeMessage(error),
++        },
++      }
++    : { success: true, data, error: null };
++}
++export async function request(operation) {
++  try {
++    const { data, error } = await operation();
++    return formatResponse(data, error);
++  } catch {
++    return formatResponse(null, { code: "NETWORK_ERROR" });
++  }
++}
+diff --git a/src/services/m4/rules.js b/src/services/m4/rules.js
+new file mode 100644
+index 0000000..9e5945d
+--- /dev/null
++++ b/src/services/m4/rules.js
+@@ -0,0 +1,106 @@
++// M4 adapter: replace presentation helpers with M6 exports at integration.
++export function scheduleInstant(date, time) {
++  if (
++    !/^\d{4}-\d{2}-\d{2}$/.test(date || "") ||
++    !/^\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(time || "")
++  )
++    return NaN;
++  const instant = Date.parse(`${date}T${time}+07:00`);
++  if (
++    !Number.isFinite(instant) ||
++    new Date(instant + 7 * 3600000).toISOString().slice(0, 10) !== date
++  )
++    return NaN;
++  return instant;
++}
++export function validateSchedule(form, now = Date.now()) {
++  const errors = {};
++  const start = scheduleInstant(form.tour_date, form.start_time);
++  const end = scheduleInstant(form.tour_date, form.end_time);
++  if (!form.route_id) errors.route_id = "กรุณาเลือกเส้นทาง";
++  if (!Number.isFinite(start))
++    errors.tour_date = "กรุณาระบุวันที่และเวลาเริ่มให้ถูกต้อง";
++  else if (start <= now)
++    errors.tour_date = "วันและเวลาเริ่มต้องอยู่ในอนาคต (เวลาไทย)";
++  if (!Number.isFinite(end) || end <= start)
++    errors.end_time = "เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มในวันเดียวกัน";
++  const capacity = Number(form.max_participants);
++  if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 2147483647)
++    errors.max_participants =
++      "จำนวนผู้เข้าร่วมต้องเป็นจำนวนเต็มตั้งแต่ 1 ถึง 2,147,483,647";
++  return errors;
++}
++export function isUpcoming(schedule, now = Date.now()) {
++  return scheduleInstant(schedule?.tour_date, schedule?.start_time) > now;
++}
++export function canAssign(schedule, now = Date.now()) {
++  return (
++    ["OPEN", "FULL", "CLOSED"].includes(schedule?.status) &&
++    isUpcoming(schedule, now) &&
++    scheduleInstant(schedule.tour_date, schedule.end_time) >
++      scheduleInstant(schedule.tour_date, schedule.start_time)
++  );
++}
++export function thaiToday(now = Date.now()) {
++  return new Date(now + 7 * 3600000).toISOString().slice(0, 10);
++}
++export function formatDate(date) {
++  const instant = scheduleInstant(date, "12:00");
++  return Number.isFinite(instant)
++    ? new Intl.DateTimeFormat("th-TH", {
++        dateStyle: "medium",
++        timeZone: "Asia/Bangkok",
++      }).format(instant)
++    : "ไม่ระบุวันที่";
++}
++export function formatTime(time) {
++  return time?.slice(0, 5) || "ไม่ระบุเวลา";
++}
++export function statusLabel(status) {
++  return (
++    {
++      OPEN: "เปิดรับจอง",
++      FULL: "เต็มแล้ว",
++      CLOSED: "ปิดรับจอง",
++      CANCELLED: "ยกเลิก",
++      COMPLETED: "เสร็จสิ้น",
++      ASSIGNED: "รอตอบรับ",
++      ACCEPTED: "รับงานแล้ว",
++      DECLINED: "ปฏิเสธงาน",
++      ACTIVE: "เปิดใช้งาน",
++      INACTIVE: "ปิดใช้งาน",
++      NOT_CHECKED_IN: "ยังไม่เช็กชื่อ",
++      CHECKED_IN: "มาแล้ว",
++      NO_SHOW: "ไม่มา",
++    }[status] || "ไม่ทราบสถานะ"
++  );
++}
++export function validateStop(stop) {
++  if (typeof stop?.name !== "string" || !stop.name.trim())
++    return "กรุณากรอกชื่อจุดแวะ";
++  for (const [key, limit, label] of [
++    ["latitude", 90, "ละติจูด"],
++    ["longitude", 180, "ลองจิจูด"],
++  ]) {
++    if (
++      stop[key] == null ||
++      String(stop[key]).trim() === "" ||
++      !Number.isFinite(Number(stop[key])) ||
++      Math.abs(Number(stop[key])) > limit
++    )
++      return `${label}ต้องเป็นตัวเลขระหว่าง -${limit} ถึง ${limit}`;
++  }
++  if (stop.image_url?.trim()) {
++    try {
++      if (!["https:", "http:"].includes(new URL(stop.image_url).protocol))
++        return "URL รูปภาพต้องขึ้นต้นด้วย https:// หรือ http://";
++    } catch {
++      return "กรุณาระบุ URL รูปภาพให้ถูกต้อง";
++    }
++  }
++  return "";
++}
++
++export function canComplete(schedule) {
++  return ['OPEN', 'FULL', 'CLOSED'].includes(schedule?.status);
++}
+diff --git a/src/services/routeService.js b/src/services/routeService.js
+index c8a4dbd..35ca3fc 100644
+--- a/src/services/routeService.js
++++ b/src/services/routeService.js
+@@ -1,151 +1,141 @@
+-import { supabase } from '../lib/supabase'
++import { safeMessage, request } from "./m4/response";
++import { validateStop } from "./m4/rules";
++import { supabase } from "../lib/supabase";
+ 
+ function success(data) {
+   return {
+     success: true,
+     data,
+     error: null,
+-  }
++  };
+ }
+ 
+-function failure(error, fallbackCode = 'DATABASE_ERROR') {
++function failure(error, fallbackCode = "DATABASE_ERROR") {
+   return {
+     success: false,
+     data: null,
+     error: {
+       code: error?.code || fallbackCode,
+-      message: error?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล',
++      message:
++        fallbackCode === "VALIDATION_ERROR"
++          ? error.message
++          : safeMessage(error),
+     },
+-  }
++  };
+ }
+ 
+ function validateDuration(value) {
+-  if (value === undefined || value === null || value === '') {
++  if (value === undefined || value === null || value === "") {
+     return {
+       valid: true,
+       value: null,
+-    }
++    };
+   }
+ 
+-  const duration = Number(value)
++  const duration = Number(value);
+ 
+   if (!Number.isInteger(duration) || duration <= 0) {
+     return {
+       valid: false,
+       value: null,
+-    }
++    };
+   }
+ 
+   return {
+     valid: true,
+     value: duration,
+-  }
++  };
+ }
+ 
+ function isValidStatus(status) {
+-  return status === 'ACTIVE' || status === 'INACTIVE'
++  return status === "ACTIVE" || status === "INACTIVE";
+ }
+ 
+ export async function listActiveRoutes() {
+   const { data, error } = await supabase
+-    .from('routes')
+-    .select('*')
+-    .eq('status', 'ACTIVE')
+-    .order('name', { ascending: true })
++    .from("routes")
++    .select("*")
++    .eq("status", "ACTIVE")
++    .order("name", { ascending: true });
+ 
+   if (error) {
+-    return failure(error)
++    return failure(error);
+   }
+ 
+-  return success(data)
++  return success(data);
+ }
+ 
+ export async function listAllRoutes() {
+   const { data, error } = await supabase
+-    .from('routes')
+-    .select('*')
+-    .order('name', { ascending: true })
++    .from("routes")
++    .select("*")
++    .order("name", { ascending: true });
+ 
+   if (error) {
+-    return failure(error)
++    return failure(error);
+   }
+ 
+-  return success(data)
++  return success(data);
+ }
+ 
+ export async function getRouteDetail(routeId) {
+   if (!routeId) {
+-    return failure(
+-      { message: 'ไม่พบรหัสเส้นทาง' },
+-      'VALIDATION_ERROR',
+-    )
++    return failure({ message: "ไม่พบรหัสเส้นทาง" }, "VALIDATION_ERROR");
+   }
+ 
+   const { data, error } = await supabase
+-    .from('routes')
+-    .select('*')
+-    .eq('id', routeId)
+-    .single()
++    .from("routes")
++    .select("*")
++    .eq("id", routeId)
++    .single();
+ 
+   if (error) {
+-    return failure(error)
++    return failure(error);
+   }
+ 
+-  return success(data)
++  return success(data);
+ }
+ 
+ export async function listRouteStops(routeId) {
+   if (!routeId) {
+-    return failure(
+-      { message: 'ไม่พบรหัสเส้นทาง' },
+-      'VALIDATION_ERROR',
+-    )
++    return failure({ message: "ไม่พบรหัสเส้นทาง" }, "VALIDATION_ERROR");
+   }
+ 
+   const { data, error } = await supabase
+-    .from('route_stops')
+-    .select('*')
+-    .eq('route_id', routeId)
+-    .order('stop_order', { ascending: true })
++    .from("route_stops")
++    .select("*")
++    .eq("route_id", routeId)
++    .order("stop_order", { ascending: true });
+ 
+   if (error) {
+-    return failure(error)
++    return failure(error);
+   }
+ 
+-  return success(data)
++  return success(data);
+ }
+ 
+ export async function createRoute(payload) {
+-  if (!payload || typeof payload !== 'object') {
+-    return failure(
+-      { message: 'ข้อมูลเส้นทางไม่ถูกต้อง' },
+-      'VALIDATION_ERROR',
+-    )
++  if (!payload || typeof payload !== "object") {
++    return failure({ message: "ข้อมูลเส้นทางไม่ถูกต้อง" }, "VALIDATION_ERROR");
+   }
+ 
+   if (!payload.name?.trim()) {
+-    return failure(
+-      { message: 'กรุณากรอกชื่อเส้นทาง' },
+-      'VALIDATION_ERROR',
+-    )
++    return failure({ message: "กรุณากรอกชื่อเส้นทาง" }, "VALIDATION_ERROR");
+   }
+ 
+-  const duration = validateDuration(payload.duration_minutes)
++  const duration = validateDuration(payload.duration_minutes);
+ 
+   if (!duration.valid) {
+     return failure(
+-      { message: 'ระยะเวลาต้องเป็นจำนวนเต็มมากกว่า 0 นาที' },
+-      'VALIDATION_ERROR',
+-    )
++      { message: "ระยะเวลาต้องเป็นจำนวนเต็มมากกว่า 0 นาที" },
++      "VALIDATION_ERROR",
++    );
+   }
+ 
+-  const status = payload.status || 'ACTIVE'
++  const status = payload.status || "ACTIVE";
+ 
+   if (!isValidStatus(status)) {
+-    return failure(
+-      { message: 'สถานะเส้นทางไม่ถูกต้อง' },
+-      'VALIDATION_ERROR',
+-    )
++    return failure({ message: "สถานะเส้นทางไม่ถูกต้อง" }, "VALIDATION_ERROR");
+   }
+ 
+   const routeData = {
+@@ -153,203 +143,125 @@ export async function createRoute(payload) {
+     description: payload.description?.trim() || null,
+     duration_minutes: duration.value,
+     status,
+-  }
++  };
+ 
+   const { data, error } = await supabase
+-    .from('routes')
++    .from("routes")
+     .insert(routeData)
+-    .select('*')
+-    .single()
++    .select("*")
++    .single();
+ 
+   if (error) {
+-    return failure(error)
++    return failure(error);
+   }
+ 
+-  return success(data)
++  return success(data);
+ }
+ 
+ export async function updateRoute(routeId, patch) {
+   if (!routeId) {
+-    return failure(
+-      { message: 'ไม่พบรหัสเส้นทาง' },
+-      'VALIDATION_ERROR',
+-    )
++    return failure({ message: "ไม่พบรหัสเส้นทาง" }, "VALIDATION_ERROR");
+   }
+ 
+-  if (!patch || typeof patch !== 'object') {
++  if (!patch || typeof patch !== "object") {
+     return failure(
+-      { message: 'ข้อมูลที่ต้องการแก้ไขไม่ถูกต้อง' },
+-      'VALIDATION_ERROR',
+-    )
++      { message: "ข้อมูลที่ต้องการแก้ไขไม่ถูกต้อง" },
++      "VALIDATION_ERROR",
++    );
+   }
+ 
+-  const routeData = {}
++  const routeData = {};
+ 
+   if (patch.name !== undefined) {
+-    const name = patch.name?.trim()
++    const name = patch.name?.trim();
+ 
+     if (!name) {
+-      return failure(
+-        { message: 'กรุณากรอกชื่อเส้นทาง' },
+-        'VALIDATION_ERROR',
+-      )
++      return failure({ message: "กรุณากรอกชื่อเส้นทาง" }, "VALIDATION_ERROR");
+     }
+ 
+-    routeData.name = name
++    routeData.name = name;
+   }
+ 
+   if (patch.description !== undefined) {
+-    routeData.description = patch.description?.trim() || null
++    routeData.description = patch.description?.trim() || null;
+   }
+ 
+   if (patch.duration_minutes !== undefined) {
+-    const duration = validateDuration(patch.duration_minutes)
++    const duration = validateDuration(patch.duration_minutes);
+ 
+     if (!duration.valid) {
+       return failure(
+-        { message: 'ระยะเวลาต้องเป็นจำนวนเต็มมากกว่า 0 นาที' },
+-        'VALIDATION_ERROR',
+-      )
++        { message: "ระยะเวลาต้องเป็นจำนวนเต็มมากกว่า 0 นาที" },
++        "VALIDATION_ERROR",
++      );
+     }
+ 
+-    routeData.duration_minutes = duration.value
++    routeData.duration_minutes = duration.value;
+   }
+ 
+   if (patch.status !== undefined) {
+     if (!isValidStatus(patch.status)) {
+-      return failure(
+-        { message: 'สถานะเส้นทางไม่ถูกต้อง' },
+-        'VALIDATION_ERROR',
+-      )
++      return failure({ message: "สถานะเส้นทางไม่ถูกต้อง" }, "VALIDATION_ERROR");
+     }
+ 
+-    routeData.status = patch.status
++    routeData.status = patch.status;
+   }
+ 
+   if (Object.keys(routeData).length === 0) {
+-    return failure(
+-      { message: 'ไม่มีข้อมูลสำหรับแก้ไข' },
+-      'VALIDATION_ERROR',
+-    )
++    return failure({ message: "ไม่มีข้อมูลสำหรับแก้ไข" }, "VALIDATION_ERROR");
+   }
+ 
+   const { data, error } = await supabase
+-    .from('routes')
++    .from("routes")
+     .update(routeData)
+-    .eq('id', routeId)
+-    .select('*')
+-    .single()
++    .eq("id", routeId)
++    .select("*")
++    .single();
+ 
+   if (error) {
+-    return failure(error)
++    return failure(error);
+   }
+ 
+-  return success(data)
++  return success(data);
+ }
+ 
+ export async function deleteRoute(routeId) {
+   if (!routeId) {
+-    return failure(
+-      { message: 'ไม่พบรหัสเส้นทาง' },
+-      'VALIDATION_ERROR',
+-    )
++    return failure({ message: "ไม่พบรหัสเส้นทาง" }, "VALIDATION_ERROR");
+   }
+ 
+-  const { error } = await supabase
+-    .from('routes')
+-    .delete()
+-    .eq('id', routeId)
++  const { error } = await supabase.from("routes").delete().eq("id", routeId);
+ 
+   if (error) {
+-    return failure(error)
++    return failure(error);
+   }
+ 
+-  return success({ id: routeId })
++  return success({ id: routeId });
+ }
+ 
+ export async function replaceRouteStops(routeId, stops) {
+   if (!routeId) {
+-    return failure(
+-      { message: 'ไม่พบรหัสเส้นทาง' },
+-      'VALIDATION_ERROR',
+-    )
++    return failure({ message: "ไม่พบรหัสเส้นทาง" }, "VALIDATION_ERROR");
+   }
+ 
+   if (!Array.isArray(stops)) {
+-    return failure(
+-      { message: 'ข้อมูลจุดแวะชมไม่ถูกต้อง' },
+-      'VALIDATION_ERROR',
+-    )
+-  }
+-
+-  const normalizedStops = stops.map((stop, index) => {
+-    const latitude = Number(stop.latitude)
+-    const longitude = Number(stop.longitude)
+-
+-    return {
+-      route_id: routeId,
+-      name: stop.name?.trim(),
+-      description: stop.description?.trim() || null,
+-      latitude,
+-      longitude,
+-      stop_order: index + 1,
+-      image_url: stop.image_url?.trim() || null,
+-    }
+-  })
+-
+-  for (const stop of normalizedStops) {
+-    if (!stop.name) {
+-      return failure(
+-        { message: 'ทุกจุดแวะชมต้องมีชื่อ' },
+-        'VALIDATION_ERROR',
+-      )
+-    }
+-
+-    if (
+-      !Number.isFinite(stop.latitude) ||
+-      stop.latitude < -90 ||
+-      stop.latitude > 90
+-    ) {
+-      return failure(
+-        { message: 'Latitude ต้องอยู่ระหว่าง -90 ถึง 90' },
+-        'VALIDATION_ERROR',
+-      )
+-    }
+-
+-    if (
+-      !Number.isFinite(stop.longitude) ||
+-      stop.longitude < -180 ||
+-      stop.longitude > 180
+-    ) {
+-      return failure(
+-        { message: 'Longitude ต้องอยู่ระหว่าง -180 ถึง 180' },
+-        'VALIDATION_ERROR',
+-      )
+-    }
+-  }
+-
+-  const { error: deleteError } = await supabase
+-    .from('route_stops')
+-    .delete()
+-    .eq('route_id', routeId)
+-
+-  if (deleteError) {
+-    return failure(deleteError)
+-  }
+-
+-  if (normalizedStops.length === 0) {
+-    return success([])
+-  }
+-
+-  const { data, error: insertError } = await supabase
+-    .from('route_stops')
+-    .insert(normalizedStops)
+-    .select('*')
+-    .order('stop_order', { ascending: true })
+-
+-  if (insertError) {
+-    return failure(insertError)
+-  }
+-
+-  return success(data)
+-}
+\ No newline at end of file
++    return failure({ message: "ข้อมูลจุดแวะชมไม่ถูกต้อง" }, "VALIDATION_ERROR");
++  }
++
++  for (const stop of stops) {
++    const message = validateStop(stop);
++    if (message) return failure({ message }, "VALIDATION_ERROR");
++  }
++  return request(() =>
++    supabase.rpc("m4_replace_route_stops", {
++      p_route_id: routeId,
++      p_stops: stops.map((stop) => ({
++        name: stop.name.trim(),
++        description: stop.description?.trim() || null,
++        latitude: Number(stop.latitude),
++        longitude: Number(stop.longitude),
++        image_url: stop.image_url?.trim() || null,
++      })),
++    }),
++  );
++}
+diff --git a/src/services/scheduleService.js b/src/services/scheduleService.js
+index 02b31c1..ec296df 100644
+--- a/src/services/scheduleService.js
++++ b/src/services/scheduleService.js
+@@ -1,70 +1,61 @@
+-import { supabase } from '../lib/supabase';
++import { supabase } from "../lib/supabase";
+ 
+-const formatResponse = (data, error) => {
+-  if (error) {
+-    console.error('Supabase Error:', error);
+-    return {
+-      success: false,
+-      data: null,
+-      error: { code: error.code || 'DATABASE_ERROR', message: error.message }
+-    };
+-  }
+-  return { success: true, data, error: null };
+-};
++import { formatResponse, request } from "./m4/response";
++import { validateSchedule, isUpcoming, thaiToday } from "./m4/rules";
+ 
+ export const listOpenSchedules = async (routeId = null) => {
+   let query = supabase
+-    .from('tour_schedules')
+-    .select(`
++    .from("tour_schedules")
++    .select(
++      `
+       *,
+       routes(name, duration_minutes),
+       guide_assignments(guide_id, status)
+-    `)
+-    .eq('status', 'OPEN')
+-    .order('tour_date', { ascending: true })
+-    .order('start_time', { ascending: true });
++    `,
++    )
++    .eq("status", "OPEN")
++    .order("tour_date", { ascending: true })
++    .order("start_time", { ascending: true });
+ 
+   if (routeId) {
+-    query = query.eq('route_id', routeId);
++    query = query.eq("route_id", routeId);
+   }
+ 
+   const { data, error } = await query;
+   return formatResponse(data, error);
+ };
+ 
+-const getLocalToday = () => {
+-  const now = new Date();
+-  const year = now.getFullYear();
+-  const month = String(now.getMonth() + 1).padStart(2, '0');
+-  const day = String(now.getDate()).padStart(2, '0');
+-
+-  return `${year}-${month}-${day}`;
+-};
+-
+ export const listPublicSchedules = async (routeId = null) => {
+   let query = supabase
+-    .from('tour_schedules')
+-    .select('*, routes(name, duration_minutes)')
+-    .in('status', ['OPEN', 'FULL'])
+-    .gte('tour_date', getLocalToday())
+-    .order('tour_date', { ascending: true })
+-    .order('start_time', { ascending: true });
++    .from("tour_schedules")
++    .select("*, routes(name, duration_minutes)")
++    .in("status", ["OPEN", "FULL"])
++    .gte("tour_date", thaiToday())
++    .order("tour_date", { ascending: true })
++    .order("start_time", { ascending: true });
+ 
+   if (routeId) {
+-    query = query.eq('route_id', routeId);
++    query = query.eq("route_id", routeId);
+   }
+ 
+   const { data, error } = await query;
+-  return formatResponse(data, error);
++  return formatResponse(
++    data?.filter((schedule) => isUpcoming(schedule)),
++    error,
++  );
+ };
+ 
+ export const getScheduleDetail = async (scheduleId) => {
+-  if (!scheduleId) return formatResponse(null, { code: 'VALIDATION_ERROR', message: 'scheduleId is required' });
++  if (!scheduleId)
++    return formatResponse(null, {
++      code: "VALIDATION_ERROR",
++      message: "scheduleId is required",
++    });
+ 
+   const { data, error } = await supabase
+-    .from('tour_schedules')
+-    .select('*, routes(name, description), guide_assignments(guide_id, status)')
+-    .eq('id', scheduleId)
++    .from("tour_schedules")
++    .select("*, routes(name, description), guide_assignments(guide_id, status)")
++    .eq("id", scheduleId)
+     .single();
+ 
+   return formatResponse(data, error);
+@@ -73,47 +64,66 @@ export const getScheduleDetail = async (scheduleId) => {
+ export const getGuideNameForSchedule = async (scheduleId) => {
+   if (!scheduleId) {
+     return formatResponse(null, {
+-      code: 'VALIDATION_ERROR',
+-      message: 'scheduleId is required',
++      code: "VALIDATION_ERROR",
++      message: "scheduleId is required",
+     });
+   }
+ 
+-  const { data, error } = await supabase.rpc(
+-    'get_guide_name_for_schedule',
+-    {
+-      target_schedule_id: scheduleId,
+-    },
+-  );
++  const { data, error } = await supabase.rpc("get_guide_name_for_schedule", {
++    target_schedule_id: scheduleId,
++  });
+ 
+   return formatResponse(data, error);
+ };
+ 
+ export const createSchedule = async (payload) => {
+-  const { data, error } = await supabase
+-    .from('tour_schedules')
+-    .insert([
+-      {
+-        route_id: payload.route_id,
+-        tour_date: payload.tour_date,
+-        start_time: payload.start_time,
+-        end_time: payload.end_time,
+-        max_participants: payload.max_participants,
+-        status: 'OPEN'
+-      }
+-    ])
+-    .select()
+-    .single();
+-
+-  return formatResponse(data, error);
++  const errors = validateSchedule(payload || {});
++  if (Object.keys(errors).length)
++    return {
++      success: false,
++      data: null,
++      error: { code: "VALIDATION_ERROR", message: Object.values(errors)[0] },
++    };
++  return request(() =>
++    supabase
++      .from("tour_schedules")
++      .insert([
++        {
++          route_id: payload.route_id,
++          tour_date: payload.tour_date,
++          start_time: payload.start_time,
++          end_time: payload.end_time,
++          max_participants: Number(payload.max_participants),
++          status: "OPEN",
++        },
++      ])
++      .select()
++      .single(),
++  );
+ };
+ 
++export const listAdminSchedules = async () =>
++  request(() =>
++    supabase
++      .from("tour_schedules")
++      .select(
++        "*, routes(name, duration_minutes), guide_assignments(guide_id, status)",
++      )
++      .order("tour_date", { ascending: false })
++      .order("start_time"),
++  );
++
+ export const updateSchedule = async (scheduleId, patch) => {
+-  if (!scheduleId) return formatResponse(null, { code: 'VALIDATION_ERROR', message: 'scheduleId is required' });
++  if (!scheduleId)
++    return formatResponse(null, {
++      code: "VALIDATION_ERROR",
++      message: "scheduleId is required",
++    });
+ 
+   const { data, error } = await supabase
+-    .from('tour_schedules')
++    .from("tour_schedules")
+     .update({ ...patch, updated_at: new Date().toISOString() })
+-    .eq('id', scheduleId)
++    .eq("id", scheduleId)
+     .select()
+     .single();
+ 
+@@ -123,17 +133,14 @@ export const updateSchedule = async (scheduleId, patch) => {
+ export const completeTour = async (scheduleId) => {
+   if (!scheduleId) {
+     return formatResponse(null, {
+-      code: 'VALIDATION_ERROR',
+-      message: 'scheduleId is required',
++      code: "VALIDATION_ERROR",
++      message: "scheduleId is required",
+     });
+   }
+ 
+-  const { data, error } = await supabase.rpc(
+-    'complete_tour',
+-    {
+-      p_schedule_id: scheduleId,
+-    },
+-  );
++  const { data, error } = await supabase.rpc("complete_tour", {
++    p_schedule_id: scheduleId,
++  });
+ 
+   return formatResponse(data, error);
+-};
+\ No newline at end of file
++};
+diff --git a/supabase/migrations/0018_m4_schedule_route_safety.sql b/supabase/migrations/0018_m4_schedule_route_safety.sql
+new file mode 100644
+index 0000000..a66bad7
+--- /dev/null
++++ b/supabase/migrations/0018_m4_schedule_route_safety.sql
+@@ -0,0 +1,330 @@
++-- M4 additive safety migration. Based on remote 63363e7 (through 0017).
++-- Local times are Asia/Bangkok. Completion timing is deliberately unchanged (D3).
++-- Proposed overlap policy: ASSIGNED/ACCEPTED occupy [start,end), no travel buffer.
++-- Confirm this boundary policy with the integration owner before production rollout.
++BEGIN;
++
++CREATE OR REPLACE FUNCTION public.m4_schedule_edit_lock()
++RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
++BEGIN
++  -- Same lock order as assignment RPCs: domain mutex, schedule row, assignment.
++  PERFORM pg_advisory_xact_lock(7042026, 4);
++  RETURN NULL;
++END;
++$$;
++DROP TRIGGER IF EXISTS m4_schedule_edit_lock ON public.tour_schedules;
++CREATE TRIGGER m4_schedule_edit_lock
++BEFORE UPDATE OF tour_date, start_time, end_time, route_id ON public.tour_schedules
++FOR EACH STATEMENT EXECUTE FUNCTION public.m4_schedule_edit_lock();
++
++CREATE OR REPLACE FUNCTION public.m4_validate_schedule()
++RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
++DECLARE
++  v_time_changed boolean;
++  v_booked bigint;
++BEGIN
++  v_time_changed := TG_OP = 'INSERT';
++  IF TG_OP = 'UPDATE' THEN
++    v_time_changed := (NEW.tour_date, NEW.start_time, NEW.end_time, NEW.route_id)
++      IS DISTINCT FROM (OLD.tour_date, OLD.start_time, OLD.end_time, OLD.route_id);
++    -- Terminal schedules cannot be silently reopened via a direct update.
++    IF OLD.status IN ('CANCELLED','COMPLETED') AND NEW.status <> OLD.status THEN
++      RAISE EXCEPTION 'INVALID_STATE';
++    END IF;
++  END IF;
++  IF v_time_changed THEN
++    IF NEW.end_time IS NULL OR NEW.end_time <= NEW.start_time THEN RAISE EXCEPTION 'TIME_ORDER'; END IF;
++    IF (NEW.tour_date + NEW.start_time) AT TIME ZONE 'Asia/Bangkok' <= clock_timestamp() THEN
++      RAISE EXCEPTION 'SCHEDULE_PAST';
++    END IF;
++    IF NOT EXISTS (SELECT 1 FROM public.routes WHERE id = NEW.route_id AND status = 'ACTIVE') THEN
++      RAISE EXCEPTION 'ROUTE_INACTIVE';
++    END IF;
++    IF EXISTS (
++      SELECT 1 FROM public.guide_assignments own_ga
++      JOIN public.guide_assignments other_ga ON other_ga.guide_id = own_ga.guide_id AND other_ga.schedule_id <> NEW.id
++      JOIN public.tour_schedules other_s ON other_s.id = other_ga.schedule_id
++      WHERE own_ga.schedule_id = NEW.id AND own_ga.status IN ('ASSIGNED','ACCEPTED')
++        AND other_ga.status IN ('ASSIGNED','ACCEPTED') AND other_s.status IN ('OPEN','FULL','CLOSED')
++        AND other_s.tour_date = NEW.tour_date
++        AND NEW.start_time < COALESCE(other_s.end_time, '24:00'::time)
++        AND other_s.start_time < NEW.end_time
++    ) THEN RAISE EXCEPTION 'GUIDE_OVERLAP'; END IF;
++  END IF;
++  IF TG_OP = 'INSERT' OR NEW.max_participants IS DISTINCT FROM OLD.max_participants THEN
++    SELECT COALESCE(sum(participant_count),0) INTO v_booked FROM public.bookings
++      WHERE schedule_id = NEW.id AND status IN ('CONFIRMED','COMPLETED');
++    IF NEW.max_participants IS NULL OR NEW.max_participants < 1 OR NEW.max_participants < v_booked THEN
++      RAISE EXCEPTION 'CAPACITY_INVALID';
++    END IF;
++  END IF;
++  RETURN NEW;
++END;
++$$;
++DROP TRIGGER IF EXISTS m4_validate_schedule ON public.tour_schedules;
++CREATE TRIGGER m4_validate_schedule BEFORE INSERT OR UPDATE ON public.tour_schedules
++FOR EACH ROW EXECUTE FUNCTION public.m4_validate_schedule();
++
++-- Availability guard is additive: M3 booking/capacity RPCs are not replaced.
++-- Their schedule row lock remains authoritative for capacity.
++CREATE OR REPLACE FUNCTION public.m4_guard_booking_time()
++RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
++DECLARE v_schedule public.tour_schedules%rowtype;
++BEGIN
++  SELECT * INTO v_schedule FROM public.tour_schedules WHERE id = NEW.schedule_id FOR UPDATE;
++  IF NOT FOUND THEN RAISE EXCEPTION 'NOT_FOUND'; END IF;
++  IF v_schedule.status <> 'OPEN' THEN RAISE EXCEPTION 'INVALID_STATE'; END IF;
++  IF v_schedule.end_time IS NULL OR v_schedule.end_time <= v_schedule.start_time THEN RAISE EXCEPTION 'TIME_ORDER'; END IF;
++  IF (v_schedule.tour_date + v_schedule.start_time) AT TIME ZONE 'Asia/Bangkok' <= clock_timestamp() THEN
++    RAISE EXCEPTION 'SCHEDULE_EXPIRED';
++  END IF;
++  RETURN NEW;
++END;
++$$;
++DROP TRIGGER IF EXISTS m4_guard_booking_time ON public.bookings;
++CREATE TRIGGER m4_guard_booking_time BEFORE INSERT ON public.bookings
++FOR EACH ROW EXECUTE FUNCTION public.m4_guard_booking_time();
++
++CREATE OR REPLACE FUNCTION public.m4_guard_assignment()
++RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
++DECLARE v_schedule public.tour_schedules%rowtype;
++BEGIN
++  IF NEW.status NOT IN ('ASSIGNED','ACCEPTED') THEN RETURN NEW; END IF;
++  -- Trusted RPCs acquire mutex before row locks; direct client writes remain RLS-denied.
++  PERFORM pg_advisory_xact_lock(7042026, 4);
++  SELECT * INTO v_schedule FROM public.tour_schedules WHERE id = NEW.schedule_id FOR UPDATE;
++  IF NOT FOUND THEN RAISE EXCEPTION 'NOT_FOUND'; END IF;
++  IF v_schedule.status NOT IN ('OPEN','FULL','CLOSED') THEN RAISE EXCEPTION 'INVALID_STATE'; END IF;
++  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = NEW.guide_id AND role = 'GUIDE' AND account_status = 'ACTIVE') THEN
++    RAISE EXCEPTION 'FORBIDDEN';
++  END IF;
++  IF v_schedule.end_time IS NULL OR v_schedule.end_time <= v_schedule.start_time THEN RAISE EXCEPTION 'TIME_ORDER'; END IF;
++  IF (v_schedule.tour_date + v_schedule.start_time) AT TIME ZONE 'Asia/Bangkok' <= clock_timestamp() THEN
++    RAISE EXCEPTION 'SCHEDULE_EXPIRED';
++  END IF;
++  IF EXISTS (
++    SELECT 1 FROM public.guide_assignments ga JOIN public.tour_schedules s ON s.id = ga.schedule_id
++    WHERE ga.guide_id = NEW.guide_id AND ga.schedule_id <> NEW.schedule_id
++      AND ga.status IN ('ASSIGNED','ACCEPTED') AND s.status IN ('OPEN','FULL','CLOSED')
++      AND s.tour_date = v_schedule.tour_date
++      AND v_schedule.start_time < COALESCE(s.end_time,'24:00'::time)
++      AND s.start_time < v_schedule.end_time
++  ) THEN RAISE EXCEPTION 'GUIDE_OVERLAP'; END IF;
++  RETURN NEW;
++END;
++$$;
++DROP TRIGGER IF EXISTS m4_guard_assignment ON public.guide_assignments;
++CREATE TRIGGER m4_guard_assignment BEFORE INSERT OR UPDATE ON public.guide_assignments
++FOR EACH ROW EXECUTE FUNCTION public.m4_guard_assignment();
++
++-- Preserve original authorization, audit and result contracts; acquire mutex first.
++CREATE OR REPLACE FUNCTION public.assign_guide(
++  p_schedule_id uuid,
++  p_guide_id uuid
++)
++RETURNS public.guide_assignments
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public, pg_temp
++AS $$
++DECLARE
++  v_actor_id uuid;
++  v_schedule_status text;
++  v_target_role text;
++  v_target_status text;
++  v_old_assignment public.guide_assignments%rowtype;
++  v_assignment public.guide_assignments%rowtype;
++BEGIN
++  PERFORM pg_advisory_xact_lock(7042026, 4);
++
++  v_actor_id := auth.uid();
++
++  IF v_actor_id IS NULL THEN
++    RAISE EXCEPTION 'AUTH_REQUIRED';
++  END IF;
++
++  IF NOT public.is_admin() THEN
++    RAISE EXCEPTION 'FORBIDDEN';
++  END IF;
++
++  IF p_schedule_id IS NULL OR p_guide_id IS NULL THEN
++    RAISE EXCEPTION 'VALIDATION_ERROR';
++  END IF;
++
++
++  SELECT status
++  INTO v_schedule_status
++  FROM public.tour_schedules
++  WHERE id = p_schedule_id
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'NOT_FOUND';
++  END IF;
++
++  IF v_schedule_status IN ('CANCELLED', 'COMPLETED') THEN
++    RAISE EXCEPTION 'INVALID_STATE';
++  END IF;
++
++
++  SELECT role, account_status
++  INTO v_target_role, v_target_status
++  FROM public.profiles
++  WHERE id = p_guide_id;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'NOT_FOUND';
++  END IF;
++
++  IF v_target_role <> 'GUIDE'
++     OR v_target_status <> 'ACTIVE'
++  THEN
++    RAISE EXCEPTION 'VALIDATION_ERROR';
++  END IF;
++
++
++  SELECT *
++  INTO v_old_assignment
++  FROM public.guide_assignments
++  WHERE schedule_id = p_schedule_id;
++
++
++  INSERT INTO public.guide_assignments (
++    schedule_id,
++    guide_id,
++    status,
++    assigned_at
++  )
++  VALUES (
++    p_schedule_id,
++    p_guide_id,
++    'ASSIGNED',
++    now()
++  )
++  ON CONFLICT (schedule_id)
++  DO UPDATE SET
++    guide_id = EXCLUDED.guide_id,
++    status = 'ASSIGNED',
++    assigned_at = now()
++  RETURNING *
++  INTO v_assignment;
++
++
++  INSERT INTO public.audit_logs (
++    actor_id,
++    action,
++    target_type,
++    target_id,
++    old_data,
++    new_data
++  )
++  VALUES (
++    v_actor_id,
++    'GUIDE_ASSIGNED',
++    'TOUR_SCHEDULE',
++    p_schedule_id,
++
++    CASE
++      WHEN v_old_assignment.id IS NULL
++        THEN NULL
++      ELSE jsonb_build_object(
++        'assignment_id', v_old_assignment.id,
++        'guide_id', v_old_assignment.guide_id,
++        'status', v_old_assignment.status
++      )
++    END,
++
++    jsonb_build_object(
++      'assignment_id', v_assignment.id,
++      'guide_id', v_assignment.guide_id,
++      'status', v_assignment.status
++    )
++  );
++
++
++  RETURN v_assignment;
++
++END;
++$$;
++
++-- Preserve original authorization, audit and result contracts; acquire mutex first.
++CREATE OR REPLACE FUNCTION public.update_my_assignment_status(
++  p_assignment_id uuid,
++  p_status text
++)
++RETURNS boolean
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public, pg_temp
++AS $$
++BEGIN
++  PERFORM pg_advisory_xact_lock(7042026, 4);
++
++  IF auth.uid() IS NULL THEN
++    RAISE EXCEPTION 'AUTH_REQUIRED';
++  END IF;
++
++  IF public.current_user_role() IS DISTINCT FROM 'GUIDE'
++     OR NOT public.is_active_user()
++  THEN
++    RAISE EXCEPTION 'FORBIDDEN';
++  END IF;
++
++  IF p_assignment_id IS NULL
++     OR p_status IS NULL OR p_status NOT IN ('ACCEPTED', 'DECLINED')
++  THEN
++    RAISE EXCEPTION 'VALIDATION_ERROR';
++  END IF;
++
++
++  UPDATE public.guide_assignments
++  SET status = p_status
++  WHERE id = p_assignment_id
++    AND guide_id = auth.uid()
++    AND status = 'ASSIGNED';
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'FORBIDDEN';
++  END IF;
++
++
++  RETURN true;
++
++END;
++$$;
++
++-- One transaction replaces the list; any insert/validation failure restores the old list.
++CREATE OR REPLACE FUNCTION public.m4_replace_route_stops(p_route_id uuid, p_stops jsonb)
++RETURNS SETOF public.route_stops LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
++DECLARE v_stop jsonb; v_lat double precision; v_lng double precision;
++BEGIN
++  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'AUTH_REQUIRED'; END IF;
++  IF NOT public.is_admin() THEN RAISE EXCEPTION 'FORBIDDEN'; END IF;
++  IF p_route_id IS NULL OR p_stops IS NULL OR jsonb_typeof(p_stops) <> 'array' THEN RAISE EXCEPTION 'VALIDATION_ERROR'; END IF;
++  PERFORM 1 FROM public.routes WHERE id = p_route_id FOR UPDATE;
++  IF NOT FOUND THEN RAISE EXCEPTION 'NOT_FOUND'; END IF;
++  FOR v_stop IN SELECT value FROM jsonb_array_elements(p_stops) LOOP
++    IF jsonb_typeof(v_stop) <> 'object' OR jsonb_typeof(v_stop->'name') IS DISTINCT FROM 'string'
++      OR NULLIF(btrim(v_stop->>'name'),'') IS NULL
++      OR jsonb_typeof(v_stop->'latitude') IS DISTINCT FROM 'number'
++      OR jsonb_typeof(v_stop->'longitude') IS DISTINCT FROM 'number' THEN RAISE EXCEPTION 'VALIDATION_ERROR'; END IF;
++    v_lat := (v_stop->>'latitude')::double precision;
++    v_lng := (v_stop->>'longitude')::double precision;
++    IF NOT (v_lat BETWEEN -90 AND 90) OR NOT (v_lng BETWEEN -180 AND 180) THEN RAISE EXCEPTION 'VALIDATION_ERROR'; END IF;
++    IF NULLIF(btrim(v_stop->>'image_url'),'') IS NOT NULL AND btrim(v_stop->>'image_url') !~* '^https?://[^[:space:]/]+[^[:space:]]*$' THEN RAISE EXCEPTION 'VALIDATION_ERROR'; END IF;
++  END LOOP;
++  DELETE FROM public.route_stops WHERE route_id = p_route_id;
++  RETURN QUERY
++  INSERT INTO public.route_stops(route_id,name,description,latitude,longitude,stop_order,image_url)
++    SELECT p_route_id,btrim(item->>'name'),NULLIF(btrim(item->>'description'),''),
++      (item->>'latitude')::double precision,(item->>'longitude')::double precision,
++      ordinal::integer,NULLIF(btrim(item->>'image_url'),'')
++    FROM jsonb_array_elements(p_stops) WITH ORDINALITY AS items(item,ordinal)
++    ORDER BY ordinal RETURNING *;
++END;
++$$;
++
++REVOKE ALL ON FUNCTION public.m4_schedule_edit_lock(), public.m4_validate_schedule(), public.m4_guard_booking_time(), public.m4_guard_assignment() FROM PUBLIC, anon, authenticated;
++REVOKE ALL ON FUNCTION public.assign_guide(uuid,uuid), public.update_my_assignment_status(uuid,text), public.m4_replace_route_stops(uuid,jsonb) FROM PUBLIC, anon;
++GRANT EXECUTE ON FUNCTION public.assign_guide(uuid,uuid), public.update_my_assignment_status(uuid,text), public.m4_replace_route_stops(uuid,jsonb) TO authenticated;
++COMMIT;
+diff --git a/supabase/migrations/0019_m4_completion_after_end.sql b/supabase/migrations/0019_m4_completion_after_end.sql
+new file mode 100644
+index 0000000..94cd628
+--- /dev/null
++++ b/supabase/migrations/0019_m4_completion_after_end.sql
+@@ -0,0 +1,170 @@
++-- D3 confirmed by user: completion at/after scheduled end, Asia/Bangkok.
++-- Apply after 0018. Does not edit historical migration files.
++BEGIN;
++CREATE OR REPLACE FUNCTION public.m4_completion_due(p_date date, p_start time, p_end time, p_now timestamptz)
++RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
++  SELECT coalesce(p_end > p_start AND ((p_date + p_end) AT TIME ZONE 'Asia/Bangkok') <= p_now, false);
++$$;
++CREATE OR REPLACE FUNCTION public.m4_guard_completion_time()
++RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
++BEGIN
++  IF NEW.status = 'COMPLETED' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'COMPLETED') THEN
++    IF NEW.end_time IS NULL OR NEW.end_time <= NEW.start_time THEN RAISE EXCEPTION 'TIME_ORDER'; END IF;
++    IF NOT public.m4_completion_due(NEW.tour_date,NEW.start_time,NEW.end_time,clock_timestamp()) THEN
++      RAISE EXCEPTION 'TOUR_NOT_ENDED';
++    END IF;
++  END IF;
++  RETURN NEW;
++END;
++$$;
++DROP TRIGGER IF EXISTS m4_guard_completion_time ON public.tour_schedules;
++CREATE TRIGGER m4_guard_completion_time BEFORE INSERT OR UPDATE ON public.tour_schedules
++FOR EACH ROW EXECUTE FUNCTION public.m4_guard_completion_time();
++create or replace function public.complete_tour(
++  p_schedule_id uuid
++)
++returns public.tour_schedules
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_actor_id uuid;
++  v_schedule public.tour_schedules%rowtype;
++  v_completed_schedule public.tour_schedules%rowtype;
++  v_is_admin boolean := false;
++  v_is_accepted_guide boolean := false;
++  v_completed_bookings integer := 0;
++  v_completed_assignments integer := 0;
++begin
++  -- 1) Authentication
++  v_actor_id := auth.uid();
++
++  if v_actor_id is null then
++    raise exception 'AUTH_REQUIRED';
++  end if;
++
++  -- 2) Input validation
++  if p_schedule_id is null then
++    raise exception 'VALIDATION_ERROR';
++  end if;
++
++  -- 3) Lock schedule
++  select *
++  into v_schedule
++  from public.tour_schedules
++  where id = p_schedule_id
++  for update;
++
++  if not found then
++    raise exception 'NOT_FOUND';
++  end if;
++
++  -- 4) Authorization
++  v_is_admin := public.is_admin();
++
++  if public.is_active_user()
++     and public.current_user_role() = 'GUIDE' then
++
++    select exists (
++      select 1
++      from public.guide_assignments ga
++      where ga.schedule_id = p_schedule_id
++        and ga.guide_id = v_actor_id
++        and ga.status = 'ACCEPTED'
++    )
++    into v_is_accepted_guide;
++
++  end if;
++
++  if not v_is_admin and not v_is_accepted_guide then
++    raise exception 'FORBIDDEN';
++  end if;
++
++  -- 5) Lifecycle
++  if v_schedule.status not in ('OPEN', 'FULL', 'CLOSED') then
++    raise exception 'INVALID_STATE';
++  end if;
++
++  -- Frozen D3: no role, including ADMIN, can complete before the scheduled end.
++  if v_schedule.end_time is null or v_schedule.end_time <= v_schedule.start_time then
++    raise exception 'TIME_ORDER';
++  end if;
++  if not public.m4_completion_due(v_schedule.tour_date, v_schedule.start_time,
++                                  v_schedule.end_time, clock_timestamp()) then
++    raise exception 'TOUR_NOT_ENDED';
++  end if;
++
++  -- 6) Complete schedule
++  update public.tour_schedules
++  set
++    status = 'COMPLETED',
++    updated_at = now()
++  where id = p_schedule_id
++  returning *
++  into v_completed_schedule;
++
++  -- 7) Complete accepted guide assignment only
++  update public.guide_assignments
++  set status = 'COMPLETED'
++  where schedule_id = p_schedule_id
++    and status = 'ACCEPTED';
++
++  get diagnostics v_completed_assignments = row_count;
++
++  -- 8) Complete confirmed bookings.
++  -- M3 protect_booking_update() explicitly supports
++  -- CONFIRMED -> COMPLETED for trusted Guide operations.
++  -- CANCELLED bookings are untouched.
++  update public.bookings
++  set
++    status = 'COMPLETED',
++    updated_at = now()
++  where schedule_id = p_schedule_id
++    and status = 'CONFIRMED';
++
++  get diagnostics v_completed_bookings = row_count;
++
++  -- 9) Audit
++  insert into public.audit_logs (
++    actor_id,
++    action,
++    target_type,
++    target_id,
++    old_data,
++    new_data
++  )
++  values (
++    v_actor_id,
++    'TOUR_COMPLETED',
++    'TOUR_SCHEDULE',
++    p_schedule_id,
++    jsonb_build_object(
++      'status', v_schedule.status
++    ),
++    jsonb_build_object(
++      'status', 'COMPLETED',
++      'completed_bookings', v_completed_bookings,
++      'completed_assignments', v_completed_assignments
++    )
++  );
++
++  return v_completed_schedule;
++end;
++$$;
++
++-- Trusted workflow RPC permissions
++revoke all
++on function public.complete_tour(uuid)
++from public;
++
++revoke all
++on function public.complete_tour(uuid)
++from anon;
++
++grant execute
++on function public.complete_tour(uuid)
++to authenticated;
++
++REVOKE ALL ON FUNCTION public.m4_completion_due(date,time,time,timestamptz),public.m4_guard_completion_time() FROM PUBLIC,anon,authenticated;
++COMMIT;
+diff --git a/supabase/migrations/0020_m4_restore_immediate_completion.sql b/supabase/migrations/0020_m4_restore_immediate_completion.sql
+new file mode 100644
+index 0000000..f48d28d
+--- /dev/null
++++ b/supabase/migrations/0020_m4_restore_immediate_completion.sql
+@@ -0,0 +1,144 @@
++-- User supersedes D3: restore immediate completion; keep role/lifecycle/audit checks.
++-- Apply after 0019. Historical migration files remain unchanged.
++BEGIN;
++DROP TRIGGER IF EXISTS m4_guard_completion_time ON public.tour_schedules;
++DROP FUNCTION IF EXISTS public.m4_guard_completion_time();
++create or replace function public.complete_tour(
++  p_schedule_id uuid
++)
++returns public.tour_schedules
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++declare
++  v_actor_id uuid;
++  v_schedule public.tour_schedules%rowtype;
++  v_completed_schedule public.tour_schedules%rowtype;
++  v_is_admin boolean := false;
++  v_is_accepted_guide boolean := false;
++  v_completed_bookings integer := 0;
++  v_completed_assignments integer := 0;
++begin
++  -- 1) Authentication
++  v_actor_id := auth.uid();
++
++  if v_actor_id is null then
++    raise exception 'AUTH_REQUIRED';
++  end if;
++
++  -- 2) Input validation
++  if p_schedule_id is null then
++    raise exception 'VALIDATION_ERROR';
++  end if;
++
++  -- 3) Lock schedule
++  select *
++  into v_schedule
++  from public.tour_schedules
++  where id = p_schedule_id
++  for update;
++
++  if not found then
++    raise exception 'NOT_FOUND';
++  end if;
++
++  -- 4) Authorization
++  v_is_admin := public.is_admin();
++
++  if public.is_active_user()
++     and public.current_user_role() = 'GUIDE' then
++
++    select exists (
++      select 1
++      from public.guide_assignments ga
++      where ga.schedule_id = p_schedule_id
++        and ga.guide_id = v_actor_id
++        and ga.status = 'ACCEPTED'
++    )
++    into v_is_accepted_guide;
++
++  end if;
++
++  if not v_is_admin and not v_is_accepted_guide then
++    raise exception 'FORBIDDEN';
++  end if;
++
++  -- 5) Lifecycle
++  if v_schedule.status not in ('OPEN', 'FULL', 'CLOSED') then
++    raise exception 'INVALID_STATE';
++  end if;
++
++  -- 6) Complete schedule
++  update public.tour_schedules
++  set
++    status = 'COMPLETED',
++    updated_at = now()
++  where id = p_schedule_id
++  returning *
++  into v_completed_schedule;
++
++  -- 7) Complete accepted guide assignment only
++  update public.guide_assignments
++  set status = 'COMPLETED'
++  where schedule_id = p_schedule_id
++    and status = 'ACCEPTED';
++
++  get diagnostics v_completed_assignments = row_count;
++
++  -- 8) Complete confirmed bookings.
++  -- M3 protect_booking_update() explicitly supports
++  -- CONFIRMED -> COMPLETED for trusted Guide operations.
++  -- CANCELLED bookings are untouched.
++  update public.bookings
++  set
++    status = 'COMPLETED',
++    updated_at = now()
++  where schedule_id = p_schedule_id
++    and status = 'CONFIRMED';
++
++  get diagnostics v_completed_bookings = row_count;
++
++  -- 9) Audit
++  insert into public.audit_logs (
++    actor_id,
++    action,
++    target_type,
++    target_id,
++    old_data,
++    new_data
++  )
++  values (
++    v_actor_id,
++    'TOUR_COMPLETED',
++    'TOUR_SCHEDULE',
++    p_schedule_id,
++    jsonb_build_object(
++      'status', v_schedule.status
++    ),
++    jsonb_build_object(
++      'status', 'COMPLETED',
++      'completed_bookings', v_completed_bookings,
++      'completed_assignments', v_completed_assignments
++    )
++  );
++
++  return v_completed_schedule;
++end;
++$$;
++
++-- Trusted workflow RPC permissions
++revoke all
++on function public.complete_tour(uuid)
++from public;
++
++revoke all
++on function public.complete_tour(uuid)
++from anon;
++
++grant execute
++on function public.complete_tour(uuid)
++to authenticated;
++
++DROP FUNCTION IF EXISTS public.m4_completion_due(date,time,time,timestamptz);
++COMMIT;

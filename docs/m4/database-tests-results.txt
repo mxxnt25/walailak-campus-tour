@@ -1,0 +1,66 @@
+APPLIED 0001_initial_schema.sql
+APPLIED 0002_rls_baseline.sql
+APPLIED 0003_capacity_rpc.sql
+APPLIED 0004_m6_reviews_alignment.sql
+APPLIED 0005_m6_guide_visibility.sql
+APPLIED 0007_m3_cancel_booking_rpc.sql
+APPLIED 0008_m5_incident_rls.sql
+APPLIED 0009_m1_identity_role_model.sql
+APPLIED 0010_shared_audit_logs.sql
+APPLIED 0011_m3_booking_attendance_capacity.sql
+APPLIED 0012_m4_guide_workflow.sql
+APPLIED 0013_shared_tour_completion.sql
+APPLIED 0014_m5_incident_trusted_status.sql
+APPLIED 0015_m6_review_alignment_v2.sql
+APPLIED 0016_final_rls_integration.sql
+APPLIED 0017_review_insert_rls_fix.sql
+APPLIED 0018_m4_schedule_route_safety.sql
+APPLIED 0019_m4_completion_after_end.sql
+PASS future schedule persisted
+PASS past creation denied
+PASS equal/reversed/missing end denied
+PASS capacity zero denied
+PASS assign active guide
+PASS overlap assignment denied
+PASS adjacent intervals allowed under proposed no-buffer policy
+PASS reschedule into overlap denied
+PASS cancelled assignment denied
+PASS wrong guide cannot accept
+PASS own accept persists
+PASS own decline persists
+PASS null assignment status denied
+PASS booking capacity happy path preserved
+PASS overbooking denied
+PASS manifest and attendance persist
+PASS wrong guide manifest and attendance denied
+PASS member cannot assign or replace stops
+PASS cancellation capacity preserved
+PASS ordered atomic stop replacement
+PASS invalid stop does not erase original list
+PASS insert failure rolls back deleted stops
+PASS legacy expired OPEN booking denied
+PASS expired guide assignment denied
+PASS direct member schedule insert RLS denied
+PASS last seat marks FULL
+PASS cancelling FULL reopens capacity
+PASS existing completion lifecycle preserved on past fixture
+PASS completion preserves cancelled bookings
+PASS completed schedule assignment denied
+PASS empty stop list explicitly clears stops
+PASS accepted guide cannot complete future tour
+PASS admin cannot complete future tour
+PASS direct admin status update cannot bypass end-time guard
+PASS early completion leaves schedule and assignment unchanged
+PASS SQL exact end boundary uses Bangkok time
+PASS SQL missing and reversed end cannot qualify
+PASS completion migration idempotent reapply
+PASS idempotent migration reapply
+HISTORICAL MIGRATION CHECKS: 39 PASS (through 0019; superseded timing rule).
+PASS 0020 wrong guide still denied
+PASS 0020 member still denied
+PASS 0020 accepted guide completes future tour immediately
+PASS 0020 admin completes future tour immediately
+PASS 0020 already-completed tour still denied
+PASS 0020 cancelled tour still denied
+PASS 0020 reapply safe
+TOTAL 46 PASS: 39 historical checks + 7 current immediate-completion checks. Multi-session concurrency not asserted.

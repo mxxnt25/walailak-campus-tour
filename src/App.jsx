@@ -1,0 +1,337 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+import { AuthProvider } from "./hooks/useAuth";
+
+import PublicLayout from "./layouts/PublicLayout";
+import AdminLayout from "./layouts/AdminLayout";
+import GuideLayout from "./layouts/GuideLayout";
+
+import RoleGuard from "./components/common/RoleGuard";
+
+/* =========================
+   M1: HOME / AUTH
+========================= */
+import Home from "./pages/Home";
+import Register from "./pages/auth/Register";
+import Login from "./pages/auth/Login";
+import Profile from "./pages/auth/Profile";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
+
+/* =========================
+   M2: ROUTES & MAP
+========================= */
+import RoutesList from "./pages/routes/RoutesList";
+import RouteDetail from "./pages/routes/RouteDetail";
+
+import RouteEdit from "./pages/admin/RouteEdit";
+import RouteCreate from "./pages/admin/RouteCreate";
+import AdminRoutes from "./pages/admin/AdminRoutes";
+
+/* =========================
+   M3: BOOKING
+========================= */
+import BookTour from "./pages/bookings/BookTour";
+import MyBookings from "./pages/bookings/MyBookings";
+import BookingDetail from "./pages/bookings/BookingDetail";
+
+/* =========================
+   M5: INCIDENT REPORTING
+========================= */
+import AdminIncidents from "./pages/admin/Incidents";
+import IncidentDetail from "./pages/admin/IncidentDetail";
+import GuideIncidents from "./pages/guide/Incidents";
+import NewIncident from "./pages/incidents/NewIncident";
+
+/* =========================
+   M6: REVIEW
+========================= */
+import Review from "./pages/reviews/Review";
+import AdminReviews from "./pages/admin/AdminReviews";
+
+import GuideDashboard from "./pages/guide/Dashboard";
+import TourDetail from "./pages/guide/TourDetail";
+import AdminSchedules from "./pages/admin/Schedules";
+
+function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* =========================
+              M1: HOME
+          ========================= */}
+          <Route
+            path="/"
+            element={
+              <PublicLayout>
+                <Home />
+              </PublicLayout>
+            }
+          />
+
+          {/* =========================
+              M1: AUTH
+          ========================= */}
+          <Route path="/login" element={<Login />} />
+
+          <Route path="/register" element={<Register />} />
+
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          <Route path="/profile" element={<Profile />} />
+
+          {/* =========================
+              M2: CAMPUS ROUTES & MAP
+          ========================= */}
+          <Route
+            path="/routes"
+            element={
+              <PublicLayout>
+                <RoutesList />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/routes/:id"
+            element={
+              <PublicLayout>
+                <RouteDetail />
+              </PublicLayout>
+            }
+          />
+
+          {/* =========================
+              M3: TOUR BOOKING
+          ========================= */}
+
+          <Route
+            path="/book/:scheduleId"
+            element={
+              <RoleGuard allowedRoles={["MEMBER"]}>
+                <PublicLayout>
+                  <BookTour />
+                </PublicLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/my-bookings"
+            element={
+              <RoleGuard allowedRoles={["MEMBER"]}>
+                <PublicLayout>
+                  <MyBookings />
+                </PublicLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/bookings/:id"
+            element={
+              <RoleGuard allowedRoles={["MEMBER"]}>
+                <PublicLayout>
+                  <BookingDetail />
+                </PublicLayout>
+              </RoleGuard>
+            }
+          />
+
+          {/* =========================
+              M6: REVIEW & FEEDBACK
+          ========================= */}
+          <Route
+            path="/reviews"
+            element={
+              <PublicLayout>
+                <Review />
+              </PublicLayout>
+            }
+          />
+
+          <Route
+            path="/reviews/new/:bookingId"
+            element={
+              <RoleGuard allowedRoles={["MEMBER"]}>
+                <PublicLayout>
+                  <Review />
+                </PublicLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/reviews"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <AdminLayout>
+                  <AdminReviews />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          {/* =========================
+              GUIDE - M5
+          ========================= */}
+          <Route
+            path="/guide"
+            element={
+              <RoleGuard allowedRoles={["GUIDE"]}>
+                <GuideLayout>
+                  <GuideDashboard />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/guide/tours/:scheduleId"
+            element={
+              <RoleGuard allowedRoles={["GUIDE"]}>
+                <GuideLayout>
+                  <TourDetail />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/guide/incidents"
+            element={
+              <RoleGuard allowedRoles={["GUIDE"]}>
+                <GuideLayout>
+                  <GuideIncidents />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/incidents/new"
+            element={
+              <RoleGuard allowedRoles={["GUIDE"]}>
+                <GuideLayout>
+                  <NewIncident />
+                </GuideLayout>
+              </RoleGuard>
+            }
+          />
+
+          {/* =========================
+              ADMIN - M1
+          ========================= */}
+
+          <Route
+            path="/admin"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <Navigate to="/admin/users" replace />
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/schedules"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <AdminLayout>
+                  <AdminSchedules />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <AdminLayout>
+                  <AdminUsers />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/audit-logs"
+            element={
+              <RoleGuard allowedRoles={["SUPER_ADMIN"]}>
+                <AdminLayout>
+                  <AdminAuditLogs />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          {/* =========================
+              ADMIN - M2
+          ========================= */}
+          <Route
+            path="/admin/routes"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <AdminLayout>
+                  <AdminRoutes />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/routes/new"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <AdminLayout>
+                  <RouteCreate />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/routes/:id/edit"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <AdminLayout>
+                  <RouteEdit />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          {/* =========================
+              ADMIN - M5
+          ========================= */}
+          <Route
+            path="/admin/incidents"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <AdminLayout>
+                  <AdminIncidents />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/admin/incidents/:id"
+            element={
+              <RoleGuard allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
+                <AdminLayout>
+                  <IncidentDetail />
+                </AdminLayout>
+              </RoleGuard>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
+
+export default App;

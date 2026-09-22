@@ -1,0 +1,6 @@
+PASS schedule past validation, no write, modal escape, 390px no page overflow
+PASS schedule past validation, no write, modal escape, 768px no page overflow
+PASS schedule past validation, no write, modal escape, 1366px no page overflow
+PASS reversed time denied; valid future schedule submitted once
+PASS invalid coordinate blocked; atomic RPC failure shown without raw error or lost draft
+PASS immediate completion before end; confirmation persists completion; completed button disabled

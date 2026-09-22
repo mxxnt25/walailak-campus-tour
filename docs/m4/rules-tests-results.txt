@@ -1,0 +1,21 @@
+✔ future schedule and minimum capacity (5.30423ms)
+✔ past and exact-start are rejected in Bangkok time (0.294316ms)
+✔ equal, reversed and missing end rejected (0.343844ms)
+✔ capacity requires bounded positive integer (0.220985ms)
+✔ invalid date does not silently normalize (0.685864ms)
+✔ Thai midnight independent of machine timezone (2.360945ms)
+✔ expired OPEN is unavailable (0.253896ms)
+✔ assignment rejects terminal and invalid schedules (0.206029ms)
+✔ blank coordinate is not treated as zero; real zero allowed (1.740782ms)
+✔ unsafe image URLs rejected (1.346756ms)
+✔ unknown backend errors never leak details (0.237485ms)
+✔ completion available immediately for valid lifecycle states (0.197307ms)
+✔ completion still rejects terminal or missing states (0.993585ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 440.132726

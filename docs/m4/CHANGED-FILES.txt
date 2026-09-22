@@ -1,0 +1,16 @@
+src/components/m4/Feedback.jsx
+src/components/m4/Field.jsx
+src/pages/admin/AdminRoutes.jsx
+src/pages/admin/RouteCreate.jsx
+src/pages/admin/RouteEdit.jsx
+src/pages/admin/Schedules.jsx
+src/pages/guide/Dashboard.jsx
+src/pages/guide/TourDetail.jsx
+src/services/assignmentService.js
+src/services/m4/response.js
+src/services/m4/rules.js
+src/services/routeService.js
+src/services/scheduleService.js
+supabase/migrations/0018_m4_schedule_route_safety.sql
+supabase/migrations/0019_m4_completion_after_end.sql
+supabase/migrations/0020_m4_restore_immediate_completion.sql
