@@ -107,6 +107,13 @@ export async function createBooking({
       return failure("FORBIDDEN", "บัญชีนี้ไม่มีสิทธิ์จองรอบนำเที่ยว");
     }
 
+    if (message.includes("DUPLICATE_BOOKING")) {
+      return failure(
+        "DUPLICATE_BOOKING",
+        "คุณมีรายการจองที่ยืนยันแล้วสำหรับรอบนี้อยู่แล้ว",
+      );
+    }
+
     if (
       message.includes("INVALID_STATE") ||
       message.includes("SCHEDULE_NOT_OPEN")
@@ -171,6 +178,56 @@ export async function listMyBookings() {
   }
 
   return success(data ?? []);
+}
+
+
+export async function getMyConfirmedBookingForSchedule(scheduleId) {
+  if (!scheduleId) {
+    return failure("VALIDATION_ERROR", "ไม่พบรหัสรอบนำเที่ยว");
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return failure(
+      "AUTH_REQUIRED",
+      "กรุณาเข้าสู่ระบบก่อนตรวจสอบรายการจอง",
+    );
+  }
+
+  if (userError) {
+    return failure(
+      "DATABASE_ERROR",
+      "ไม่สามารถตรวจสอบผู้ใช้งานได้",
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .select(`
+      id,
+      status,
+      participant_count,
+      created_at
+    `)
+    .eq("user_id", user.id)
+    .eq("schedule_id", scheduleId)
+    .eq("status", "CONFIRMED")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return failure(
+      "DATABASE_ERROR",
+      "ไม่สามารถตรวจสอบรายการจองเดิมได้",
+    );
+  }
+
+  return success(data ?? null);
 }
 
 export async function getBookingDetail(bookingId) {
