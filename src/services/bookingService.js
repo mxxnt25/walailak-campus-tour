@@ -18,6 +18,40 @@ function failure(code, message) {
     },
   };
 }
+export function isScheduleExpired(schedule, now = new Date()) {
+  if (!schedule?.tour_date || !schedule?.start_time) {
+    return false;
+  }
+
+  const nowParts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Bangkok",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(now)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+
+  const currentDateTime =
+    `${nowParts.year}-${nowParts.month}-${nowParts.day}` +
+    `T${nowParts.hour}:${nowParts.minute}:${nowParts.second}`;
+
+  const normalizedStartTime =
+    schedule.start_time.length === 5
+      ? `${schedule.start_time}:00`
+      : schedule.start_time.slice(0, 8);
+
+  const scheduleDateTime = `${schedule.tour_date}T${normalizedStartTime}`;
+
+  return scheduleDateTime <= currentDateTime;
+}
 
 export async function createBooking({
   scheduleId,
@@ -70,10 +104,7 @@ export async function createBooking({
     }
 
     if (message.includes("FORBIDDEN")) {
-      return failure(
-        "FORBIDDEN",
-        "บัญชีนี้ไม่มีสิทธิ์จองรอบนำเที่ยว",
-      );
+      return failure("FORBIDDEN", "บัญชีนี้ไม่มีสิทธิ์จองรอบนำเที่ยว");
     }
 
     if (
@@ -87,10 +118,7 @@ export async function createBooking({
     }
 
     if (message.includes("VALIDATION_ERROR")) {
-      return failure(
-        "VALIDATION_ERROR",
-        "ข้อมูลการจองไม่ถูกต้อง",
-      );
+      return failure("VALIDATION_ERROR", "ข้อมูลการจองไม่ถูกต้อง");
     }
 
     return failure("DATABASE_ERROR", "ไม่สามารถสร้างการจองได้");
@@ -118,7 +146,8 @@ export async function listMyBookings() {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select(`
+    .select(
+      `
       *,
       tour_schedules (
         id,
@@ -132,7 +161,8 @@ export async function listMyBookings() {
           name
         )
       )
-    `)
+    `,
+    )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -163,7 +193,8 @@ export async function getBookingDetail(bookingId) {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select(`
+    .select(
+      `
       *,
       tour_schedules (
         id,
@@ -177,7 +208,8 @@ export async function getBookingDetail(bookingId) {
           name
         )
       )
-    `)
+    `,
+    )
     .eq("id", bookingId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -244,52 +276,32 @@ export async function getBookedParticipantCount(scheduleId) {
     return capacityResult;
   }
 
-  return success(
-    capacityResult.data.bookedParticipants,
-  );
+  return success(capacityResult.data.bookedParticipants);
 }
-
 
 export async function getScheduleCapacity(scheduleId) {
   if (!scheduleId) {
-    return failure(
-      "VALIDATION_ERROR",
-      "ไม่พบรหัสรอบนำเที่ยว",
-    );
+    return failure("VALIDATION_ERROR", "ไม่พบรหัสรอบนำเที่ยว");
   }
 
-  const { data, error } = await supabase.rpc(
-    "get_schedule_capacity",
-    {
-      p_schedule_id: scheduleId,
-    },
-  );
+  const { data, error } = await supabase.rpc("get_schedule_capacity", {
+    p_schedule_id: scheduleId,
+  });
 
   if (error) {
     const message = error.message || "";
 
     if (message.includes("NOT_FOUND")) {
-      return failure(
-        "NOT_FOUND",
-        "ไม่พบรอบนำเที่ยว",
-      );
+      return failure("NOT_FOUND", "ไม่พบรอบนำเที่ยว");
     }
 
-    return failure(
-      "DATABASE_ERROR",
-      "ไม่สามารถตรวจสอบจำนวนที่นั่งคงเหลือได้",
-    );
+    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบจำนวนที่นั่งคงเหลือได้");
   }
 
-  const capacity = Array.isArray(data)
-    ? data[0]
-    : data;
+  const capacity = Array.isArray(data) ? data[0] : data;
 
   if (!capacity) {
-    return failure(
-      "NOT_FOUND",
-      "ไม่พบข้อมูลความจุของรอบนำเที่ยว",
-    );
+    return failure("NOT_FOUND", "ไม่พบข้อมูลความจุของรอบนำเที่ยว");
   }
 
   return success({
