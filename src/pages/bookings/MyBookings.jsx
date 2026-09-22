@@ -1,70 +1,30 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import Badge from "../../components/common/Badge";
 import Button from "../../components/common/Button";
 import Card from "../../components/common/Card";
+import ConfirmModal from "../../components/common/ConfirmModal";
+import EmptyState from "../../components/common/EmptyState";
 import ErrorState from "../../components/common/ErrorState";
 import LoadingState from "../../components/common/LoadingState";
+import StatusBadge from "../../components/common/StatusBadge";
+import Toast from "../../components/common/Toast";
 
-import {
-  cancelMyBooking,
-  listMyBookings,
-} from "../../services/bookingService";
+import { cancelMyBooking, listMyBookings } from "../../services/bookingService";
 
-function getStatusColor(status) {
-  switch (status) {
-    case "CONFIRMED":
-      return "success";
-    case "CANCELLED":
-      return "danger";
-    case "COMPLETED":
-      return "primary";
-    default:
-      return "primary";
-  }
-}
-
-function getStatusLabel(status) {
-  switch (status) {
-    case "CONFIRMED":
-      return "ยืนยันแล้ว";
-    case "CANCELLED":
-      return "ยกเลิกแล้ว";
-    case "COMPLETED":
-      return "เสร็จสิ้น";
-    default:
-      return status || "-";
-  }
-}
-
-function formatTourDate(value) {
-  if (!value) return "-";
-
-  const [year, month, day] = value.split("-").map(Number);
-
-  if (!year || !month || !day) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, day));
-}
-
-function formatTime(value) {
-  if (!value) return "-";
-  return value.slice(0, 5);
-}
+import { formatDate, formatTime } from "../../utils/dateTime";
 
 export default function MyBookings() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [authRequired, setAuthRequired] = useState(false);
+
+  const [confirmBookingId, setConfirmBookingId] = useState(null);
+
   const [cancellingId, setCancellingId] = useState(null);
+
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,14 +43,16 @@ export default function MyBookings() {
           setAuthRequired(true);
           setErrorMessage("");
         } else {
-          setErrorMessage(result.error.message);
+          setErrorMessage(result.error?.message || "ไม่สามารถโหลดรายการจองได้");
         }
 
         setLoading(false);
         return;
       }
 
-      setBookings(result.data);
+      setBookings(result.data ?? []);
+      setAuthRequired(false);
+      setErrorMessage("");
       setLoading(false);
     }
 
@@ -101,14 +63,28 @@ export default function MyBookings() {
     };
   }, []);
 
-  async function handleCancel(bookingId) {
-    const confirmed = window.confirm(
-      "ยืนยันการยกเลิกการจองนี้หรือไม่?",
-    );
-
-    if (!confirmed) {
+  function openCancelConfirmation(bookingId) {
+    if (cancellingId) {
       return;
     }
+
+    setConfirmBookingId(bookingId);
+  }
+
+  function closeCancelConfirmation() {
+    if (cancellingId) {
+      return;
+    }
+
+    setConfirmBookingId(null);
+  }
+
+  async function handleConfirmCancel() {
+    if (!confirmBookingId || cancellingId) {
+      return;
+    }
+
+    const bookingId = confirmBookingId;
 
     setCancellingId(bookingId);
     setErrorMessage("");
@@ -116,8 +92,13 @@ export default function MyBookings() {
     const result = await cancelMyBooking(bookingId);
 
     if (!result.success) {
-      setErrorMessage(result.error.message);
+      setToast({
+        tone: "danger",
+        message: result.error?.message || "ไม่สามารถยกเลิกการจองได้",
+      });
+
       setCancellingId(null);
+      setConfirmBookingId(null);
       return;
     }
 
@@ -133,7 +114,13 @@ export default function MyBookings() {
       ),
     );
 
+    setToast({
+      tone: "success",
+      message: "ยกเลิกการจองเรียบร้อยแล้ว",
+    });
+
     setCancellingId(null);
+    setConfirmBookingId(null);
   }
 
   if (loading) {
@@ -142,7 +129,7 @@ export default function MyBookings() {
 
   if (authRequired) {
     return (
-      <section className="mx-auto max-w-3xl py-8">
+      <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <Card className="py-12 text-center">
           <h1 className="text-xl font-semibold text-textPrimary">
             กรุณาเข้าสู่ระบบ
@@ -162,12 +149,17 @@ export default function MyBookings() {
     );
   }
 
+  const bookingToCancel = bookings.find(
+    (booking) => booking.id === confirmBookingId,
+  );
+
+  const cancelRouteName =
+    bookingToCancel?.tour_schedules?.routes?.name || "รอบนำเที่ยวนี้";
+
   return (
-    <section className="mx-auto max-w-5xl space-y-6 py-8">
+    <section className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
       <div>
-        <h1 className="text-2xl font-bold text-textPrimary">
-          การจองของฉัน
-        </h1>
+        <h1 className="text-2xl font-bold text-textPrimary">การจองของฉัน</h1>
 
         <p className="mt-1 text-sm text-textSecondary">
           ตรวจสอบรายละเอียดและสถานะการจองรอบนำเที่ยวของคุณ
@@ -177,21 +169,15 @@ export default function MyBookings() {
       {errorMessage && <ErrorState message={errorMessage} />}
 
       {bookings.length === 0 ? (
-        <Card className="py-12 text-center">
-          <h2 className="font-semibold text-textPrimary">
-            ยังไม่มีรายการจอง
-          </h2>
-
-          <p className="mt-2 text-sm text-textSecondary">
-            เลือกเส้นทางและรอบนำเที่ยวที่ต้องการเพื่อเริ่มการจอง
-          </p>
-
-          <div className="mt-5">
+        <EmptyState
+          title="ยังไม่มีรายการจอง"
+          description="เลือกเส้นทางและรอบนำเที่ยวที่ต้องการเพื่อเริ่มการจอง"
+          action={
             <Link to="/routes">
               <Button>ดูเส้นทางนำเที่ยว</Button>
             </Link>
-          </div>
-        </Card>
+          }
+        />
       ) : (
         <div className="space-y-4">
           {bookings.map((booking) => {
@@ -201,16 +187,14 @@ export default function MyBookings() {
             return (
               <Card key={booking.id}>
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-3">
+                  <div className="min-w-0 space-y-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-lg font-semibold text-textPrimary">
                           {route?.name || "รอบนำเที่ยว"}
                         </h2>
 
-                        <Badge color={getStatusColor(booking.status)}>
-                          {getStatusLabel(booking.status)}
-                        </Badge>
+                        <StatusBadge status={booking.status} />
                       </div>
 
                       <p className="mt-1 text-xs text-textSecondary">
@@ -222,7 +206,7 @@ export default function MyBookings() {
                       <p>
                         วันที่:{" "}
                         <span className="font-medium text-textPrimary">
-                          {formatTourDate(schedule?.tour_date)}
+                          {formatDate(schedule?.tour_date)}
                         </span>
                       </p>
 
@@ -230,6 +214,7 @@ export default function MyBookings() {
                         เวลา:{" "}
                         <span className="font-medium text-textPrimary">
                           {formatTime(schedule?.start_time)}
+
                           {schedule?.end_time
                             ? ` - ${formatTime(schedule.end_time)}`
                             : ""}
@@ -256,16 +241,14 @@ export default function MyBookings() {
 
                   <div className="flex flex-wrap gap-2">
                     <Link to={`/bookings/${booking.id}`}>
-                      <Button variant="secondary">
-                        ดูรายละเอียด
-                      </Button>
+                      <Button variant="secondary">ดูรายละเอียด</Button>
                     </Link>
 
                     {booking.status === "CONFIRMED" && (
                       <Button
                         variant="danger"
                         disabled={cancellingId === booking.id}
-                        onClick={() => handleCancel(booking.id)}
+                        onClick={() => openCancelConfirmation(booking.id)}
                       >
                         {cancellingId === booking.id
                           ? "กำลังยกเลิก..."
@@ -279,6 +262,24 @@ export default function MyBookings() {
           })}
         </div>
       )}
+
+      <ConfirmModal
+        open={Boolean(confirmBookingId)}
+        title="ยืนยันการยกเลิกการจอง"
+        description={`คุณต้องการยกเลิกการจอง ${cancelRouteName} หรือไม่? เมื่อยกเลิกแล้ว ระบบจะคืนจำนวนที่ว่างให้รอบนำเที่ยว`}
+        confirmLabel="ยืนยันการยกเลิก"
+        cancelLabel="ไม่ยกเลิก"
+        confirmVariant="danger"
+        busy={Boolean(confirmBookingId) && cancellingId === confirmBookingId}
+        onConfirm={handleConfirmCancel}
+        onCancel={closeCancelConfirmation}
+      />
+
+      <Toast
+        message={toast?.message || ""}
+        tone={toast?.tone || "success"}
+        onClose={() => setToast(null)}
+      />
     </section>
   );
 }
