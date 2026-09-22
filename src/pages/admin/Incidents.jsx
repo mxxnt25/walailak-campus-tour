@@ -4,13 +4,17 @@ import Card from "../../components/common/Card";
 import LoadingState from "../../components/common/LoadingState";
 import ErrorState from "../../components/common/ErrorState";
 import Button from "../../components/common/Button";
+import EmptyState from "../../components/common/EmptyState";
+import StatusBadge from "../../components/common/StatusBadge";
+import { formatDateTime } from "../../utils/dateTime";
+import { getStatusLabel } from "../../utils/status";
 import { listIncidentsForAdmin } from "../../services/incidentService";
 
 const STATUS_OPTIONS = [
   { value: "", label: "ทุกสถานะ" },
-  { value: "OPEN", label: "OPEN" },
-  { value: "IN_PROGRESS", label: "IN PROGRESS" },
-  { value: "RESOLVED", label: "RESOLVED" },
+  { value: "OPEN", label: getStatusLabel("OPEN") },
+  { value: "IN_PROGRESS", label: getStatusLabel("IN_PROGRESS") },
+  { value: "RESOLVED", label: getStatusLabel("RESOLVED") },
 ];
 
 const SEVERITY_OPTIONS = [
@@ -20,15 +24,6 @@ const SEVERITY_OPTIONS = [
   { value: "HIGH", label: "HIGH" },
   { value: "EMERGENCY", label: "EMERGENCY" },
 ];
-
-function formatDateTime(value) {
-  if (!value) return "-";
-
-  return new Intl.DateTimeFormat("th-TH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
 
 export default function AdminIncidents() {
   const navigate = useNavigate();
@@ -158,11 +153,10 @@ export default function AdminIncidents() {
       ) : error ? (
         <ErrorState message={error} />
       ) : incidents.length === 0 ? (
-        <Card>
-          <p className="py-8 text-center text-textSecondary">
-            ไม่พบเหตุการณ์ตามเงื่อนไขที่เลือก
-          </p>
-        </Card>
+        <EmptyState
+          title="ไม่พบเหตุการณ์ตามเงื่อนไขที่เลือก"
+          description="ลองปรับตัวกรองสถานะหรือระดับความรุนแรง"
+        />
       ) : (
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
@@ -205,9 +199,7 @@ export default function AdminIncidents() {
                     </td>
 
                     <td className="px-4 py-4">
-                      <span className="rounded-full bg-background px-3 py-1 text-xs font-medium text-textPrimary">
-                        {incident.status}
-                      </span>
+                      <StatusBadge status={incident.status} />
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4 text-sm text-textSecondary">

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Component, useEffect, useState } from 'react'
 import {
   MapContainer,
   Marker,
@@ -8,6 +8,10 @@ import {
 } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+
+import EmptyState from '../../components/common/EmptyState'
+import ErrorState from '../../components/common/ErrorState'
+import LoadingState from '../../components/common/LoadingState'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
@@ -23,6 +27,31 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 })
 
+class MapErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error) {
+    console.error('CampusMap render error:', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <ErrorState message="ไม่สามารถแสดงแผนที่ได้ในขณะนี้" />
+      )
+    }
+
+    return this.props.children
+  }
+}
+
 function FitMapToStops({ stops }) {
   const map = useMap()
 
@@ -33,7 +62,16 @@ function FitMapToStops({ stops }) {
         Number.isFinite(Number(stop.longitude)),
     )
 
-    if (validStops.length === 0) {
+    if (validStops.length === 0) return
+
+    if (validStops.length === 1) {
+      map.setView(
+        [
+          Number(validStops[0].latitude),
+          Number(validStops[0].longitude),
+        ],
+        16,
+      )
       return
     }
 
@@ -46,6 +84,7 @@ function FitMapToStops({ stops }) {
 
     map.fitBounds(bounds, {
       padding: [40, 40],
+      maxZoom: 17,
     })
   }, [map, stops])
 
@@ -53,6 +92,8 @@ function FitMapToStops({ stops }) {
 }
 
 function CampusMap({ stops = [] }) {
+  const [tileState, setTileState] = useState('loading')
+
   const validStops = stops.filter(
     (stop) =>
       Number.isFinite(Number(stop.latitude)) &&
@@ -61,9 +102,10 @@ function CampusMap({ stops = [] }) {
 
   if (validStops.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-white p-6 text-textSecondary">
-        ยังไม่มีข้อมูลตำแหน่งสำหรับแสดงบนแผนที่
-      </div>
+      <EmptyState
+        title="ยังไม่มีข้อมูลตำแหน่ง"
+        description="จุดแวะที่มีพิกัดจะแสดงบนแผนที่เมื่อมีข้อมูลพร้อมใช้งาน"
+      />
     )
   }
 
@@ -75,46 +117,64 @@ function CampusMap({ stops = [] }) {
   ]
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-      <MapContainer
-        center={initialCenter}
-        zoom={16}
-        scrollWheelZoom
-        className="h-[320px] w-full sm:h-[420px]"
-      >
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+    <MapErrorBoundary>
+      <div className="relative overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+        {tileState === 'loading' && (
+          <div className="absolute inset-0 z-[500] flex items-center justify-center bg-surface/90">
+            <LoadingState message="กำลังโหลดแผนที่..." />
+          </div>
+        )}
 
-        <FitMapToStops stops={validStops} />
+        {tileState === 'error' && (
+          <div className="absolute inset-x-4 top-4 z-[600] rounded-card border border-danger/30 bg-surface shadow-lg">
+            <ErrorState message="โหลดข้อมูลแผนที่ไม่สำเร็จ กรุณาลองใหม่ภายหลัง" />
+          </div>
+        )}
 
-        {validStops.map((stop) => (
-          <Marker
-            key={stop.id}
-            position={[
-              Number(stop.latitude),
-              Number(stop.longitude),
-            ]}
-            icon={defaultIcon}
-          >
-            <Popup>
-              <div>
-                <div className="font-semibold">
-                  จุดที่ {stop.stop_order}: {stop.name}
-                </div>
+        <MapContainer
+          center={initialCenter}
+          zoom={16}
+          scrollWheelZoom
+          className="h-[320px] w-full sm:h-[420px] lg:h-[480px]"
+        >
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            eventHandlers={{
+              load: () => setTileState('ready'),
+              tileerror: () => setTileState('error'),
+            }}
+          />
 
-                {stop.description && (
-                  <div className="mt-1 text-sm">
-                    {stop.description}
+          <FitMapToStops stops={validStops} />
+
+          {validStops.map((stop, index) => (
+            <Marker
+              key={stop.id || `${stop.latitude}-${stop.longitude}-${index}`}
+              position={[
+                Number(stop.latitude),
+                Number(stop.longitude),
+              ]}
+              icon={defaultIcon}
+            >
+              <Popup>
+                <div className="min-w-[160px]">
+                  <div className="font-semibold">
+                    จุดที่ {stop.stop_order ?? index + 1}: {stop.name || 'ไม่ระบุชื่อจุด'}
                   </div>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
-    </div>
+
+                  {stop.description && (
+                    <div className="mt-1 text-sm">
+                      {stop.description}
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
+    </MapErrorBoundary>
   )
 }
 

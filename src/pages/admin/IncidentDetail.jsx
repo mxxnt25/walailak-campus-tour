@@ -4,18 +4,20 @@ import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import Card from '../../components/common/Card'
 import ErrorState from '../../components/common/ErrorState'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import LoadingState from '../../components/common/LoadingState'
+import StatusBadge from '../../components/common/StatusBadge'
+import Toast from '../../components/common/Toast'
+import { formatDateTime } from '../../utils/dateTime'
+import { getStatusLabel } from '../../utils/status'
 import {
   listIncidentsForAdmin,
   updateIncidentStatus,
 } from '../../services/incidentService'
 
-const STATUS_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED']
-
-const STATUS_COLORS = {
-  OPEN: 'warning',
-  IN_PROGRESS: 'primary',
-  RESOLVED: 'success',
+const NEXT_STATUS = {
+  OPEN: 'IN_PROGRESS',
+  IN_PROGRESS: 'RESOLVED',
 }
 
 const SEVERITY_COLORS = {
@@ -23,15 +25,6 @@ const SEVERITY_COLORS = {
   MEDIUM: 'warning',
   HIGH: 'danger',
   EMERGENCY: 'danger',
-}
-
-function formatDateTime(value) {
-  if (!value) return '-'
-
-  return new Intl.DateTimeFormat('th-TH', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
 }
 
 export default function IncidentDetail() {
@@ -42,7 +35,12 @@ export default function IncidentDetail() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
+  const [pendingStatus, setPendingStatus] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  const nextStatus = incident
+    ? NEXT_STATUS[incident.status] || null
+    : null
 
   useEffect(() => {
     let cancelled = false
@@ -82,26 +80,36 @@ export default function IncidentDetail() {
     }
   }, [id])
 
-  async function handleStatusChange(newStatus) {
-    if (!incident || newStatus === incident.status) return
+  async function handleStatusChange() {
+    const newStatus = pendingStatus
+
+    if (!incident || !newStatus || newStatus === incident.status) {
+      setPendingStatus(null)
+      return
+    }
 
     setUpdating(true)
-    setError('')
-    setSuccessMessage('')
+    setToast(null)
 
     const result = await updateIncidentStatus(incident.id, newStatus)
 
     if (!result.success) {
-      setError(
-        result.error?.message || 'ไม่สามารถเปลี่ยนสถานะเหตุการณ์ได้'
-      )
+      setToast({
+        tone: 'danger',
+        message: result.error?.message || 'ไม่สามารถเปลี่ยนสถานะเหตุการณ์ได้',
+      })
       setUpdating(false)
+      setPendingStatus(null)
       return
     }
 
     setIncident(result.data)
-    setSuccessMessage('อัปเดตสถานะเหตุการณ์เรียบร้อยแล้ว')
+    setToast({
+      tone: 'success',
+      message: 'อัปเดตสถานะเหตุการณ์เรียบร้อยแล้ว',
+    })
     setUpdating(false)
+    setPendingStatus(null)
   }
 
   if (loading) {
@@ -147,11 +155,11 @@ export default function IncidentDetail() {
         </div>
       )}
 
-      {successMessage && (
-        <div className="mb-4 rounded-card border border-success/30 bg-success/10 p-4 text-sm text-success">
-          {successMessage}
-        </div>
-      )}
+      <Toast
+        message={toast?.message || ''}
+        tone={toast?.tone || 'success'}
+        onClose={() => setToast(null)}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -160,9 +168,7 @@ export default function IncidentDetail() {
               {incident.severity}
             </Badge>
 
-            <Badge color={STATUS_COLORS[incident.status]}>
-              {incident.status}
-            </Badge>
+            <StatusBadge status={incident.status} />
           </div>
 
           <div className="space-y-5">
@@ -233,27 +239,47 @@ export default function IncidentDetail() {
             เลือกสถานะปัจจุบันของเหตุการณ์
           </p>
 
-          <div className="mt-5 flex flex-col gap-2">
-            {STATUS_OPTIONS.map((status) => (
+          <div className="mt-5">
+            {nextStatus ? (
               <Button
-                key={status}
-                variant={
-                  status === incident.status
-                    ? 'primary'
-                    : 'secondary'
-                }
-                disabled={updating || status === incident.status}
-                onClick={() => handleStatusChange(status)}
+                variant="primary"
+                disabled={updating}
+                onClick={() => setPendingStatus(nextStatus)}
                 className="w-full"
               >
-                {updating && status !== incident.status
+                {updating
                   ? 'กำลังอัปเดต...'
-                  : status}
+                  : 'เปลี่ยนเป็น ' + getStatusLabel(nextStatus)}
               </Button>
-            ))}
+            ) : (
+              <div className="rounded-card border border-success/30 bg-success/10 p-4 text-sm text-success">
+                เหตุการณ์นี้อยู่ในสถานะสุดท้ายแล้ว
+              </div>
+            )}
           </div>
         </Card>
       </div>
+
+      <ConfirmModal
+        open={Boolean(pendingStatus)}
+        title="ยืนยันการเปลี่ยนสถานะ"
+        description={
+          pendingStatus && incident
+            ? getStatusLabel(incident.status) +
+              ' → ' +
+              getStatusLabel(pendingStatus)
+            : ''
+        }
+        confirmLabel="ยืนยัน"
+        cancelLabel="ยกเลิก"
+        busy={updating}
+        onCancel={() => {
+          if (!updating) {
+            setPendingStatus(null)
+          }
+        }}
+        onConfirm={handleStatusChange}
+      />
     </div>
   )
 }
