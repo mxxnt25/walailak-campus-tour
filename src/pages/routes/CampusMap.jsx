@@ -1,4 +1,4 @@
-import { Component, useEffect, useState } from 'react'
+import { Component, useEffect, useRef, useState } from 'react'
 import {
   MapContainer,
   Marker,
@@ -93,6 +93,7 @@ function FitMapToStops({ stops }) {
 
 function CampusMap({ stops = [] }) {
   const [tileState, setTileState] = useState('loading')
+  const tileErrorRef = useRef(false)
 
   const validStops = stops.filter(
     (stop) =>
@@ -141,8 +142,19 @@ function CampusMap({ stops = [] }) {
             attribution='&copy; OpenStreetMap contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             eventHandlers={{
-              load: () => setTileState('ready'),
-              tileerror: () => setTileState('error'),
+              loading: () => {
+                tileErrorRef.current = false
+                setTileState('loading')
+              },
+              tileerror: () => {
+                tileErrorRef.current = true
+                setTileState('error')
+              },
+              load: () => {
+                setTileState(
+                  tileErrorRef.current ? 'error' : 'ready'
+                )
+              },
             }}
           />
 
