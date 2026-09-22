@@ -42,9 +42,14 @@ export default function RoleGuard({
   }
 
   if (!session) {
+    const returnTo =
+      location.pathname +
+      location.search +
+      location.hash
+
     return (
       <Navigate
-        to="/login"
+        to={`/login?returnTo=${encodeURIComponent(returnTo)}`}
         replace
         state={{
           from: {
