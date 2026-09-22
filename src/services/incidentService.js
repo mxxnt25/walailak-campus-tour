@@ -209,6 +209,13 @@ export async function updateIncidentStatus(incidentId, status) {
       )
     }
 
+    if (message.includes('INVALID_TRANSITION')) {
+      return failure(
+        'INVALID_TRANSITION',
+        'ไม่สามารถเปลี่ยนสถานะย้อนกลับหรือข้ามขั้นได้'
+      )
+    }
+
     if (message.includes('VALIDATION_ERROR')) {
       return failure(
         'VALIDATION_ERROR',

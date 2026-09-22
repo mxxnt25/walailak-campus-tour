@@ -3,6 +3,8 @@ import Button from '../../components/common/Button'
 import Card from '../../components/common/Card'
 import Input from '../../components/common/Input'
 import ErrorState from '../../components/common/ErrorState'
+import EmptyState from '../../components/common/EmptyState'
+import Toast from '../../components/common/Toast'
 import { createIncident } from '../../services/incidentService'
 import { listMyGuideAssignments } from '../../services/assignmentService'
 
@@ -34,7 +36,7 @@ export default function NewIncident({ scheduleId = null }) {
   const [severity, setSeverity] = useState('MEDIUM')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
+  const [toast, setToast] = useState(null)
 
   const effectiveScheduleId = scheduleId || selectedScheduleId
 
@@ -83,7 +85,7 @@ export default function NewIncident({ scheduleId = null }) {
     event.preventDefault()
 
     setError('')
-    setSuccessMessage('')
+    setToast(null)
 
     if (!effectiveScheduleId) {
       setError('กรุณาเลือกรอบนำเที่ยวสำหรับการแจ้งเหตุ')
@@ -111,14 +113,20 @@ export default function NewIncident({ scheduleId = null }) {
       })
 
       if (!result.success) {
-        setError(result.error?.message || 'ไม่สามารถบันทึกเหตุการณ์ได้')
+        setToast({
+          tone: 'danger',
+          message: result.error?.message || 'ไม่สามารถบันทึกเหตุการณ์ได้',
+        })
         return
       }
 
       setType('')
       setDescription('')
       setSeverity('MEDIUM')
-      setSuccessMessage('บันทึกเหตุการณ์เรียบร้อยแล้ว')
+      setToast({
+        tone: 'success',
+        message: 'บันทึกเหตุการณ์เรียบร้อยแล้ว',
+      })
     } finally {
       setSubmitting(false)
     }
@@ -145,15 +153,11 @@ export default function NewIncident({ scheduleId = null }) {
       )}
 
       {!scheduleId && !loadingAssignments && assignments.length === 0 && (
-        <Card className="mb-4">
-          <p className="font-medium text-warning">
-            ยังไม่มีรอบนำเที่ยวที่ได้รับมอบหมาย
-          </p>
-
-          <p className="mt-1 text-sm text-textSecondary">
-            คุณจะสามารถแจ้งเหตุได้เมื่อมีตารางนำเที่ยวที่ได้รับมอบหมาย
-          </p>
-        </Card>
+        <EmptyState
+          title="ยังไม่มีรอบนำเที่ยวที่สามารถแจ้งเหตุได้"
+          description="คุณจะแจ้งเหตุได้เฉพาะรอบที่มีสถานะการมอบหมายเป็น ACCEPTED"
+          className="mb-4"
+        />
       )}
 
       <Card>
@@ -173,7 +177,7 @@ export default function NewIncident({ scheduleId = null }) {
                 onChange={(event) => {
                   setSelectedScheduleId(event.target.value)
                   setError('')
-                  setSuccessMessage('')
+                  setToast(null)
                 }}
                 disabled={loadingAssignments || submitting}
                 className="rounded-input border border-border bg-surface px-3 py-2 text-textPrimary focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
@@ -257,11 +261,11 @@ export default function NewIncident({ scheduleId = null }) {
 
           {error && <ErrorState message={error} />}
 
-          {successMessage && (
-            <div className="rounded-card border border-success/30 bg-success/10 p-4 text-sm text-success">
-              {successMessage}
-            </div>
-          )}
+          <Toast
+            message={toast?.message || ''}
+            tone={toast?.tone || 'success'}
+            onClose={() => setToast(null)}
+          />
 
           <div className="flex justify-end">
             <Button
