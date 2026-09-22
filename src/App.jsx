@@ -44,6 +44,7 @@ import AdminIncidents from "./pages/admin/Incidents";
 import IncidentDetail from "./pages/admin/IncidentDetail";
 import GuideIncidents from "./pages/guide/Incidents";
 import NewIncident from "./pages/incidents/NewIncident";
+import NotFound from "./pages/NotFound";
 
 /* =========================
    M6: REVIEW
@@ -109,7 +110,6 @@ function App() {
           {/* =========================
               M3: TOUR BOOKING
           ========================= */}
-
           <Route
             path="/book/:scheduleId"
             element={
@@ -201,6 +201,7 @@ function App() {
               </RoleGuard>
             }
           />
+
           <Route
             path="/guide/incidents"
             element={
@@ -226,7 +227,6 @@ function App() {
           {/* =========================
               ADMIN - M1
           ========================= */}
-
           <Route
             path="/admin"
             element={
@@ -246,6 +246,7 @@ function App() {
               </RoleGuard>
             }
           />
+
           <Route
             path="/admin/users"
             element={
@@ -328,6 +329,11 @@ function App() {
               </RoleGuard>
             }
           />
+
+          {/* =========================
+              404 - NOT FOUND
+          ========================= */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
