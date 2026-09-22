@@ -3,12 +3,14 @@ import { Link, useParams } from "react-router-dom";
 
 import Button from "../../components/common/Button";
 import EmptyState from "../../components/common/EmptyState";
+import { useAuth } from "../../hooks/useAuth";
 
 import { getRouteDetail, listRouteStops } from "../../services/routeService";
 
 import {
   getScheduleCapacity,
   isScheduleExpired,
+  listMyBookings,
 } from "../../services/bookingService";
 
 import { listPublicSchedules } from "../../services/scheduleService";
@@ -17,8 +19,8 @@ import { formatDate, formatTime } from "../../utils/dateTime";
 
 import CampusMap from "./CampusMap";
 
-function getScheduleStatusLabel(schedule) {
-  if (isScheduleExpired(schedule)) {
+function getScheduleStatusLabel(schedule, now) {
+  if (isScheduleExpired(schedule, now)) {
     return "รอบเริ่มแล้ว";
   }
 
@@ -43,12 +45,12 @@ function getScheduleStatusLabel(schedule) {
   }
 }
 
-function isScheduleBookable(schedule) {
+function isScheduleBookable(schedule, now) {
   if (schedule.status !== "OPEN") {
     return false;
   }
 
-  if (isScheduleExpired(schedule)) {
+  if (isScheduleExpired(schedule, now)) {
     return false;
   }
 
@@ -59,8 +61,8 @@ function isScheduleBookable(schedule) {
   return schedule.remaining_seats > 0;
 }
 
-function getUnavailableButtonLabel(schedule) {
-  if (isScheduleExpired(schedule)) {
+function getUnavailableButtonLabel(schedule, now) {
+  if (isScheduleExpired(schedule, now)) {
     return "รอบนี้เริ่มแล้ว";
   }
 
@@ -86,10 +88,20 @@ function getUnavailableButtonLabel(schedule) {
 function RouteDetail() {
   const { id } = useParams();
 
+  const {
+    session,
+    profile,
+    loading: authLoading,
+    profileLoading,
+  } = useAuth();
+
   const [route, setRoute] = useState(null);
   const [stops, setStops] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
+  const [existingBookingsBySchedule, setExistingBookingsBySchedule] =
+    useState({});
+  const [clockNow, setClockNow] = useState(() => new Date());
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -170,6 +182,70 @@ function RouteDetail() {
       active = false;
     };
   }, [id]);
+
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setClockNow(new Date());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadExistingBookings() {
+      if (authLoading || profileLoading) {
+        return;
+      }
+
+      if (!session?.user || profile?.role !== "MEMBER") {
+        if (active) {
+          setExistingBookingsBySchedule({});
+        }
+        return;
+      }
+
+      const result = await listMyBookings();
+
+      if (!active) {
+        return;
+      }
+
+      if (!result.success) {
+        setExistingBookingsBySchedule({});
+        return;
+      }
+
+      const bookingMap = {};
+
+      for (const booking of result.data ?? []) {
+        if (
+          booking.status === "CONFIRMED" &&
+          booking.schedule_id &&
+          !bookingMap[booking.schedule_id]
+        ) {
+          bookingMap[booking.schedule_id] = booking;
+        }
+      }
+
+      setExistingBookingsBySchedule(bookingMap);
+    }
+
+    loadExistingBookings();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    authLoading,
+    profileLoading,
+    session?.user,
+    profile?.role,
+  ]);
 
   if (loading) {
     return (
@@ -281,7 +357,24 @@ function RouteDetail() {
               ) : (
                 <div className="mt-3 grid gap-4 md:grid-cols-2">
                   {filteredSchedules.map((schedule) => {
-                    const bookable = isScheduleBookable(schedule);
+                    const bookable = isScheduleBookable(
+                      schedule,
+                      clockNow,
+                    );
+
+                    const expired = isScheduleExpired(
+                      schedule,
+                      clockNow,
+                    );
+
+                    const existingBooking =
+                      existingBookingsBySchedule[schedule.id] ?? null;
+
+                    const authReady =
+                      !authLoading && !profileLoading;
+
+                    const isGuest = !session?.user;
+                    const isMember = profile?.role === "MEMBER";
 
                     return (
                       <article
@@ -316,24 +409,48 @@ function RouteDetail() {
                         )}
 
                         <p className="mt-1 text-sm font-medium text-textPrimary">
-                          สถานะ {getScheduleStatusLabel(schedule)}
+                          สถานะ {getScheduleStatusLabel(schedule, clockNow)}
                         </p>
 
-                        {isScheduleExpired(schedule) && (
+                        {expired && (
                           <p className="mt-2 text-sm text-danger">
-                            รอบนี้เริ่มไปแล้ว ไม่สามารถทำการจองได้
+                            หมดเวลาจอง รอบนำเที่ยวนี้เริ่มแล้ว ไม่สามารถทำการจองได้
                           </p>
                         )}
 
                         <div className="mt-4">
-                          {bookable ? (
+                          {isMember && existingBooking ? (
+                            <Link
+                              to={`/bookings/${existingBooking.id}`}
+                            >
+                              <Button>ดูรายการจองเดิม</Button>
+                            </Link>
+                          ) : !bookable ? (
+                            <Button disabled>
+                              {getUnavailableButtonLabel(
+                                schedule,
+                                clockNow,
+                              )}
+                            </Button>
+                          ) : !authReady ? (
+                            <Button disabled>
+                              กำลังตรวจสอบสิทธิ์...
+                            </Button>
+                          ) : isGuest ? (
+                            <Link
+                              to="/login"
+                              state={{ from: `/routes/${id}` }}
+                            >
+                              <Button>เข้าสู่ระบบเพื่อจอง</Button>
+                            </Link>
+                          ) : isMember ? (
                             <Link to={`/book/${schedule.id}`}>
                               <Button>จองรอบนี้</Button>
                             </Link>
                           ) : (
-                            <Button disabled>
-                              {getUnavailableButtonLabel(schedule)}
-                            </Button>
+                            <p className="text-sm text-textSecondary">
+                              บัญชีบทบาทนี้ไม่สามารถจองรอบนำเที่ยวแบบสมาชิกได้
+                            </p>
                           )}
                         </div>
                       </article>

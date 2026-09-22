@@ -7,6 +7,7 @@ import ErrorState from "../../components/common/ErrorState";
 
 import {
   createBooking,
+  getMyConfirmedBookingForSchedule,
   getScheduleCapacity,
   isScheduleExpired,
 } from "../../services/bookingService";
@@ -30,6 +31,8 @@ export default function BookTour() {
 
   const [schedule, setSchedule] = useState(null);
   const [capacity, setCapacity] = useState(null);
+  const [existingBooking, setExistingBooking] = useState(null);
+  const [clockNow, setClockNow] = useState(() => new Date());
 
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [scheduleError, setScheduleError] = useState("");
@@ -44,9 +47,14 @@ export default function BookTour() {
     let active = true;
 
     async function loadSchedule() {
-      const [scheduleResult, capacityResult] = await Promise.all([
+      const [
+        scheduleResult,
+        capacityResult,
+        existingBookingResult,
+      ] = await Promise.all([
         getScheduleDetail(scheduleId),
         getScheduleCapacity(scheduleId),
+        getMyConfirmedBookingForSchedule(scheduleId),
       ]);
 
       if (!active) return;
@@ -68,6 +76,12 @@ export default function BookTour() {
         setCapacity(null);
       }
 
+      if (existingBookingResult.success) {
+        setExistingBooking(existingBookingResult.data);
+      } else {
+        setExistingBooking(null);
+      }
+
       setLoadingSchedule(false);
     }
 
@@ -78,10 +92,27 @@ export default function BookTour() {
     };
   }, [scheduleId]);
 
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setClockNow(new Date());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, []);
+
   async function handleSubmit(event) {
     event.preventDefault();
 
     setErrorMessage("");
+
+    if (existingBooking) {
+      setErrorMessage(
+        "คุณมีรายการจองที่ยืนยันแล้วสำหรับรอบนี้อยู่แล้ว",
+      );
+      return;
+    }
 
     const count = Number(participantCount);
 
@@ -112,7 +143,7 @@ export default function BookTour() {
     }
 
     if (isScheduleExpired(schedule)) {
-      setErrorMessage("รอบนำเที่ยวนี้เริ่มไปแล้ว ไม่สามารถทำการจองได้");
+      setErrorMessage("หมดเวลาจอง รอบนำเที่ยวนี้เริ่มแล้ว ไม่สามารถทำการจองได้");
 
       return;
     }
@@ -126,6 +157,15 @@ export default function BookTour() {
     });
 
     if (!result.success) {
+      if (result.error?.code === "DUPLICATE_BOOKING") {
+        const existingResult =
+          await getMyConfirmedBookingForSchedule(scheduleId);
+
+        if (existingResult.success) {
+          setExistingBooking(existingResult.data);
+        }
+      }
+
       setErrorMessage(result.error?.message || "ไม่สามารถสร้างการจองได้");
 
       setSubmitting(false);
@@ -163,11 +203,12 @@ export default function BookTour() {
 
   const remainingSeats = capacity?.remainingSeats ?? null;
 
-  const isExpired = isScheduleExpired(schedule);
+  const isExpired = isScheduleExpired(schedule, clockNow);
 
   const isOpen =
     effectiveStatus === "OPEN" &&
     !isExpired &&
+    !existingBooking &&
     (remainingSeats == null || remainingSeats > 0);
 
   const participantMaximum =
@@ -261,11 +302,11 @@ export default function BookTour() {
         </div>
       </Card>
 
-      {!isOpen && (
+      {!isOpen && !existingBooking && (
         <ErrorState
           message={
             isExpired
-              ? "รอบนำเที่ยวนี้เริ่มไปแล้ว ไม่สามารถทำการจองได้"
+              ? "หมดเวลาจอง รอบนำเที่ยวนี้เริ่มแล้ว ไม่สามารถทำการจองได้"
               : effectiveStatus === "FULL" || remainingSeats === 0
                 ? "รอบนำเที่ยวนี้เต็มแล้ว"
                 : "รอบนำเที่ยวนี้ไม่เปิดรับการจอง"
@@ -273,10 +314,34 @@ export default function BookTour() {
         />
       )}
 
+      {existingBooking && (
+        <Card>
+          <div className="space-y-4">
+            <div>
+              <p className="font-semibold text-textPrimary">
+                คุณมีรายการจองที่ยืนยันแล้วสำหรับรอบนี้
+              </p>
+
+              <p className="mt-1 text-sm text-textSecondary">
+                หนึ่งสมาชิกสามารถมีรายการจองที่ยืนยันแล้วได้หนึ่งรายการต่อรอบ
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => navigate(`/bookings/${existingBooking.id}`)}
+            >
+              ดูรายการจองเดิม
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {errorMessage && <ErrorState message={errorMessage} />}
 
-      <Card>
-        <form className="space-y-5" onSubmit={handleSubmit}>
+      {!existingBooking && (
+        <Card>
+          <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
             <label
               htmlFor="participantCount"
@@ -321,8 +386,9 @@ export default function BookTour() {
           <Button type="submit" disabled={submitting || !isOpen}>
             {submitting ? "กำลังจอง..." : "ยืนยันการจอง"}
           </Button>
-        </form>
-      </Card>
+          </form>
+        </Card>
+      )}
     </section>
   );
 }
