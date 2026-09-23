@@ -6,7 +6,7 @@ DROP FUNCTION IF EXISTS public.m4_guard_completion_time();
 create or replace function public.complete_tour(
   p_schedule_id uuid
 )
-returns public.tour_schedules
+returns boolean
 language plpgsql
 security definer
 set search_path = public, pg_temp
@@ -14,7 +14,6 @@ as $$
 declare
   v_actor_id uuid;
   v_schedule public.tour_schedules%rowtype;
-  v_completed_schedule public.tour_schedules%rowtype;
   v_is_admin boolean := false;
   v_is_accepted_guide boolean := false;
   v_completed_bookings integer := 0;
@@ -75,8 +74,6 @@ begin
     status = 'COMPLETED',
     updated_at = now()
   where id = p_schedule_id
-  returning *
-  into v_completed_schedule;
 
   -- 7) Complete accepted guide assignment only
   update public.guide_assignments
@@ -123,7 +120,7 @@ begin
     )
   );
 
-  return v_completed_schedule;
+  return true;
 end;
 $$;
 
