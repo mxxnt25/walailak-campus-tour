@@ -148,3 +148,26 @@ M3 must not cherry-pick or merge M1/M5/M6 branches independently.
 
 Review components owned by M6 remain an integration dependency and are not
 implemented by M3 in this work.
+
+## M2 Additional Verification Cases
+
+| Case | Expected result | Status |
+| --- | --- | --- |
+| GUIDE booking | `FORBIDDEN` | NOT RUN |
+| ADMIN booking | `FORBIDDEN` | NOT RUN |
+| SUPER_ADMIN booking | `FORBIDDEN` | NOT RUN |
+| Inactive MEMBER booking | `FORBIDDEN` | NOT RUN |
+| Exact deadline boundary | `INVALID_STATE` | NOT RUN |
+| Clearly after deadline | `INVALID_STATE` | NOT RUN |
+| FULL -> cancel | capacity restored | NOT RUN |
+| FULL -> cancel -> rebook while eligible | succeeds | NOT RUN |
+| FULL -> cancel -> rebook after deadline | `INVALID_STATE` | NOT RUN |
+
+DB/RPC runtime verification remains **NOT RUN** because the team uses one shared Supabase project.
+M3 must coordinate approved test data and a test window before executing verification SQL that changes shared data.
+
+## Guest Login Return Verification
+
+RouteDetail now passes `state.from.pathname` to Login.
+Expected flow: Guest -> RouteDetail -> Login -> successful login -> original RouteDetail.
+Manual runtime result: PASS.
