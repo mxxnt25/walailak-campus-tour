@@ -170,4 +170,4 @@ M3 must coordinate approved test data and a test window before executing verific
 
 RouteDetail now passes `state.from.pathname` to Login.
 Expected flow: Guest -> RouteDetail -> Login -> successful login -> original RouteDetail.
-Manual runtime result: PASS.
+Manual runtime result: NOT RUN.
