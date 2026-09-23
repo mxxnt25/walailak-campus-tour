@@ -6,8 +6,8 @@ This note covers M3 Final Fix work for:
 
 - D1 / BOOK-03 Option A
 - D4 derived expiry
-- `0020_m3_booking_temporal_guard.sql`
-- `0021_m3_booking_duplicate_temporal_guard.sql`
+- `0023_m3_booking_temporal_guard.sql`
+- `0024_m3_booking_duplicate_temporal_guard.sql`
 - Booking UI duplicate handling
 - Role-aware RouteDetail booking CTA
 - Live expiry behavior
@@ -64,8 +64,8 @@ schedule row lock so a request that waits across the deadline cannot book.
 
 Expected M3 sequence:
 
-1. `0020_m3_booking_temporal_guard.sql`
-2. `0021_m3_booking_duplicate_temporal_guard.sql`
+1. `0023_m3_booking_temporal_guard.sql`
+2. `0024_m3_booking_duplicate_temporal_guard.sql`
 
 Do not edit either historical migration after it has been accepted into
 integration.
