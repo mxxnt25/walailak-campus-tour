@@ -737,3 +737,111 @@ where id in (
   '00000000-0000-4000-8000-00000000d306',
   '00000000-0000-4000-8000-00000000d307'
 );
+
+-- =========================================================
+-- M2 ADDITIONAL VERIFICATION
+-- Runtime status: NOT RUN
+-- Shared Supabase project: coordinate test window first.
+-- =========================================================
+
+-- TEST K — AUTHORIZATION REJECTION
+-- Active MEMBER success is covered by TEST A.
+--
+-- Repeat book_tour_safe() with test users whose effective roles are:
+--   GUIDE
+--   ADMIN
+--   SUPER_ADMIN
+--   inactive MEMBER
+--
+-- Expected for every case:
+--   FORBIDDEN
+--
+-- Runtime status: NOT RUN
+
+
+-- TEST L — EXACT DEADLINE BOUNDARY
+--
+-- This case must be recorded separately from "already started".
+-- Prepare an OPEN schedule whose stored:
+--
+--   tour_date + start_time
+--
+-- equals the database Bangkok wall-clock boundary being tested.
+--
+-- Invoke book_tour_safe() at that boundary.
+--
+-- Expected:
+--   INVALID_STATE
+--
+-- Predicate being verified:
+--
+--   (tour_date + start_time)
+--     <= (
+--       clock_timestamp()
+--       at time zone 'Asia/Bangkok'
+--     )
+--
+-- Runtime status: NOT RUN
+
+
+-- TEST M — CLEARLY AFTER DEADLINE
+--
+-- Prepare an OPEN schedule whose start time is already in the past.
+--
+-- Expected:
+--   INVALID_STATE
+--
+-- This evidence must be reported separately from TEST L.
+--
+-- Runtime status: NOT RUN
+
+-- =========================================================
+-- TEST N — FULL -> CANCEL -> RESTORE -> REBOOK WHILE ELIGIBLE
+-- =========================================================
+--
+-- Setup:
+-- 1. OPEN future schedule
+-- 2. max_participants = 1
+-- 3. active MEMBER books participant_count = 1
+--
+-- Expected after booking:
+--   schedule status = FULL
+--   remaining_seats = 0
+--
+-- Cancel the CONFIRMED booking through cancel_booking_safe().
+--
+-- Expected after cancellation:
+--   booking status = CANCELLED
+--   capacity is restored
+--   schedule returns to OPEN when existing cancellation rules permit
+--
+-- Rebook before tour_date + start_time.
+--
+-- Expected:
+--   booking succeeds
+--   CANCELLED does not trigger DUPLICATE_BOOKING
+--   schedule becomes FULL again
+--
+-- Runtime status: NOT RUN
+
+
+-- =========================================================
+-- TEST O — FULL -> CANCEL -> RESTORE -> REBOOK AFTER DEADLINE
+-- =========================================================
+--
+-- Setup the same FULL -> cancellation flow.
+--
+-- Confirm capacity is restored first.
+-- Then test when database Bangkok time has reached/passed:
+--
+--   tour_date + start_time
+--
+-- Attempt to rebook.
+--
+-- Expected:
+--   INVALID_STATE
+--
+-- Important:
+-- cancellation restoring capacity does NOT override D4 expiry.
+--
+-- Runtime status: NOT RUN

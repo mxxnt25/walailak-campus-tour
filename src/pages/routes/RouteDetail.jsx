@@ -88,19 +88,15 @@ function getUnavailableButtonLabel(schedule, now) {
 function RouteDetail() {
   const { id } = useParams();
 
-  const {
-    session,
-    profile,
-    loading: authLoading,
-    profileLoading,
-  } = useAuth();
+  const { session, profile, loading: authLoading, profileLoading } = useAuth();
 
   const [route, setRoute] = useState(null);
   const [stops, setStops] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
-  const [existingBookingsBySchedule, setExistingBookingsBySchedule] =
-    useState({});
+  const [existingBookingsBySchedule, setExistingBookingsBySchedule] = useState(
+    {},
+  );
   const [clockNow, setClockNow] = useState(() => new Date());
 
   const [loading, setLoading] = useState(true);
@@ -183,7 +179,6 @@ function RouteDetail() {
     };
   }, [id]);
 
-
   useEffect(() => {
     const timerId = window.setInterval(() => {
       setClockNow(new Date());
@@ -240,12 +235,7 @@ function RouteDetail() {
     return () => {
       active = false;
     };
-  }, [
-    authLoading,
-    profileLoading,
-    session?.user,
-    profile?.role,
-  ]);
+  }, [authLoading, profileLoading, session?.user, profile?.role]);
 
   if (loading) {
     return (
@@ -357,21 +347,14 @@ function RouteDetail() {
               ) : (
                 <div className="mt-3 grid gap-4 md:grid-cols-2">
                   {filteredSchedules.map((schedule) => {
-                    const bookable = isScheduleBookable(
-                      schedule,
-                      clockNow,
-                    );
+                    const bookable = isScheduleBookable(schedule, clockNow);
 
-                    const expired = isScheduleExpired(
-                      schedule,
-                      clockNow,
-                    );
+                    const expired = isScheduleExpired(schedule, clockNow);
 
                     const existingBooking =
                       existingBookingsBySchedule[schedule.id] ?? null;
 
-                    const authReady =
-                      !authLoading && !profileLoading;
+                    const authReady = !authLoading && !profileLoading;
 
                     const isGuest = !session?.user;
                     const isMember = profile?.role === "MEMBER";
@@ -414,32 +397,30 @@ function RouteDetail() {
 
                         {expired && (
                           <p className="mt-2 text-sm text-danger">
-                            หมดเวลาจอง รอบนำเที่ยวนี้เริ่มแล้ว ไม่สามารถทำการจองได้
+                            หมดเวลาจอง รอบนำเที่ยวนี้เริ่มแล้ว
+                            ไม่สามารถทำการจองได้
                           </p>
                         )}
 
                         <div className="mt-4">
                           {isMember && existingBooking ? (
-                            <Link
-                              to={`/bookings/${existingBooking.id}`}
-                            >
+                            <Link to={`/bookings/${existingBooking.id}`}>
                               <Button>ดูรายการจองเดิม</Button>
                             </Link>
                           ) : !bookable ? (
                             <Button disabled>
-                              {getUnavailableButtonLabel(
-                                schedule,
-                                clockNow,
-                              )}
+                              {getUnavailableButtonLabel(schedule, clockNow)}
                             </Button>
                           ) : !authReady ? (
-                            <Button disabled>
-                              กำลังตรวจสอบสิทธิ์...
-                            </Button>
+                            <Button disabled>กำลังตรวจสอบสิทธิ์...</Button>
                           ) : isGuest ? (
                             <Link
                               to="/login"
-                              state={{ from: `/routes/${id}` }}
+                              state={{
+                                from: {
+                                  pathname: `/routes/${id}`,
+                                },
+                              }}
                             >
                               <Button>เข้าสู่ระบบเพื่อจอง</Button>
                             </Link>
