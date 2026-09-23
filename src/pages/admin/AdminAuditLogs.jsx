@@ -4,7 +4,6 @@ import {
   ShieldCheck,
   ScrollText,
   RefreshCw,
-  UserCog,
   UserRoundX,
   Trash2,
   ArrowRightLeft,
@@ -120,6 +119,7 @@ export default function AdminAuditLogs() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [])
 

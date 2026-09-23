@@ -82,6 +82,7 @@ export default function AdminReviews() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadReviews()
   }, [])
 
