@@ -1,318 +1,338 @@
-import React, { useState, useEffect } from 'react';
-import { listOpenSchedules, createSchedule } from '../../services/scheduleService';
-import { assignGuide } from '../../services/assignmentService';
-import { listActiveRoutes } from '../../services/routeService';
-import { listAllProfiles } from '../../services/profileService';
-
+import { useEffect, useState } from "react";
+import {
+  listAdminSchedules,
+  createSchedule,
+} from "../../services/scheduleService";
+import { assignGuide } from "../../services/assignmentService";
+import { listActiveRoutes } from "../../services/routeService";
+import { listAllProfiles } from "../../services/profileService";
+import Button from "../../components/common/Button";
+import { Feedback, Modal } from "../../components/m4/Feedback";
+import {
+  validateSchedule,
+  canAssign,
+  isUpcoming,
+  thaiToday,
+  formatDate,
+  formatTime,
+  statusLabel,
+} from "../../services/m4/rules";
+const scheduleStatusColors = {
+  OPEN: "bg-green-100 text-green-800 border-green-200",
+  FULL: "bg-amber-100 text-amber-900 border-amber-200",
+  CLOSED: "bg-slate-100 text-slate-700 border-slate-300",
+  CANCELLED: "bg-red-100 text-red-800 border-red-200",
+  COMPLETED: "bg-blue-100 text-blue-800 border-blue-200",
+};
+const emptyForm = {
+  route_id: "",
+  tour_date: "",
+  start_time: "",
+  end_time: "",
+  max_participants: 1,
+};
+const fieldStyle =
+  "w-full rounded-input border border-border bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary";
 export default function AdminSchedules() {
-  // State สำหรับเก็บข้อมูลจริงจาก Database
   const [schedules, setSchedules] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [guides, setGuides] = useState([]);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  // State สำหรับจัดการ Modal และ Form
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [selectedSchedule, setSelectedSchedule] = useState(null);
-
-  const [scheduleForm, setScheduleForm] = useState({
-    route_id: '',
-    tour_date: '',
-    start_time: '',
-    end_time: '',
-    max_participants: 1
-  });
-  const [selectedGuideId, setSelectedGuideId] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // ดึงข้อมูลทั้งหมดเมื่อเข้าสู่หน้าจอ
-  const fetchData = async () => {
-    setIsLoading(true);
-    setErrorMsg('');
-
-    try {
-      // 1. ดึงข้อมูลตารางทัวร์ทั้งหมดที่เปิดอยู่
-      const schRes = await listOpenSchedules();
-      if (schRes.success) setSchedules(schRes.data);
-
-      // 2. ดึงข้อมูลเส้นทางทัวร์ที่เปิดใช้งาน
-      const routeRes = await listActiveRoutes();
-      if (routeRes.success) setRoutes(routeRes.data);
-
-      // 3. ดึงรายชื่อผู้ใช้งานทั้งหมด แล้วกรองเอาเฉพาะไกด์
-      const profileRes = await listAllProfiles()
-
-      if (!profileRes.success) {
-        throw new Error(
-          profileRes.error?.message || 'ไม่สามารถดึงข้อมูลไกด์ได้'
-        )
-      }
-
-      const guidesOnly = (profileRes.data ?? []).filter(
-        (user) =>
-          user.role === 'GUIDE' &&
-          user.account_status === 'ACTIVE'
-      )
-
-      setGuides(guidesOnly)
-
-    } catch (error) {
-      setErrorMsg('เกิดข้อผิดพลาดในการดึงข้อมูล: ' + (error.message || 'ระบบขัดข้อง'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  const [loading, setLoading] = useState(true);
+  const [reload, setReload] = useState(0);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [modal, setModal] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [guideId, setGuideId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [actionError, setActionError] = useState("");
   useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleCreateSchedule = async () => {
-    setErrorMsg('');
-    setIsSubmitting(true);
-
-    if (!scheduleForm.route_id || !scheduleForm.tour_date || !scheduleForm.start_time || scheduleForm.max_participants < 1) {
-      setErrorMsg('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วนและถูกต้อง');
-      setIsSubmitting(false);
-      return;
-    }
-
-    const { success, error } = await createSchedule(scheduleForm);
-    if (success) {
-      setIsScheduleModalOpen(false);
-      fetchData();
-    } else {
-      setErrorMsg(error.message);
-    }
-
-    setIsSubmitting(false);
-  };
-
-  const handleAssignGuide = async () => {
-    if (!selectedGuideId || !selectedSchedule) return;
-
-    setErrorMsg('');
-    setIsSubmitting(true);
-
-    const { success, error } = await assignGuide({ scheduleId: selectedSchedule.id, guideId: selectedGuideId });
-    if (success) {
-      setIsAssignModalOpen(false);
-      fetchData();
-    } else {
-      setErrorMsg(error.message);
-    }
-
-    setIsSubmitting(false);
-  };
-
-  const getStatusBadge = (status) => {
-    const badges = {
-      'OPEN': <span className="bg-[#16A34A] text-white px-3 py-1 rounded-full text-xs font-medium">OPEN</span>,
-      'FULL': <span className="bg-[#F59E0B] text-white px-3 py-1 rounded-full text-xs font-medium">FULL</span>,
-      'CANCELLED': <span className="bg-[#DC2626] text-white px-3 py-1 rounded-full text-xs font-medium">CANCELLED</span>,
-      'COMPLETED': <span className="bg-[#64748B] text-white px-3 py-1 rounded-full text-xs font-medium">COMPLETED</span>,
+    let active = true;
+    Promise.all([listAdminSchedules(), listActiveRoutes(), listAllProfiles()])
+      .then(([s, r, g]) => {
+        if (!active) return;
+        if (!s.success || !r.success || !g.success) {
+          setError(
+            "โหลดตาราง เส้นทาง หรือรายชื่อไกด์ไม่สำเร็จ กรุณาลองอีกครั้ง",
+          );
+          return;
+        }
+        setSchedules(s.data || []);
+        setRoutes(r.data || []);
+        setGuides(
+          (g.data || []).filter(
+            (x) => x.role === "GUIDE" && x.account_status === "ACTIVE",
+          ),
+        );
+        setError("");
+      })
+      .catch(() => {
+        if (active) setError("เชื่อมต่อไม่สำเร็จ กรุณาลองอีกครั้ง");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
     };
-    return badges[status] || null;
-  };
-
+  }, [reload]);
+  function open(kind, schedule) {
+    setActionError("");
+    setErrors({});
+    setSuccess("");
+    setModal(kind);
+    setSelected(schedule);
+    setForm(emptyForm);
+    const assignment = Array.isArray(schedule?.guide_assignments)
+      ? schedule.guide_assignments[0]
+      : schedule?.guide_assignments;
+    setGuideId(assignment?.guide_id || "");
+  }
+  async function submit(event) {
+    event.preventDefault();
+    if (busy) return;
+    const next =
+      modal === "create"
+        ? validateSchedule(form)
+        : !guideId
+          ? { guide: "กรุณาเลือกไกด์" }
+          : {};
+    setErrors(next);
+    setActionError("");
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    try {
+      const result =
+        modal === "create"
+          ? await createSchedule(form)
+          : await assignGuide({ scheduleId: selected.id, guideId });
+      if (!result.success) {
+        setActionError(result.error.message);
+        return;
+      }
+      setSuccess(
+        modal === "create"
+          ? "สร้างรอบนำเที่ยวเรียบร้อยแล้ว"
+          : "มอบหมายไกด์เรียบร้อยแล้ว",
+      );
+      setModal(null);
+      setReload((x) => x + 1);
+    } catch {
+      setActionError("บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const fields = [
+    ["tour_date", "วันที่ (Tour Date) ", "date"],
+    ["start_time", "เวลาเริ่ม ", "time"],
+    ["end_time", "เวลาสิ้นสุด ", "time"],
+    ["max_participants", "จำนวนผู้เข้าร่วมสูงสุด ", "number"],
+  ];
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-[#1E293B]">Tour Schedules</h1>
-            <p className="text-[#64748B] text-sm mt-1">จัดการรอบนำเที่ยวและตารางงาน</p>
-          </div>
-          <button
-            onClick={() => {
-              setScheduleForm({ route_id: '', tour_date: '', start_time: '', end_time: '', max_participants: 1 });
-              setIsScheduleModalOpen(true);
-            }}
-            className="bg-[#7B5AA6] hover:bg-[#684b8f] text-white px-5 py-2.5 rounded-[10px] font-medium shadow-sm transition-colors flex items-center gap-2"
-          >
-            + สร้างรอบนำเที่ยว
-          </button>
+    <section className="mx-auto max-w-7xl text-textPrimary">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-primary">ตารางนำเที่ยว</h1>
+          <p className="mt-1 text-textSecondary">จัดการรอบนำเที่ยวและตารางงาน</p>
         </div>
-
-        {errorMsg && (
-          <div className="mb-4 p-4 bg-[#DC2626]/10 border border-[#DC2626] rounded-[10px] text-[#DC2626] text-sm">
-            {errorMsg}
-          </div>
-        )}
-
-        <div className="bg-[#FFFFFF] rounded-[12px] border border-[#E2E8F0] shadow-sm overflow-hidden mb-8">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] text-sm uppercase tracking-wider">
-                  <th className="px-6 py-4 font-medium">Date & Time</th>
-                  <th className="px-6 py-4 font-medium">Route</th>
-                  <th className="px-6 py-4 font-medium">Capacity</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium">Guide</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E2E8F0]">
-                {isLoading ? (
-                  <tr><td colSpan="5" className="px-6 py-12 text-center text-[#64748B]">กำลังโหลดข้อมูล...</td></tr>
-                ) : schedules.length === 0 ? (
-                  <tr><td colSpan="5" className="px-6 py-12 text-center text-[#64748B]">ไม่มีข้อมูลรอบนำเที่ยว</td></tr>
-                ) : (
-                  schedules.map((schedule) => (
-                    <tr key={schedule.id} className="hover:bg-[#F8FAFC] transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="text-[#1E293B] font-medium">{schedule.tour_date}</div>
-                        <div className="text-[#64748B] text-sm">{schedule.start_time} - {schedule.end_time}</div>
-                      </td>
-                      <td className="px-6 py-4 text-[#1E293B]">{schedule.routes?.name}</td>
-                      <td className="px-6 py-4 text-[#1E293B]">{schedule.max_participants} pax</td>
-                      <td className="px-6 py-4">{getStatusBadge(schedule.status)}</td>
-                      <td className="px-6 py-4">
-                        {schedule.guide_assignments ? (
-                          <button
-                            onClick={() => {
-                              setSelectedSchedule(schedule);
-                              setSelectedGuideId(schedule.guide_assignments.guide_id);
-                              setIsAssignModalOpen(true);
-                            }}
-                            className="text-[#16A34A] text-sm font-medium hover:underline flex items-center gap-1"
-                          >
-                            {guides.find(
-                              (guide) =>
-                                guide.id === schedule.guide_assignments.guide_id
-                            )?.full_name || 'มอบหมายแล้ว'} (เปลี่ยน)
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setSelectedSchedule(schedule);
-                              setSelectedGuideId('');
-                              setIsAssignModalOpen(true);
-                            }}
-                            className="text-[#F37321] text-sm font-medium hover:underline"
-                          >
-                            + Assign Guide
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Modal 1: สร้างรอบนำเที่ยว */}
-        {isScheduleModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-[#FFFFFF] rounded-[12px] shadow-xl w-full max-w-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#E2E8F0] flex justify-between items-center">
-                <h2 className="text-lg font-bold text-[#1E293B]">สร้างรอบนำเที่ยวใหม่</h2>
-                <button onClick={() => setIsScheduleModalOpen(false)} className="text-[#64748B] hover:text-[#1E293B]">✕</button>
-              </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#1E293B] mb-1">เส้นทาง (Route)</label>
-                  <select
-                    value={scheduleForm.route_id}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, route_id: e.target.value })}
-                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
-                  >
-                    <option value="">เลือกเส้นทาง...</option>
-                    {/* ใช้ข้อมูลจริงจาก routes (M2) แทน mockRoutes */}
-                    {routes.map(route => <option key={route.id} value={route.id}>{route.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#1E293B] mb-1">วันที่ (Tour Date)</label>
-                  <input
-                    type="date"
-                    value={scheduleForm.tour_date}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, tour_date: e.target.value })}
-                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
-                  />
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-[#1E293B] mb-1">เวลาเริ่ม</label>
-                    <input
-                      type="time"
-                      value={scheduleForm.start_time}
-                      onChange={(e) => setScheduleForm({ ...scheduleForm, start_time: e.target.value })}
-                      className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-[#1E293B] mb-1">เวลาสิ้นสุด</label>
-                    <input
-                      type="time"
-                      value={scheduleForm.end_time}
-                      onChange={(e) => setScheduleForm({ ...scheduleForm, end_time: e.target.value })}
-                      className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#1E293B] mb-1">ความจุสูงสุด (Max Participants)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={scheduleForm.max_participants}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, max_participants: parseInt(e.target.value) || 1 })}
-                    placeholder="เช่น 20"
-                    className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
-                  />
-                </div>
-              </div>
-              <div className="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2E8F0] flex justify-end gap-3">
-                <button onClick={() => setIsScheduleModalOpen(false)} disabled={isSubmitting} className="px-4 py-2 rounded-[10px] text-[#64748B] font-medium hover:bg-[#E2E8F0] transition-colors">ยกเลิก</button>
-                <button onClick={handleCreateSchedule} disabled={isSubmitting} className="px-4 py-2 rounded-[10px] bg-[#7B5AA6] text-white font-medium hover:bg-[#684b8f] transition-colors">
-                  {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal 2: มอบหมายไกด์ */}
-        {isAssignModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-[#FFFFFF] rounded-[12px] shadow-xl w-full max-w-md overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#E2E8F0] flex justify-between items-center">
-                <h2 className="text-lg font-bold text-[#1E293B]">มอบหมายผู้นำเที่ยว (Assign Guide)</h2>
-                <button onClick={() => setIsAssignModalOpen(false)} className="text-[#64748B] hover:text-[#1E293B]">✕</button>
-              </div>
-              <div className="p-6">
-                <p className="text-sm text-[#64748B] mb-4">
-                  รอบทัวร์วันที่: <span className="text-[#1E293B] font-medium">{selectedSchedule?.tour_date}</span>
-                </p>
-                <label className="block text-sm font-medium text-[#1E293B] mb-1">เลือกไกด์ (จากผู้ใช้ที่ยืนยัน Role แล้ว)</label>
-                <select
-                  value={selectedGuideId}
-                  onChange={(e) => setSelectedGuideId(e.target.value)}
-                  className="w-full border border-[#E2E8F0] rounded-[10px] p-2.5 text-[#1E293B] focus:outline-none focus:border-[#7B5AA6]"
-                >
-                  <option value="">เลือกผู้นำเที่ยว...</option>
-                  {/* ใช้ข้อมูลจริงจาก guides (M1) แทน mockGuides */}
-                  {guides.map(guide => (
-                    <option key={guide.id} value={guide.id}>{guide.full_name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2E8F0] flex justify-end gap-3">
-                <button onClick={() => setIsAssignModalOpen(false)} disabled={isSubmitting} className="px-4 py-2 rounded-[10px] text-[#64748B] font-medium hover:bg-[#E2E8F0] transition-colors">ยกเลิก</button>
-                <button onClick={handleAssignGuide} disabled={isSubmitting} className="px-4 py-2 rounded-[10px] bg-[#F37321] text-white font-medium hover:bg-[#d9631a] transition-colors">
-                  {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันการมอบหมาย'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Button onClick={() => open("create")} disabled={loading || !!error}>
+          + สร้างรอบนำเที่ยว
+        </Button>
       </div>
-    </div>
+      <Feedback error={error} success={success} />
+      {error && (
+        <Button
+          onClick={() => {
+            setLoading(true);
+            setReload((x) => x + 1);
+          }}
+        >
+          ลองอีกครั้ง
+        </Button>
+      )}
+      <div className="overflow-x-auto rounded-card border border-border bg-surface">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-background">
+            <tr>
+              {["วันและเวลา", "เส้นทาง", "ความจุ", "สถานะ", "ไกด์"].map((x) => (
+                <th key={x} className="p-4">
+                  {x}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="5" className="p-8 text-center">
+                  กำลังโหลด…
+                </td>
+              </tr>
+            ) : schedules.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="p-8 text-center">
+                  ยังไม่มีรอบนำเที่ยว เริ่มด้วยปุ่มสร้างรอบนำเที่ยว
+                </td>
+              </tr>
+            ) : (
+              schedules.map((s) => {
+                const a = Array.isArray(s.guide_assignments)
+                  ? s.guide_assignments[0]
+                  : s.guide_assignments;
+                return (
+                  <tr key={s.id} className="border-t border-border">
+                    <td className="p-4 whitespace-nowrap">
+                      {formatDate(s.tour_date)}
+                      <p className="text-textSecondary">
+                        {formatTime(s.start_time)} – {formatTime(s.end_time)}
+                      </p>
+                    </td>
+                    <td className="p-4">{s.routes?.name || "ไม่พบเส้นทาง"}</td>
+                    <td className="p-4">{s.max_participants}{" "}<span role="img" aria-label="คน">👤</span></td>
+                    <td className="p-4">
+                      <span
+                        className={`inline-flex min-w-24 items-center justify-center whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold ${scheduleStatusColors[s.status] || "bg-slate-100 text-slate-700 border-slate-300"}`}
+                      >
+                        {statusLabel(s.status)}
+                      </span>
+                      {["OPEN", "FULL"].includes(s.status) &&
+                        !isUpcoming(s) && (
+                          <p className="text-danger">
+                            ผ่านเวลาเริ่มแล้ว · จองไม่ได้
+                          </p>
+                        )}
+                    </td>
+                    <td className="p-4">
+                      <p>
+                        {a
+                          ? guides.find((g) => g.id === a.guide_id)
+                              ?.full_name || "ไกด์ที่ได้รับมอบหมาย"
+                          : "ยังไม่มอบหมาย"}
+                      </p>
+                      {a && (
+                        <p className="text-textSecondary">
+                          {statusLabel(a.status)}
+                        </p>
+                      )}
+                      <Button
+                        className="mt-2"
+                        size="sm"
+                        variant="secondary"
+                        disabled={!canAssign(s) || !!error}
+                        onClick={() => open("assign", s)}
+                      >
+                        {a ? "เปลี่ยนไกด์" : "มอบหมายไกด์"}
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+      {modal && (
+        <Modal
+          title={modal === "create" ? "สร้างรอบนำเที่ยว" : "มอบหมายไกด์"}
+          busy={busy}
+          onClose={() => setModal(null)}
+        >
+          <form onSubmit={submit} noValidate>
+            <Feedback error={actionError} />
+            <fieldset disabled={busy} className="space-y-4">
+              {modal === "create" ? (
+                <>
+                  <label className="block" htmlFor="m4-route">
+                    เส้นทาง (Route)
+                    <select
+                      id="m4-route"
+                      className={fieldStyle}
+                      value={form.route_id}
+                      onChange={(e) =>
+                        setForm({ ...form, route_id: e.target.value })
+                      }
+                      aria-invalid={!!errors.route_id}
+                    >
+                      <option value="">เลือกเส้นทาง</option>
+                      {routes.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-sm text-danger">
+                      {errors.route_id}
+                    </span>
+                  </label>
+                  {fields.map(([key, label, type]) => (
+                    <label className="block" key={key} htmlFor={`m4-${key}`}>
+                      {label}
+                      <input
+                        id={`m4-${key}`}
+                        className={fieldStyle}
+                        type={type}
+                        min={
+                          type === "date"
+                            ? thaiToday()
+                            : type === "number"
+                              ? 1
+                              : undefined
+                        }
+                        step={type === "number" ? 1 : undefined}
+                        value={form[key]}
+                        onChange={(e) =>
+                          setForm({ ...form, [key]: e.target.value })
+                        }
+                        aria-invalid={!!errors[key]}
+                      />
+                      <span
+                        role={errors[key] ? "alert" : undefined}
+                        className="text-sm text-danger"
+                      >
+                        {errors[key]}
+                      </span>
+                    </label>
+                  ))}
+                </>
+              ) : (
+                <label className="block" htmlFor="m4-guide">
+                  ไกด์ *
+                  <select
+                    id="m4-guide"
+                    className={fieldStyle}
+                    value={guideId}
+                    onChange={(e) => setGuideId(e.target.value)}
+                  >
+                    <option value="">เลือกไกด์</option>
+                    {guides.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.full_name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-sm text-danger">{errors.guide}</span>
+                  {guides.length === 0 && <p>ไม่มีไกด์ที่เปิดใช้งาน</p>}
+                </label>
+              )}
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="secondary"
+                  type="button"
+                  onClick={() => setModal(null)}
+                >
+                  ยกเลิก
+                </Button>
+                <Button type="submit">
+                  {busy ? "กำลังบันทึก…" : "บันทึก"}
+                </Button>
+              </div>
+            </fieldset>
+          </form>
+        </Modal>
+      )}
+    </section>
   );
 }
