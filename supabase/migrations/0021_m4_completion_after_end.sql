@@ -104,7 +104,7 @@ begin
   set
     status = 'COMPLETED',
     updated_at = now()
-  where id = p_schedule_id
+  where id = p_schedule_id;
 
   -- 7) Complete accepted guide assignment only
   update public.guide_assignments
