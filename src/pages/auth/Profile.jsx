@@ -476,13 +476,14 @@ export default function Profile() {
     )
 
   return (
-    <div className="min-h-screen w-full bg-background flex">
+    <div className="my-6 flex min-h-[70vh] w-full flex-col overflow-hidden rounded-card border border-border bg-background lg:flex-row">
       {/* SIDEBAR */}
       <aside
         className="
-          w-[280px]
+          w-full
+          lg:w-[280px]
           shrink-0
-          min-h-screen
+          lg:min-h-[70vh]
           bg-gradient-to-b
           from-primary
           to-primary/90
@@ -716,13 +717,13 @@ export default function Profile() {
       </aside>
 
       {/* MAIN */}
-      <main
+      <section
         className="
           flex-1
           min-w-0
-          min-h-screen
-          px-[4vw]
+          px-4
           py-8
+          sm:px-6
           lg:px-[5vw]
           xl:px-[6vw]
         "
@@ -1333,7 +1334,7 @@ export default function Profile() {
             </div>
           </div>
         )}
-      </main>
+      </section>
     </div>
   )
 }

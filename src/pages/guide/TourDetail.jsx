@@ -114,17 +114,17 @@ export default function TourDetail() {
   const getAttendanceBadge = (status) => {
     const badges = {
       NOT_CHECKED_IN: (
-        <span className="bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] px-2 py-1 rounded text-xs font-medium">
+        <span className="bg-background text-textSecondary border border-border px-2 py-1 rounded text-xs font-medium">
           ยังไม่เช็กอิน
         </span>
       ),
       CHECKED_IN: (
-        <span className="bg-[#16A34A] text-white px-2 py-1 rounded text-xs font-medium">
+        <span className="bg-success text-white px-2 py-1 rounded text-xs font-medium">
           เช็กอินแล้ว
         </span>
       ),
       NO_SHOW: (
-        <span className="bg-[#DC2626] text-white px-2 py-1 rounded text-xs font-medium">
+        <span className="bg-danger text-white px-2 py-1 rounded text-xs font-medium">
           ไม่มาปรากฏตัว
         </span>
       ),
@@ -132,36 +132,69 @@ export default function TourDetail() {
     return badges[status] || null;
   };
 
+  // Reuse the exact attendance actions on desktop and mobile.
+  const renderAttendanceActions = (participant) => {
+    const disabled =
+      busy ||
+      isCompleting ||
+      participant.booking_status !== "CONFIRMED" ||
+      !["OPEN", "FULL", "CLOSED"].includes(schedule?.status);
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => handleAttendance(participant.booking_id, "CHECKED_IN")}
+          className="rounded-button border border-border bg-background px-4 py-2 text-sm font-medium text-textPrimary transition-colors hover:border-success hover:bg-success hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          มา
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => handleAttendance(participant.booking_id, "NO_SHOW")}
+          className="rounded-button border border-border bg-background px-4 py-2 text-sm font-medium text-textPrimary transition-colors hover:border-danger hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          ไม่มา
+        </button>
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 lg:p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="w-full min-w-0">
+      <div className="w-full">
         <button
           onClick={() => navigate("/guide")}
-          className="text-[#64748B] hover:text-[#7B5AA6] text-sm mb-6 flex items-center gap-1 font-medium transition-colors"
+          className="text-textSecondary hover:text-primary text-sm mb-6 flex items-center gap-1 font-medium transition-colors"
         >
           ← กลับไปหน้า Dashboard
         </button>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#1E293B]">
+            <h1 className="text-2xl font-bold text-textPrimary">
               รายละเอียดการนำเที่ยว (Tour Detail)
             </h1>
-            <p className="text-[#64748B] text-sm mt-1">
+            <p className="text-textSecondary text-sm mt-1">
               จัดการรายชื่อผู้เข้าร่วม เช็กอิน และดำเนินการนำเที่ยว
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             {/* ปุ่มแจ้งเหตุ (เชื่อมกับโมดูล M5) */}
-            <button
-              onClick={() =>
-                navigate(`/incidents/new?scheduleId=${scheduleId}`)
-              }
-              className="bg-[#F59E0B] hover:bg-[#d97706] text-white px-4 py-2.5 rounded-[10px] font-medium shadow-sm transition-colors flex items-center gap-2"
-            >
-              ⚠️ แจ้งเหตุฉุกเฉิน
-            </button>
+            {['OPEN', 'FULL', 'CLOSED'].includes(schedule?.status) && (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(`/incidents/new?scheduleId=${encodeURIComponent(scheduleId)}`)
+                }
+                className="bg-warning hover:bg-warning/90 text-white px-4 py-2.5 rounded-button font-medium shadow-sm transition-colors flex items-center gap-2"
+              >
+                ⚠️ แจ้งเหตุฉุกเฉิน
+              </button>
+            )}
 
             {/* ปุ่มจบงาน (ของโมดูล M4) */}
             <button
@@ -172,7 +205,7 @@ export default function TourDetail() {
               disabled={
                 isCompleting || isLoading || busy || !canComplete(schedule)
               }
-              className="bg-[#16A34A] hover:bg-[#15803d] disabled:bg-[#94A3B8] text-white px-5 py-2.5 rounded-[10px] font-medium shadow-sm transition-colors flex items-center gap-2"
+              className="bg-primary hover:bg-primary/90 disabled:bg-slate-400 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-button font-medium shadow-sm transition-colors flex items-center gap-2"
             >
               {isCompleting ? "กำลังประมวลผล..." : "จบการนำเที่ยว"}
             </button>
@@ -203,23 +236,74 @@ export default function TourDetail() {
           type="button"
           disabled={busy || isCompleting || isLoading}
           onClick={fetchManifest}
-          className="mb-4 underline"
+          className="mb-5 rounded-button border border-border bg-surface px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
         >
           โหลดรายชื่อใหม่
         </button>
         {/* Error State */}
         {errorMsg && (
-          <div className="mb-6 p-4 bg-[#DC2626]/10 border border-[#DC2626] rounded-[10px] text-[#DC2626] text-sm">
+          <div className="mb-6 p-4 bg-danger/10 border border-danger rounded-button text-danger text-sm">
             {errorMsg}
           </div>
         )}
 
-        {/* ตารางแสดงรายชื่อลูกทัวร์ (Manifest) */}
-        <div className="bg-[#FFFFFF] rounded-[12px] border border-[#E2E8F0] shadow-sm overflow-hidden">
+        {/* Mobile manifest: show complete participant details without a hidden action column. */}
+        <div className="rounded-card border border-border bg-surface shadow-sm sm:hidden">
+          {isLoading ? (
+            <p className="p-6 text-center text-sm text-textSecondary">
+              กำลังโหลดข้อมูลผู้เข้าร่วม...
+            </p>
+          ) : manifest.length === 0 ? (
+            <p className="p-6 text-center text-sm text-textSecondary">
+              ยังไม่มีผู้เข้าร่วมที่ยืนยันการจองในรอบนี้
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {manifest.map((participant) => (
+                <article key={participant.booking_id} className="space-y-4 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h2 className="break-words font-semibold text-textPrimary">
+                        {participant.full_name}
+                      </h2>
+                      <p className="break-all text-sm text-textSecondary">
+                        {participant.phone || "ไม่มีเบอร์โทร"}
+                      </p>
+                    </div>
+                    {getAttendanceBadge(participant.attendance_status)}
+                  </div>
+                  <dl className="grid gap-3 text-sm">
+                    <div>
+                      <dt className="text-textSecondary">จำนวนผู้เข้าร่วม</dt>
+                      <dd className="font-medium text-textPrimary">
+                        {participant.participant_count} ท่าน
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-textSecondary">คำขอพิเศษ</dt>
+                      <dd className="break-words text-textPrimary">
+                        {participant.special_request || "-"}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="border-t border-border pt-3">
+                    <p className="mb-2 text-sm font-medium text-textSecondary">
+                      จัดการการเช็กชื่อ
+                    </p>
+                    {renderAttendanceActions(participant)}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop/tablet manifest: keep all columns readable and scroll when needed. */}
+        <div className="hidden overflow-hidden rounded-card border border-border bg-surface shadow-sm sm:block">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="min-w-[850px] w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] text-sm uppercase tracking-wider">
+                <tr className="bg-background border-b border-border text-textSecondary text-sm uppercase tracking-wider">
                   <th className="px-6 py-4 font-medium">ผู้จอง</th>
                   <th className="px-6 py-4 font-medium">จำนวน</th>
                   <th className="px-6 py-4 font-medium">คำขอพิเศษ</th>
@@ -233,7 +317,7 @@ export default function TourDetail() {
                   <tr>
                     <td
                       colSpan="5"
-                      className="px-6 py-12 text-center text-[#64748B]"
+                      className="px-6 py-12 text-center text-textSecondary"
                     >
                       กำลังโหลดข้อมูลผู้เข้าร่วม...
                     </td>
@@ -243,7 +327,7 @@ export default function TourDetail() {
                   <tr>
                     <td
                       colSpan="5"
-                      className="px-6 py-12 text-center text-[#64748B]"
+                      className="px-6 py-12 text-center text-textSecondary"
                     >
                       ยังไม่มีผู้เข้าร่วมที่ยืนยันการจองในรอบนี้
                     </td>
@@ -253,21 +337,21 @@ export default function TourDetail() {
                   manifest.map((participant) => (
                     <tr
                       key={participant.booking_id}
-                      className="hover:bg-[#F8FAFC] transition-colors"
+                      className="hover:bg-background transition-colors"
                     >
                       <td className="px-6 py-4">
-                        <div className="text-[#1E293B] font-medium">
+                        <div className="text-textPrimary font-medium">
                           {participant.full_name}
                         </div>
-                        <div className="text-[#64748B] text-sm">
+                        <div className="text-textSecondary text-sm">
                           {participant.phone || "ไม่มีเบอร์โทร"}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-[#1E293B]">
+                      <td className="px-6 py-4 text-textPrimary">
                         {participant.participant_count} ท่าน
                       </td>
                       <td
-                        className="px-6 py-4 text-[#64748B] text-sm max-w-[200px] truncate"
+                        className="px-6 py-4 text-textSecondary text-sm max-w-[200px] truncate"
                         title={participant.special_request}
                       >
                         {participant.special_request || "-"}
@@ -276,46 +360,7 @@ export default function TourDetail() {
                         {getAttendanceBadge(participant.attendance_status)}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          <button
-                            disabled={
-                              busy ||
-                              isCompleting ||
-                              participant.booking_status !== "CONFIRMED" ||
-                              !["OPEN", "FULL", "CLOSED"].includes(
-                                schedule?.status,
-                              )
-                            }
-                            onClick={() =>
-                              handleAttendance(
-                                participant.booking_id,
-                                "CHECKED_IN",
-                              )
-                            }
-                            className="px-3 py-1 bg-[#F8FAFC] border border-[#E2E8F0] text-[#1E293B] rounded hover:bg-[#16A34A] hover:text-white hover:border-[#16A34A] text-xs font-medium transition-colors"
-                          >
-                            มา
-                          </button>
-                          <button
-                            disabled={
-                              busy ||
-                              isCompleting ||
-                              participant.booking_status !== "CONFIRMED" ||
-                              !["OPEN", "FULL", "CLOSED"].includes(
-                                schedule?.status,
-                              )
-                            }
-                            onClick={() =>
-                              handleAttendance(
-                                participant.booking_id,
-                                "NO_SHOW",
-                              )
-                            }
-                            className="px-3 py-1 bg-[#F8FAFC] border border-[#E2E8F0] text-[#1E293B] rounded hover:bg-[#DC2626] hover:text-white hover:border-[#DC2626] text-xs font-medium transition-colors"
-                          >
-                            ไม่มา
-                          </button>
-                        </div>
+                        {renderAttendanceActions(participant)}
                       </td>
                     </tr>
                   ))

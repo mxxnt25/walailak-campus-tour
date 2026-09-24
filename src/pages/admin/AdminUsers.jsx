@@ -331,6 +331,7 @@ export default function AdminUsers() {
 
         <Button
           variant="ghost"
+          className="inline-flex items-center gap-2 self-start"
           onClick={() => load(true)}
           disabled={refreshing}
         >

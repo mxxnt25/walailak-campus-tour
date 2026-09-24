@@ -167,34 +167,42 @@ export default function Register() {
           flex
           items-center
           justify-center
-          px-6
-          py-8
+          px-4
+          py-6
+          sm:px-6
+          sm:py-8
         "
       >
         <div
           onClick={(e) => e.stopPropagation()}
           className="
-            w-[25cm]
-            min-h-[15cm]
-            max-w-[calc(100vw-80px)]
-            max-h-[calc(100vh-40px)]
-            flex
+            w-full
+            min-w-0
+            max-w-md
             rounded-card
-            overflow-hidden
-            shadow-2xl
+            border
+            border-border
             bg-surface
+            shadow-2xl
             cursor-default
+            lg:flex
+            lg:min-h-[15cm]
+            lg:w-[25cm]
+            lg:max-w-[calc(100vw-80px)]
+            lg:max-h-[calc(100vh-40px)]
+            lg:overflow-hidden
           "
         >
           {/* LEFT IMAGE */}
           <div
             className="
               relative
-              w-1/2
-              min-h-full
+              hidden
+              lg:flex
+              lg:w-1/2
+              lg:min-h-full
               bg-cover
               bg-center
-              flex
               flex-col
               items-center
               justify-end
@@ -248,15 +256,19 @@ export default function Register() {
           {/* REGISTER FORM */}
           <div
             className="
-              w-1/2
+              w-full
+              min-w-0
               flex
               items-center
               justify-center
-              p-10
-              overflow-y-auto
+              p-5
+              sm:p-8
+              lg:w-1/2
+              lg:p-10
+              lg:overflow-y-auto
             "
           >
-            <div className="w-full max-w-sm">
+            <div className="w-full min-w-0 max-w-sm">
               <h2
                 className="
                   text-2xl

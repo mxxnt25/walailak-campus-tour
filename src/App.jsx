@@ -84,7 +84,14 @@ function App() {
 
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          <Route path="/profile" element={<Profile />} />
+          <Route
+            path="/profile"
+            element={
+              <PublicLayout>
+                <Profile />
+              </PublicLayout>
+            }
+          />
 
           {/* =========================
               M2: CAMPUS ROUTES & MAP
