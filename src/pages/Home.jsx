@@ -2,6 +2,32 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listActiveRoutes } from '../services/routeService'
 
+/* =========================
+   IMAGES
+========================= */
+
+const HERO_IMAGE = '/images/routes/home-hero.webp'
+
+const ROUTE_IMAGES = {
+  B7: '/images/routes/science-building.jpg',
+
+  'Campus Highlights Route':
+    '/images/routes/campus-highlights.jpg',
+
+  'Walailak Gateway':
+    '/images/routes/walailak-gateway.jpg',
+
+  'สวนวลัยลักษณ์':
+    '/images/routes/walailak-park.jpg',
+
+  'อาคารเครื่องมือวิทยาศาสตร์และเทคโนโลยี 8 มหาวิทยาลัยวลัยลักษณ์':
+    '/images/routes/science-building.jpg',
+}
+
+const DEFAULT_ROUTE_IMAGE =
+  '/images/routes/walailak-gateway.jpg'
+
+
 export default function Home() {
   const navigate = useNavigate()
 
@@ -14,6 +40,7 @@ export default function Home() {
     loadRoutes()
   }, [])
 
+
   async function loadRoutes() {
     setLoading(true)
     setError('')
@@ -25,6 +52,7 @@ export default function Home() {
         result?.error?.message ||
           'ไม่สามารถโหลดเส้นทางแนะนำได้ในขณะนี้'
       )
+
       setRoutes([])
       setLoading(false)
       return
@@ -34,9 +62,11 @@ export default function Home() {
     setLoading(false)
   }
 
+
   const featuredRoutes = useMemo(() => {
     return routes.slice(0, 4)
   }, [routes])
+
 
   function handleSearch(event) {
     event.preventDefault()
@@ -48,13 +78,26 @@ export default function Home() {
       return
     }
 
-    navigate(`/routes?search=${encodeURIComponent(keyword)}`)
+    navigate(
+      `/routes?search=${encodeURIComponent(keyword)}`
+    )
   }
+
+
+  function getRouteImage(route) {
+    return (
+      ROUTE_IMAGES[route?.name] ||
+      DEFAULT_ROUTE_IMAGE
+    )
+  }
+
 
   return (
     <div className="w-full">
 
-      {/* HERO */}
+      {/* =========================
+          HERO
+      ========================= */}
       <section
         className="
           grid
@@ -73,16 +116,27 @@ export default function Home() {
 
         {/* LEFT */}
         <div className="order-2 lg:order-1">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-primary">
+
+          <p
+            className="
+              mb-3
+              text-sm
+              font-semibold
+              uppercase
+              tracking-wider
+              text-primary
+            "
+          >
             WALAILAK CAMPUS TOUR
           </p>
 
+
           <h1
             className="
+              text-3xl
               font-bold
               leading-[1.15]
               text-textPrimary
-              text-3xl
 
               md:text-4xl
               xl:text-[46px]
@@ -93,6 +147,7 @@ export default function Home() {
             <br />
             มหาวิทยาลัยวลัยลักษณ์
           </h1>
+
 
           <p
             className="
@@ -106,9 +161,11 @@ export default function Home() {
             "
           >
             เลือกเส้นทางที่ใช่สำหรับคุณ
-            และเพลิดเพลินกับการเดินทางเพื่อค้นพบสถานที่น่าสนใจ
+            และเพลิดเพลินกับการเดินทาง
+            เพื่อค้นพบสถานที่น่าสนใจ
             ภายในมหาวิทยาลัยวลัยลักษณ์
           </p>
+
 
           {/* SEARCH */}
           <form
@@ -126,21 +183,47 @@ export default function Home() {
               shadow-sm
             "
           >
-            <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
+
+            <div
+              className="
+                flex
+                min-w-0
+                flex-1
+                items-center
+                gap-3
+                px-4
+              "
+            >
+
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
-                className="h-5 w-5 shrink-0 text-textSecondary"
+                className="
+                  h-5
+                  w-5
+                  shrink-0
+                  text-textSecondary
+                "
                 stroke="currentColor"
                 strokeWidth="2"
               >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.5-3.5" />
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="7"
+                />
+
+                <path
+                  d="m20 20-3.5-3.5"
+                />
               </svg>
+
 
               <input
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
                 type="text"
                 placeholder="ค้นหาเส้นทางหรือสถานที่..."
                 className="
@@ -153,7 +236,9 @@ export default function Home() {
                   outline-none
                 "
               />
+
             </div>
+
 
             <button
               type="submit"
@@ -171,10 +256,16 @@ export default function Home() {
             >
               ค้นหา
             </button>
+
           </form>
+
         </div>
 
-        {/* RIGHT IMAGE */}
+
+
+        {/* =========================
+            HERO IMAGE
+        ========================= */}
         <div
           className="
             order-1
@@ -186,9 +277,14 @@ export default function Home() {
             lg:order-2
           "
         >
+
           <img
-            src="/images/home-campus.jpg"
+            src={HERO_IMAGE}
             alt="มหาวิทยาลัยวลัยลักษณ์"
+            onError={(event) => {
+              event.currentTarget.src =
+                DEFAULT_ROUTE_IMAGE
+            }}
             className="
               h-[260px]
               w-full
@@ -200,87 +296,85 @@ export default function Home() {
               2xl:h-[360px]
             "
           />
+
         </div>
+
       </section>
 
-      {/* FEATURED ROUTES */}
-      <section className="w-full pb-12 pt-2">
+
+
+      {/* =========================
+          FEATURED ROUTES
+      ========================= */}
+      <section
+        className="
+          w-full
+          pb-12
+          pt-2
+        "
+      >
 
         {/* HEADER */}
-        <div className="mb-6 flex items-end justify-between gap-4">
+        <div
+          className="
+            mb-6
+            flex
+            items-end
+            justify-between
+            gap-4
+          "
+        >
+
           <div>
-            <h2 className="text-2xl font-bold text-textPrimary">
+
+            <h2
+              className="
+                text-2xl
+                font-bold
+                text-textPrimary
+              "
+            >
               เส้นทางแนะนำ
             </h2>
 
-            <p className="mt-1 text-sm text-textSecondary">
+
+            <p
+              className="
+                mt-1
+                text-sm
+                text-textSecondary
+              "
+            >
               เลือกเส้นทางที่คุณสนใจแล้วดูรายละเอียดเพิ่มเติม
             </p>
+
           </div>
+
 
           <Link
             to="/routes"
-            className="shrink-0 text-sm font-semibold text-primary hover:underline"
+            className="
+              shrink-0
+              text-sm
+              font-semibold
+              text-primary
+              hover:underline
+            "
           >
             ดูทั้งหมด
           </Link>
+
         </div>
 
-        {/* LOADING */}
+
+
+        {/* =========================
+            LOADING
+        ========================= */}
         {loading && (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
-                className="overflow-hidden rounded-xl border border-border bg-white"
-              >
-                <div className="h-40 animate-pulse bg-gray-200" />
-
-                <div className="space-y-3 p-4">
-                  <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200" />
-                  <div className="h-3 w-1/2 animate-pulse rounded bg-gray-200" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ERROR */}
-        {!loading && error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-5">
-            <p className="text-sm text-red-700">
-              {error}
-            </p>
-
-            <button
-              type="button"
-              onClick={loadRoutes}
-              className="mt-3 text-sm font-semibold text-primary hover:underline"
-            >
-              ลองใหม่
-            </button>
-          </div>
-        )}
-
-        {/* EMPTY */}
-        {!loading && !error && featuredRoutes.length === 0 && (
-          <div className="rounded-xl border border-border bg-white p-8 text-center">
-            <p className="font-medium text-textPrimary">
-              ยังไม่มีเส้นทางแนะนำ
-            </p>
-
-            <p className="mt-1 text-sm text-textSecondary">
-              เมื่อมีเส้นทางเปิดให้บริการ ระบบจะแสดงที่นี่
-            </p>
-          </div>
-        )}
-
-        {/* ROUTE CARDS */}
-        {!loading && !error && featuredRoutes.length > 0 && (
           <div
             className="
               grid
-              w-full
               grid-cols-1
               gap-5
 
@@ -288,80 +382,299 @@ export default function Home() {
               lg:grid-cols-4
             "
           >
-            {featuredRoutes.map((route) => (
-              <Link
-                key={route.id}
-                to={`/routes/${route.id}`}
+
+            {[1, 2, 3, 4].map((item) => (
+              <div
+                key={item}
                 className="
-                  group
                   overflow-hidden
                   rounded-xl
                   border
                   border-border
                   bg-white
-                  shadow-sm
-                  transition
-
-                  hover:-translate-y-1
-                  hover:shadow-md
                 "
               >
-                <div className="relative h-44 overflow-hidden">
-                  <img
-                    src="/images/home-campus.jpg"
-                    alt={route.name}
+
+                <div
+                  className="
+                    h-44
+                    animate-pulse
+                    bg-gray-200
+                  "
+                />
+
+                <div className="space-y-3 p-4">
+
+                  <div
                     className="
-                      h-full
-                      w-full
-                      object-cover
-                      transition
-                      duration-300
-                      group-hover:scale-105
+                      h-4
+                      w-3/4
+                      animate-pulse
+                      rounded
+                      bg-gray-200
                     "
                   />
 
-                  <span
+                  <div
                     className="
-                      absolute
-                      left-3
-                      top-3
-                      rounded-full
-                      bg-primary
-                      px-3
-                      py-1
-                      text-xs
-                      font-semibold
-                      text-white
+                      h-3
+                      w-1/2
+                      animate-pulse
+                      rounded
+                      bg-gray-200
                     "
-                  >
-                    แนะนำ
-                  </span>
+                  />
+
                 </div>
 
-                <div className="p-4">
-                  <h3 className="line-clamp-1 font-bold text-textPrimary">
-                    {route.name}
-                  </h3>
-
-                  <p className="mt-2 line-clamp-2 min-h-10 text-sm leading-5 text-textSecondary">
-                    {route.description ||
-                      'สำรวจเส้นทางท่องเที่ยวภายในมหาวิทยาลัย'}
-                  </p>
-
-                  <div className="mt-4 flex items-center justify-between gap-2 text-xs text-textSecondary">
-                    <span>
-                      ⏱ {route.duration_minutes || '-'} นาที
-                    </span>
-
-                    <span className="font-semibold text-primary">
-                      รายละเอียด →
-                    </span>
-                  </div>
-                </div>
-              </Link>
+              </div>
             ))}
+
           </div>
         )}
+
+
+
+        {/* =========================
+            ERROR
+        ========================= */}
+        {!loading && error && (
+          <div
+            className="
+              rounded-xl
+              border
+              border-red-200
+              bg-red-50
+              p-5
+            "
+          >
+
+            <p className="text-sm text-red-700">
+              {error}
+            </p>
+
+
+            <button
+              type="button"
+              onClick={loadRoutes}
+              className="
+                mt-3
+                text-sm
+                font-semibold
+                text-primary
+                hover:underline
+              "
+            >
+              ลองใหม่
+            </button>
+
+          </div>
+        )}
+
+
+
+        {/* =========================
+            EMPTY
+        ========================= */}
+        {!loading &&
+          !error &&
+          featuredRoutes.length === 0 && (
+
+            <div
+              className="
+                rounded-xl
+                border
+                border-border
+                bg-white
+                p-8
+                text-center
+              "
+            >
+
+              <p
+                className="
+                  font-medium
+                  text-textPrimary
+                "
+              >
+                ยังไม่มีเส้นทางแนะนำ
+              </p>
+
+
+              <p
+                className="
+                  mt-1
+                  text-sm
+                  text-textSecondary
+                "
+              >
+                เมื่อมีเส้นทางเปิดให้บริการ
+                ระบบจะแสดงที่นี่
+              </p>
+
+            </div>
+
+          )}
+
+
+
+        {/* =========================
+            ROUTE CARDS
+        ========================= */}
+        {!loading &&
+          !error &&
+          featuredRoutes.length > 0 && (
+
+            <div
+              className="
+                grid
+                w-full
+                grid-cols-1
+                gap-5
+
+                sm:grid-cols-2
+                lg:grid-cols-4
+              "
+            >
+
+              {featuredRoutes.map((route) => (
+
+                <Link
+                  key={route.id}
+                  to={`/routes/${route.id}`}
+                  className="
+                    group
+                    overflow-hidden
+                    rounded-xl
+                    border
+                    border-border
+                    bg-white
+                    shadow-sm
+                    transition
+
+                    hover:-translate-y-1
+                    hover:shadow-md
+                  "
+                >
+
+                  {/* ROUTE IMAGE */}
+                  <div
+                    className="
+                      relative
+                      h-44
+                      overflow-hidden
+                    "
+                  >
+
+                    <img
+                      src={getRouteImage(route)}
+                      alt={route.name}
+                      onError={(event) => {
+                        event.currentTarget.src =
+                          DEFAULT_ROUTE_IMAGE
+                      }}
+                      className="
+                        h-full
+                        w-full
+                        object-cover
+                        transition
+                        duration-300
+
+                        group-hover:scale-105
+                      "
+                    />
+
+
+                    <span
+                      className="
+                        absolute
+                        left-3
+                        top-3
+                        rounded-full
+                        bg-primary
+                        px-3
+                        py-1
+                        text-xs
+                        font-semibold
+                        text-white
+                      "
+                    >
+                      แนะนำ
+                    </span>
+
+                  </div>
+
+
+
+                  {/* ROUTE CONTENT */}
+                  <div className="p-4">
+
+                    <h3
+                      className="
+                        line-clamp-1
+                        font-bold
+                        text-textPrimary
+                      "
+                    >
+                      {route.name}
+                    </h3>
+
+
+                    <p
+                      className="
+                        mt-2
+                        line-clamp-2
+                        min-h-10
+                        text-sm
+                        leading-5
+                        text-textSecondary
+                      "
+                    >
+                      {route.description ||
+                        'สำรวจเส้นทางท่องเที่ยวภายในมหาวิทยาลัย'}
+                    </p>
+
+
+                    <div
+                      className="
+                        mt-4
+                        flex
+                        items-center
+                        justify-between
+                        gap-2
+                        text-xs
+                        text-textSecondary
+                      "
+                    >
+
+                      <span>
+                        ⏱{' '}
+                        {route.duration_minutes || '-'}{' '}
+                        นาที
+                      </span>
+
+
+                      <span
+                        className="
+                          font-semibold
+                          text-primary
+                        "
+                      >
+                        รายละเอียด →
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                </Link>
+
+              ))}
+
+            </div>
+
+          )}
+
       </section>
 
     </div>
