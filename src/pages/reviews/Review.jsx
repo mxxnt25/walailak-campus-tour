@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+
 import {
   CalendarDays,
   CheckCircle2,
@@ -11,7 +12,6 @@ import {
 } from 'lucide-react'
 
 import StarRating from '../../components/reviews/StarRating'
-
 import { getBookingDetail } from '../../services/bookingService'
 
 import {
@@ -34,6 +34,84 @@ const BOOKING_STATUS_LABELS = {
   COMPLETED: 'เดินทางเสร็จสิ้น',
 }
 
+const ROUTE_IMAGES = {
+  'Campus Highlights Route':
+    '/route-images/campus-highlights.jpg',
+
+  'Walailak Gateway':
+    '/route-images/walailak-gateway.jpg',
+
+  'สวนวลัยลักษณ์':
+    '/route-images/walailak-park.jpg',
+
+  'อาคารเครื่องมือวิทยาศาสตร์และเทคโนโลยี 8 มหาวิทยาลัยวลัยลักษณ์':
+    '/route-images/science-building.jpg',
+}
+
+const PUBLIC_REVIEW_BACKGROUNDS = [
+  '/route-images/campus-highlights.jpg',
+  '/route-images/walailak-gateway.jpg',
+  '/route-images/walailak-park.jpg',
+  '/route-images/science-building.jpg',
+]
+
+function getRouteImageUrl(routeName) {
+  const normalizedRouteName =
+    typeof routeName === 'string'
+      ? routeName.trim()
+      : ''
+
+  if (!normalizedRouteName) {
+    return null
+  }
+
+  if (ROUTE_IMAGES[normalizedRouteName]) {
+    return ROUTE_IMAGES[normalizedRouteName]
+  }
+
+  if (
+    normalizedRouteName.includes(
+      'Campus Highlights Route',
+    )
+  ) {
+    return ROUTE_IMAGES[
+      'Campus Highlights Route'
+    ]
+  }
+
+  if (
+    normalizedRouteName.includes(
+      'Walailak Gateway',
+    )
+  ) {
+    return ROUTE_IMAGES[
+      'Walailak Gateway'
+    ]
+  }
+
+  if (
+    normalizedRouteName.includes(
+      'สวนวลัยลักษณ์',
+    )
+  ) {
+    return ROUTE_IMAGES[
+      'สวนวลัยลักษณ์'
+    ]
+  }
+
+  if (
+    normalizedRouteName.includes(
+      'อาคารเครื่องมือวิทยาศาสตร์และเทคโนโลยี 8',
+    )
+  ) {
+    return ROUTE_IMAGES[
+      'อาคารเครื่องมือวิทยาศาสตร์และเทคโนโลยี 8 มหาวิทยาลัยวลัยลักษณ์'
+    ]
+  }
+
+  return null
+}
+
 function getRelationItem(value) {
   if (Array.isArray(value)) {
     return value[0] || null
@@ -54,7 +132,10 @@ function getServiceError(
   result,
   fallbackMessage = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
 ) {
-  return result?.error?.message || fallbackMessage
+  return (
+    result?.error?.message ||
+    fallbackMessage
+  )
 }
 
 function formatTripDate(dateValue) {
@@ -62,17 +143,26 @@ function formatTripDate(dateValue) {
     return '-'
   }
 
-  const date = new Date(`${dateValue}T00:00:00`)
+  const date = new Date(
+    `${dateValue}T00:00:00`,
+  )
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
     return dateValue
   }
 
-  return date.toLocaleDateString('th-TH', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  return date.toLocaleDateString(
+    'th-TH',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    },
+  )
 }
 
 function formatTripTime(timeValue) {
@@ -80,7 +170,9 @@ function formatTripTime(timeValue) {
     return '-'
   }
 
-  return `${String(timeValue).slice(0, 5)} น.`
+  return `${String(
+    timeValue,
+  ).slice(0, 5)} น.`
 }
 
 function formatReviewDate(dateValue) {
@@ -88,69 +180,186 @@ function formatReviewDate(dateValue) {
     return '-'
   }
 
-  const date = new Date(dateValue)
+  const date = new Date(
+    dateValue,
+  )
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
     return '-'
   }
 
-  return date.toLocaleDateString('th-TH', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return date.toLocaleDateString(
+    'th-TH',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    },
+  )
 }
 
 function Review() {
-  const { bookingId } = useParams()
+  const { bookingId } =
+    useParams()
 
-  const [trip, setTrip] = useState(null)
-  const [canReview, setCanReview] = useState(false)
+  const [
+    publicBackgroundIndex,
+    setPublicBackgroundIndex,
+  ] = useState(0)
 
-  const [overallRating, setOverallRating] = useState(0)
-  const [guideRating, setGuideRating] = useState(0)
-  const [routeRating, setRouteRating] = useState(0)
-  const [comment, setComment] = useState('')
+  const [
+    trip,
+    setTrip,
+  ] = useState(null)
 
-  const [reviews, setReviews] = useState([])
-  const [hasReviewed, setHasReviewed] = useState(false)
+  const [
+    canReview,
+    setCanReview,
+  ] = useState(false)
 
-  // เก็บรีวิวของผู้ใช้สำหรับการแก้ไข
-  const [myReview, setMyReview] = useState(null)
-  const [isEditing, setIsEditing] = useState(false)
+  const [
+    overallRating,
+    setOverallRating,
+  ] = useState(0)
 
-  const [message, setMessage] = useState('')
-  const [messageType, setMessageType] = useState('')
+  const [
+    guideRating,
+    setGuideRating,
+  ] = useState(0)
 
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [
+    routeRating,
+    setRouteRating,
+  ] = useState(0)
 
-  const averageRating = useMemo(() => {
-    if (reviews.length === 0) {
-      return '0.0'
+  const [
+    comment,
+    setComment,
+  ] = useState('')
+
+  const [
+    reviews,
+    setReviews,
+  ] = useState([])
+
+  const [
+    hasReviewed,
+    setHasReviewed,
+  ] = useState(false)
+
+  const [
+    myReview,
+    setMyReview,
+  ] = useState(null)
+
+  const [
+    isEditing,
+    setIsEditing,
+  ] = useState(false)
+
+  const [
+    message,
+    setMessage,
+  ] = useState('')
+
+  const [
+    messageType,
+    setMessageType,
+  ] = useState('')
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(true)
+
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(false)
+
+  const [
+    tripImageFailed,
+    setTripImageFailed,
+  ] = useState(false)
+
+  const averageRating =
+    useMemo(() => {
+      if (
+        reviews.length === 0
+      ) {
+        return '0.0'
+      }
+
+      const total =
+        reviews.reduce(
+          (
+            sum,
+            review,
+          ) =>
+            sum +
+            Number(
+              review.overall_rating ||
+                0,
+            ),
+          0,
+        )
+
+      return (
+        total /
+        reviews.length
+      ).toFixed(1)
+    }, [reviews])
+
+  useEffect(() => {
+    if (bookingId) {
+      setPublicBackgroundIndex(
+        0,
+      )
+
+      return undefined
     }
 
-    const total = reviews.reduce(
-      (sum, review) =>
-        sum + Number(review.overall_rating || 0),
-      0,
-    )
+    const intervalId =
+      window.setInterval(
+        () => {
+          setPublicBackgroundIndex(
+            (
+              currentIndex,
+            ) =>
+              (currentIndex +
+                1) %
+              PUBLIC_REVIEW_BACKGROUNDS.length,
+          )
+        },
+        10000,
+      )
 
-    return (total / reviews.length).toFixed(1)
-  }, [reviews])
+    return () => {
+      window.clearInterval(
+        intervalId,
+      )
+    }
+  }, [bookingId])
 
   useEffect(() => {
     let isActive = true
 
     async function loadReviewData() {
       setIsLoading(true)
+
       setMessage('')
       setMessageType('')
+
       setTrip(null)
       setCanReview(false)
       setHasReviewed(false)
+
       setMyReview(null)
       setIsEditing(false)
 
@@ -159,14 +368,18 @@ function Review() {
       setRouteRating(0)
       setComment('')
 
-      try {
-        // ====================================================
-        // PUBLIC REVIEW PAGE
-        // ====================================================
-        if (!bookingId) {
-          const reviewResult = await getReviews()
+      setTripImageFailed(
+        false,
+      )
 
-          if (!reviewResult.success) {
+      try {
+        if (!bookingId) {
+          const reviewResult =
+            await getReviews()
+
+          if (
+            !reviewResult.success
+          ) {
             throw new Error(
               getServiceError(
                 reviewResult,
@@ -176,20 +389,23 @@ function Review() {
           }
 
           if (isActive) {
-            setReviews(reviewResult.data || [])
+            setReviews(
+              reviewResult.data ||
+                [],
+            )
           }
 
           return
         }
 
-        // ====================================================
-        // MEMBER REVIEW PAGE
-        // ====================================================
-
         const bookingResult =
-          await getBookingDetail(bookingId)
+          await getBookingDetail(
+            bookingId,
+          )
 
-        if (!bookingResult.success) {
+        if (
+          !bookingResult.success
+        ) {
           throw new Error(
             getServiceError(
               bookingResult,
@@ -198,10 +414,13 @@ function Review() {
           )
         }
 
-        const booking = bookingResult.data
+        const booking =
+          bookingResult.data
 
         if (!booking) {
-          throw new Error('ไม่พบข้อมูลการจอง')
+          throw new Error(
+            'ไม่พบข้อมูลการจอง',
+          )
         }
 
         const [
@@ -209,16 +428,28 @@ function Review() {
           guideNameResult,
           reviewResult,
           myReviewResult,
-        ] = await Promise.all([
-          getScheduleDetail(booking.schedule_id),
-          getGuideNameForSchedule(
-            booking.schedule_id,
-          ),
-          getReviews(booking.id),
-          getMyReviewByBookingId(booking.id),
-        ])
+        ] =
+          await Promise.all([
+            getScheduleDetail(
+              booking.schedule_id,
+            ),
 
-        if (!scheduleResult.success) {
+            getGuideNameForSchedule(
+              booking.schedule_id,
+            ),
+
+            getReviews(
+              booking.id,
+            ),
+
+            getMyReviewByBookingId(
+              booking.id,
+            ),
+          ])
+
+        if (
+          !scheduleResult.success
+        ) {
           throw new Error(
             getServiceError(
               scheduleResult,
@@ -227,7 +458,9 @@ function Review() {
           )
         }
 
-        if (!reviewResult.success) {
+        if (
+          !reviewResult.success
+        ) {
           throw new Error(
             getServiceError(
               reviewResult,
@@ -236,7 +469,9 @@ function Review() {
           )
         }
 
-        if (!myReviewResult.success) {
+        if (
+          !myReviewResult.success
+        ) {
           throw new Error(
             getServiceError(
               myReviewResult,
@@ -245,7 +480,8 @@ function Review() {
           )
         }
 
-        const schedule = scheduleResult.data
+        const schedule =
+          scheduleResult.data
 
         if (!schedule) {
           throw new Error(
@@ -253,33 +489,39 @@ function Review() {
           )
         }
 
-        const route = getRelationItem(
-          schedule.routes,
-        )
+        const route =
+          getRelationItem(
+            schedule.routes,
+          )
 
-        const assignments = getRelationList(
-          schedule.guide_assignments,
-        )
+        const assignments =
+          getRelationList(
+            schedule.guide_assignments,
+          )
 
-        // Final M6 contract:
-        // ใช้เฉพาะไกด์ที่ทำทัวร์เสร็จจริงเท่านั้น
         const completedAssignment =
           assignments.find(
             (item) =>
-              item?.status === 'COMPLETED',
+              item?.status ===
+              'COMPLETED',
           ) || null
 
         let routeStops = []
 
-        if (schedule.route_id) {
+        if (
+          schedule.route_id
+        ) {
           const stopsResult =
             await listRouteStops(
               schedule.route_id,
             )
 
-          if (stopsResult.success) {
+          if (
+            stopsResult.success
+          ) {
             routeStops =
-              stopsResult.data || []
+              stopsResult.data ||
+              []
           }
         }
 
@@ -292,28 +534,38 @@ function Review() {
               : 'ยังไม่พบไกด์ที่ดำเนินทัวร์เสร็จสิ้น'
 
         const firstStop =
-          routeStops[0] || null
+          routeStops[0] ||
+          null
+
+        const routeName =
+          typeof route?.name ===
+          'string'
+            ? route.name.trim()
+            : ''
+
+        const routeImageUrl =
+          getRouteImageUrl(
+            routeName,
+          )
 
         const bookingCompleted =
-          booking.status === 'COMPLETED'
+          booking.status ===
+          'COMPLETED'
 
         const scheduleCompleted =
-          schedule.status === 'COMPLETED'
+          schedule.status ===
+          'COMPLETED'
 
-        /*
-         * Client-side eligibility ช่วย UX
-         * แต่ฐานข้อมูลเป็นผู้ตัดสินสุดท้าย
-         * ว่าสามารถสร้างรีวิวได้จริงหรือไม่
-         */
         const finalCanReview =
           bookingCompleted &&
           scheduleCompleted
 
         const loadedTrip = {
-          bookingId: booking.id,
+          bookingId:
+            booking.id,
 
           routeName:
-            route?.name ||
+            routeName ||
             'ไม่พบชื่อเส้นทาง',
 
           meetingPoint:
@@ -322,26 +574,30 @@ function Review() {
 
           guideName,
 
-          travelDate: formatTripDate(
-            schedule.tour_date,
-          ),
+          travelDate:
+            formatTripDate(
+              schedule.tour_date,
+            ),
 
-          travelTime: formatTripTime(
-            schedule.start_time,
-          ),
+          travelTime:
+            formatTripTime(
+              schedule.start_time,
+            ),
 
           status:
             BOOKING_STATUS_LABELS[
               booking.status
-            ] || booking.status,
+            ] ||
+            booking.status,
 
-          statusCode: booking.status,
+          statusCode:
+            booking.status,
 
           scheduleStatus:
             schedule.status,
 
           imageUrl:
-            firstStop?.image_url || null,
+            routeImageUrl,
         }
 
         if (!isActive) {
@@ -349,39 +605,69 @@ function Review() {
         }
 
         const currentReview =
-          myReviewResult.data || null
+          myReviewResult.data ||
+          null
 
-        setTrip(loadedTrip)
-
-        setReviews(
-          reviewResult.data || [],
+        setTrip(
+          loadedTrip,
         )
 
-        setMyReview(currentReview)
-        setHasReviewed(Boolean(currentReview))
+        setReviews(
+          reviewResult.data ||
+            [],
+        )
 
-        setCanReview(finalCanReview)
+        setMyReview(
+          currentReview,
+        )
+
+        setHasReviewed(
+          Boolean(
+            currentReview,
+          ),
+        )
+
+        setCanReview(
+          finalCanReview,
+        )
+
+        setTripImageFailed(
+          false,
+        )
       } catch (error) {
         if (!isActive) {
           return
         }
 
         setReviews([])
+
         setTrip(null)
+
         setCanReview(false)
+
         setHasReviewed(false)
+
         setMyReview(null)
+
         setIsEditing(false)
+
+        setTripImageFailed(
+          false,
+        )
 
         setMessage(
           error?.message ||
             'ไม่สามารถโหลดข้อมูลรีวิวได้',
         )
 
-        setMessageType('error')
+        setMessageType(
+          'error',
+        )
       } finally {
         if (isActive) {
-          setIsLoading(false)
+          setIsLoading(
+            false,
+          )
         }
       }
     }
@@ -395,729 +681,1544 @@ function Review() {
 
   const clearMessage = () => {
     setMessage('')
+
     setMessageType('')
   }
 
-  // ====================================================
-  // EDIT REVIEW
-  // ====================================================
+  const handleStartEdit =
+    () => {
+      if (!myReview) {
+        setMessage(
+          'ไม่พบข้อมูลรีวิวที่ต้องการแก้ไข',
+        )
 
-  const handleStartEdit = () => {
-    if (!myReview) {
-      setMessage(
-        'ไม่พบข้อมูลรีวิวที่ต้องการแก้ไข',
+        setMessageType(
+          'error',
+        )
+
+        return
+      }
+
+      setOverallRating(
+        Number(
+          myReview.overall_rating ||
+            0,
+        ),
       )
-      setMessageType('error')
-      return
+
+      setGuideRating(
+        Number(
+          myReview.guide_rating ||
+            0,
+        ),
+      )
+
+      setRouteRating(
+        Number(
+          myReview.route_rating ||
+            0,
+        ),
+      )
+
+      setComment(
+        myReview.comment ||
+          '',
+      )
+
+      setIsEditing(true)
+
+      clearMessage()
     }
 
-    setOverallRating(
-      Number(myReview.overall_rating || 0),
-    )
+  const handleCancelEdit =
+    () => {
+      setOverallRating(0)
 
-    setGuideRating(
-      Number(myReview.guide_rating || 0),
-    )
+      setGuideRating(0)
 
-    setRouteRating(
-      Number(myReview.route_rating || 0),
-    )
+      setRouteRating(0)
 
-    setComment(myReview.comment || '')
+      setComment('')
 
-    setIsEditing(true)
-    clearMessage()
-  }
+      setIsEditing(false)
 
-  const handleCancelEdit = () => {
-    setOverallRating(0)
-    setGuideRating(0)
-    setRouteRating(0)
-    setComment('')
-
-    setIsEditing(false)
-    clearMessage()
-  }
-
-  // ====================================================
-  // CREATE / UPDATE REVIEW
-  // ====================================================
-
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    clearMessage()
-
-    if (!bookingId || !trip) {
-      setMessage(
-        'ไม่พบข้อมูลการจองที่ต้องการรีวิว',
-      )
-      setMessageType('error')
-      return
+      clearMessage()
     }
 
-    /*
-     * การสร้างรีวิวใหม่ต้องผ่านเงื่อนไข COMPLETED
-     * ส่วนการแก้ไข ใช้รีวิวเดิมที่มีอยู่และให้ Backend/RLS
-     * ตรวจสิทธิ์เจ้าของรีวิวอีกชั้นหนึ่ง
-     */
-    if (!isEditing && !canReview) {
-      setMessage(
-        'สามารถรีวิวได้หลังจากการจองและรอบนำเที่ยวเสร็จสิ้นแล้วเท่านั้น',
-      )
-      setMessageType('error')
-      return
-    }
+  const handleSubmit =
+    async (event) => {
+      event.preventDefault()
 
-    if (
-      overallRating === 0 ||
-      guideRating === 0 ||
-      routeRating === 0
-    ) {
-      setMessage(
-        'กรุณาให้คะแนนให้ครบทั้ง 3 หมวด',
-      )
-      setMessageType('error')
-      return
-    }
+      clearMessage()
 
-    const normalizedComment =
-      comment.trim()
+      if (
+        !bookingId ||
+        !trip
+      ) {
+        setMessage(
+          'ไม่พบข้อมูลการจองที่ต้องการรีวิว',
+        )
 
-    if (normalizedComment === '') {
-      setMessage(
-        'กรุณาเขียนความคิดเห็นก่อนส่งรีวิว',
-      )
-      setMessageType('error')
-      return
-    }
+        setMessageType(
+          'error',
+        )
 
-    if (normalizedComment.length > 500) {
-      setMessage(
-        'ความคิดเห็นต้องไม่เกิน 500 ตัวอักษร',
-      )
-      setMessageType('error')
-      return
-    }
+        return
+      }
 
-    setIsSubmitting(true)
+      if (
+        !isEditing &&
+        !canReview
+      ) {
+        setMessage(
+          'สามารถรีวิวได้หลังจากการจองและรอบนำเที่ยวเสร็จสิ้นแล้วเท่านั้น',
+        )
 
-    try {
-      // ====================================================
-      // UPDATE EXISTING REVIEW
-      // ====================================================
-      if (isEditing) {
-        if (!myReview?.id) {
+        setMessageType(
+          'error',
+        )
+
+        return
+      }
+
+      if (
+        overallRating === 0 ||
+        guideRating === 0 ||
+        routeRating === 0
+      ) {
+        setMessage(
+          'กรุณาให้คะแนนให้ครบทั้ง 3 หมวด',
+        )
+
+        setMessageType(
+          'error',
+        )
+
+        return
+      }
+
+      const normalizedComment =
+        comment.trim()
+
+      if (
+        normalizedComment ===
+        ''
+      ) {
+        setMessage(
+          'กรุณาเขียนความคิดเห็นก่อนส่งรีวิว',
+        )
+
+        setMessageType(
+          'error',
+        )
+
+        return
+      }
+
+      if (
+        normalizedComment.length >
+        500
+      ) {
+        setMessage(
+          'ความคิดเห็นต้องไม่เกิน 500 ตัวอักษร',
+        )
+
+        setMessageType(
+          'error',
+        )
+
+        return
+      }
+
+      setIsSubmitting(true)
+
+      try {
+        if (isEditing) {
+          if (
+            !myReview?.id
+          ) {
+            setMessage(
+              'ไม่พบรีวิวที่ต้องการแก้ไข',
+            )
+
+            setMessageType(
+              'error',
+            )
+
+            return
+          }
+
+          const updateResult =
+            await updateReview(
+              myReview.id,
+
+              {
+                overallRating,
+                guideRating,
+                routeRating,
+
+                comment:
+                  normalizedComment,
+              },
+            )
+
+          if (
+            !updateResult.success
+          ) {
+            setMessage(
+              getServiceError(
+                updateResult,
+                'ไม่สามารถแก้ไขรีวิวได้',
+              ),
+            )
+
+            setMessageType(
+              'error',
+            )
+
+            return
+          }
+
+          const updatedReview =
+            updateResult.data
+
+          if (
+            updatedReview
+          ) {
+            setMyReview(
+              updatedReview,
+            )
+
+            setReviews(
+              (
+                currentReviews,
+              ) =>
+                currentReviews.map(
+                  (review) =>
+                    review.id ===
+                    updatedReview.id
+                      ? updatedReview
+                      : review,
+                ),
+            )
+          }
+
+          setOverallRating(0)
+
+          setGuideRating(0)
+
+          setRouteRating(0)
+
+          setComment('')
+
+          setIsEditing(false)
+
+          setHasReviewed(true)
+
           setMessage(
-            'ไม่พบรีวิวที่ต้องการแก้ไข',
+            'แก้ไขรีวิวสำเร็จ',
           )
-          setMessageType('error')
+
+          setMessageType(
+            'success',
+          )
+
           return
         }
 
-        const updateResult =
-          await updateReview(
-            myReview.id,
-            {
-              overallRating,
-              guideRating,
-              routeRating,
-              comment:
-                normalizedComment,
-            },
-          )
+        const createResult =
+          await createReview({
+            bookingId,
 
-        if (!updateResult.success) {
+            overallRating,
+
+            guideRating,
+
+            routeRating,
+
+            comment:
+              normalizedComment,
+          })
+
+        if (
+          !createResult.success
+        ) {
+          if (
+            createResult.error
+              ?.code ===
+            'ALREADY_EXISTS'
+          ) {
+            setHasReviewed(
+              true,
+            )
+
+            const [
+              refreshedResult,
+              refreshedMyReviewResult,
+            ] =
+              await Promise.all([
+                getReviews(
+                  bookingId,
+                ),
+
+                getMyReviewByBookingId(
+                  bookingId,
+                ),
+              ])
+
+            if (
+              refreshedResult.success
+            ) {
+              setReviews(
+                refreshedResult.data ||
+                  [],
+              )
+            }
+
+            if (
+              refreshedMyReviewResult.success
+            ) {
+              setMyReview(
+                refreshedMyReviewResult.data ||
+                  null,
+              )
+            }
+          }
+
           setMessage(
             getServiceError(
-              updateResult,
-              'ไม่สามารถแก้ไขรีวิวได้',
+              createResult,
+              'ไม่สามารถส่งรีวิวได้',
             ),
           )
 
-          setMessageType('error')
+          setMessageType(
+            'error',
+          )
+
           return
         }
 
-        const updatedReview =
-          updateResult.data
+        const newReview =
+          createResult.data
 
-        if (updatedReview) {
-          setMyReview(updatedReview)
+        setMyReview(
+          newReview ||
+          null,
+        )
 
+        if (newReview) {
           setReviews(
-            (currentReviews) =>
-              currentReviews.map(
+            (
+              currentReviews,
+            ) => [
+              newReview,
+
+              ...currentReviews.filter(
                 (review) =>
-                  review.id ===
-                  updatedReview.id
-                    ? updatedReview
-                    : review,
+                  review.id !==
+                  newReview.id,
               ),
+            ],
           )
         }
 
         setOverallRating(0)
+
         setGuideRating(0)
+
         setRouteRating(0)
+
         setComment('')
 
-        setIsEditing(false)
         setHasReviewed(true)
 
         setMessage(
-          'แก้ไขรีวิวสำเร็จ',
+          'ส่งรีวิวสำเร็จ',
         )
-        setMessageType('success')
 
-        return
-      }
-
-      // ====================================================
-      // CREATE NEW REVIEW
-      // ====================================================
-
-      const createResult =
-        await createReview({
-          bookingId,
-          overallRating,
-          guideRating,
-          routeRating,
-          comment: normalizedComment,
-        })
-
-      if (!createResult.success) {
-        if (
-          createResult.error?.code ===
-          'ALREADY_EXISTS'
-        ) {
-          setHasReviewed(true)
-
-          const [
-            refreshedResult,
-            myReviewResult,
-          ] = await Promise.all([
-            getReviews(bookingId),
-            getMyReviewByBookingId(
-              bookingId,
-            ),
-          ])
-
-          if (refreshedResult.success) {
-            setReviews(
-              refreshedResult.data || [],
-            )
-          }
-
-          if (myReviewResult.success) {
-            setMyReview(
-              myReviewResult.data || null,
-            )
-          }
-        }
-
+        setMessageType(
+          'success',
+        )
+      } catch (error) {
         setMessage(
-          getServiceError(
-            createResult,
-            'ไม่สามารถส่งรีวิวได้',
-          ),
+          error?.message ||
+            (isEditing
+              ? 'ไม่สามารถแก้ไขรีวิวได้'
+              : 'ไม่สามารถส่งรีวิวได้'),
         )
 
-        setMessageType('error')
-        return
-      }
-
-      const newReview =
-        createResult.data
-
-      setMyReview(newReview || null)
-
-      if (newReview) {
-        setReviews(
-          (currentReviews) => [
-            newReview,
-            ...currentReviews.filter(
-              (review) =>
-                review.id !== newReview.id,
-            ),
-          ],
+        setMessageType(
+          'error',
+        )
+      } finally {
+        setIsSubmitting(
+          false,
         )
       }
-
-      setOverallRating(0)
-      setGuideRating(0)
-      setRouteRating(0)
-      setComment('')
-
-      setHasReviewed(true)
-
-      setMessage('ส่งรีวิวสำเร็จ')
-      setMessageType('success')
-    } catch (error) {
-      setMessage(
-        error?.message ||
-          (isEditing
-            ? 'ไม่สามารถแก้ไขรีวิวได้'
-            : 'ไม่สามารถส่งรีวิวได้'),
-      )
-
-      setMessageType('error')
-    } finally {
-      setIsSubmitting(false)
     }
-  }
+
+  /*
+   * หน้า /reviews/new/:bookingId
+   * ใช้รูป Route ของ Booking โดยตรง
+   * ไม่หมุนรูป
+   */
+  const bookingBackgroundImage =
+    bookingId &&
+    trip?.imageUrl &&
+    !tripImageFailed
+      ? trip.imageUrl
+      : null
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900">
-          รีวิวการเดินทาง
-        </h1>
+    <div
+      className="
+        relative
+        left-1/2
+        min-h-[calc(100vh-72px)]
+        w-screen
+        -translate-x-1/2
+        overflow-hidden
+        bg-slate-100
+      "
+    >
+      {/* ==================================================
+          BACKGROUND
+      ================================================== */}
 
-        <p className="mt-1 text-sm text-gray-600">
-          แบ่งปันประสบการณ์และความคิดเห็นของคุณ
-        </p>
-      </div>
+      {bookingId ? (
+        /*
+         * หน้า Review ของ Booking
+         *
+         * Background ตาม Route
+         * ไม่หมุนรูป
+         */
+        bookingBackgroundImage && (
+          <div
+            aria-hidden="true"
+            className="
+              pointer-events-none
+              absolute
+              inset-0
+              scale-105
+              bg-cover
+              bg-center
+              bg-no-repeat
+              blur-[5px]
+            "
+            style={{
+              backgroundImage:
+                `url("${bookingBackgroundImage}")`,
+            }}
+          />
+        )
+      ) : (
+        /*
+         * หน้า /reviews
+         *
+         * ซ้อนรูปทั้ง 4 ไว้พร้อมกัน
+         * แล้วค่อย ๆ Fade รูปเก่าออก
+         * พร้อม Fade รูปใหม่เข้ามา
+         */
+        <>
+          {PUBLIC_REVIEW_BACKGROUNDS.map(
+            (
+              imageUrl,
+              index,
+            ) => (
+              <div
+                key={imageUrl}
+                aria-hidden="true"
+                className={`
+                  pointer-events-none
+                  absolute
+                  inset-0
+                  scale-105
+                  bg-cover
+                  bg-center
+                  bg-no-repeat
+                  blur-[5px]
 
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
+                  transition-opacity
+                  duration-[1500ms]
+                  ease-in-out
 
-          {/* ==================================================
-              LEFT SIDE
-          ================================================== */}
-          <section className="p-5 md:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              ข้อมูลทริปที่คุณรีวิว
-            </h2>
+                  ${
+                    index ===
+                    publicBackgroundIndex
+                      ? 'opacity-100'
+                      : 'opacity-0'
+                  }
+                `}
+                style={{
+                  backgroundImage:
+                    `url("${imageUrl}")`,
+                }}
+              />
+            ),
+          )}
+        </>
+      )}
 
-            {isLoading && bookingId && (
-              <div className="mb-5 rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">
-                กำลังโหลดข้อมูลการเดินทาง...
-              </div>
-            )}
+      {/* Overlay ทำให้ข้อความอ่านง่าย */}
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          bg-white/15
+        "
+      />
 
-            {!bookingId &&
-              !isLoading && (
-                <div className="mb-5 rounded-xl border border-purple-200 bg-purple-50 p-5">
-                  <h3 className="font-semibold text-purple-800">
-                    เลือกรายการจองที่ต้องการรีวิว
-                  </h3>
+      {/* ==================================================
+          PAGE CONTENT
+      ================================================== */}
 
-                  <p className="mt-1 text-sm text-purple-700">
-                    กรุณาเข้าหน้ารายการจองของฉัน
-                    แล้วเลือกการจองที่เดินทางเสร็จสิ้น
-                  </p>
-                </div>
-              )}
+      <main
+        className="
+          relative
+          z-10
+          mx-auto
+          max-w-6xl
+          px-4
+          py-6
+        "
+      >
+       <div className="mb-4">
+  <h1
+    className="
+      text-2xl
+      font-bold
+      text-white
+      drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]
+    "
+  >
+    รีวิวการเดินทาง
+  </h1>
 
-            {trip && (
-              <div className="mb-6 flex flex-col gap-4 rounded-xl bg-gray-50 p-4 sm:flex-row sm:items-center">
+  <p
+    className="
+      mt-1
+      text-sm
+      font-medium
+      text-white
+      drop-shadow-[0_1px_3px_rgba(0,0,0,0.75)]
+    "
+  >
+    แบ่งปันประสบการณ์และความคิดเห็นของคุณ
+  </p>
+</div>
 
-                {trip.imageUrl ? (
-                  <img
-                    src={trip.imageUrl}
-                    alt={trip.routeName}
-                    className="h-32 w-full shrink-0 rounded-xl object-cover sm:w-36"
-                  />
-                ) : (
-                  <div className="flex h-32 w-full shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-100 via-blue-100 to-green-100 text-5xl sm:w-36">
-                    🏫
+        <div
+          className="
+            overflow-hidden
+            rounded-2xl
+            border
+            border-white/70
+            bg-white/95
+            shadow-xl
+            backdrop-blur-md
+          "
+        >
+          <div
+            className="
+              grid
+              lg:grid-cols-[1.08fr_0.92fr]
+            "
+          >
+            {/* ==================================================
+                LEFT SIDE
+            ================================================== */}
+
+            <section
+              className="
+                p-5
+                md:p-6
+              "
+            >
+              <h2
+                className="
+                  mb-4
+                  text-lg
+                  font-semibold
+                  text-gray-900
+                "
+              >
+                ข้อมูลทริปที่คุณรีวิว
+              </h2>
+
+              {isLoading &&
+                bookingId && (
+                  <div
+                    className="
+                      mb-5
+                      rounded-xl
+                      bg-gray-50
+                      p-8
+                      text-center
+                      text-sm
+                      text-gray-500
+                    "
+                  >
+                    กำลังโหลดข้อมูลการเดินทาง...
                   </div>
                 )}
 
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    {trip.routeName}
-                  </h3>
-
-                  <div className="mt-3 space-y-2 text-sm text-gray-600">
-                    <p className="flex items-start gap-2">
-                      <MapPin
-                        size={17}
-                        className="mt-0.5 shrink-0"
-                      />
-
-                      <span>
-                        จุดนัดพบ:{' '}
-                        {trip.meetingPoint}
-                      </span>
-                    </p>
-
-                    <p className="flex items-center gap-2">
-                      <UserRound size={17} />
-
-                      <span>
-                        ไกด์: {trip.guideName}
-                      </span>
-                    </p>
-
-                    <p className="flex items-center gap-2">
-                      <CalendarDays
-                        size={17}
-                      />
-
-                      <span>
-                        วันที่เดินทาง:{' '}
-                        {trip.travelDate}
-                      </span>
-                    </p>
-
-                    <p className="flex items-center gap-2">
-                      <Clock3 size={17} />
-
-                      <span>
-                        เวลาเดินทาง:{' '}
-                        {trip.travelTime}
-                      </span>
-                    </p>
-
-                    <p className="flex items-center gap-2">
-                      <Hash size={17} />
-
-                      <span className="break-all">
-                        หมายเลขการจอง:{' '}
-                        {trip.bookingId}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                        trip.statusCode ===
-                        'COMPLETED'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-100 text-amber-700'
-                      }`}
-                    >
-                      <CheckCircle2
-                        size={15}
-                      />
-
-                      {trip.status}
-                    </span>
-
-                    <span className="inline-flex items-center gap-1.5 text-xs text-gray-600">
-                      <Star
-                        size={17}
-                        className="fill-amber-400 text-amber-400"
-                      />
-
-                      <strong className="text-amber-500">
-                        {averageRating}
-                      </strong>
-
-                      <span>
-                        ({reviews.length}{' '}
-                        รีวิว)
-                      </span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {message && (
-              <div
-                className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium ${
-                  messageType ===
-                  'success'
-                    ? 'border border-green-200 bg-green-50 text-green-700'
-                    : 'border border-red-200 bg-red-50 text-red-700'
-                }`}
-                role="alert"
-              >
-                {message}
-              </div>
-            )}
-
-            {bookingId &&
-              !isLoading &&
-              trip &&
-              (hasReviewed &&
-              !isEditing ? (
-                <div className="rounded-xl border border-green-200 bg-green-50 p-5 text-center">
-                  <CheckCircle2
-                    size={34}
-                    className="mx-auto text-green-600"
-                  />
-
-                  <h3 className="mt-2 font-semibold text-green-800">
-                    คุณส่งรีวิวสำหรับการจองนี้แล้ว
-                  </h3>
-
-                  <p className="mt-1 text-sm text-green-700">
-                    หนึ่งการจองสามารถส่งรีวิวได้หนึ่งครั้ง
-                    แต่สามารถแก้ไขรีวิวเดิมของคุณได้
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={
-                      handleStartEdit
-                    }
-                    className="mt-4 rounded-lg bg-purple-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-800"
+              {!bookingId &&
+                !isLoading && (
+                  <div
+                    className="
+                      mb-5
+                      rounded-xl
+                      border
+                      border-purple-200
+                      bg-purple-50
+                      p-5
+                    "
                   >
-                    แก้ไขรีวิว
-                  </button>
-                </div>
-              ) : !canReview &&
-                !isEditing ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-center">
-                  <Clock3
-                    size={34}
-                    className="mx-auto text-amber-600"
-                  />
+                    <h3
+                      className="
+                        font-semibold
+                        text-purple-800
+                      "
+                    >
+                      เลือกรายการจองที่ต้องการรีวิว
+                    </h3>
 
-                  <h3 className="mt-2 font-semibold text-amber-800">
-                    ยังไม่สามารถส่งรีวิวได้
-                  </h3>
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        text-purple-700
+                      "
+                    >
+                      กรุณาเข้าหน้ารายการจองของฉัน
+                      แล้วเลือกการจองที่เดินทางเสร็จสิ้น
+                    </p>
+                  </div>
+                )}
 
-                  <p className="mt-1 text-sm text-amber-700">
-                    สามารถรีวิวได้หลังจากการจองและรอบนำเที่ยวมีสถานะ
-                    COMPLETED แล้วเท่านั้น
-                  </p>
-                </div>
-              ) : (
-                <form
-                  onSubmit={handleSubmit}
+              {trip && (
+                <div
+                  className="
+                    mb-6
+                    flex
+                    flex-col
+                    gap-4
+                    rounded-xl
+                    bg-gray-50/95
+                    p-4
+                    sm:flex-row
+                    sm:items-center
+                  "
                 >
-                  {isEditing && (
-                    <div className="mb-5 rounded-xl border border-purple-200 bg-purple-50 p-4">
-                      <h3 className="font-semibold text-purple-800">
-                        กำลังแก้ไขรีวิวของคุณ
-                      </h3>
-
-                      <p className="mt-1 text-sm text-purple-700">
-                        คะแนนและความคิดเห็นเดิมถูกนำมาแสดงให้แล้ว
-                        คุณสามารถแก้ไขและบันทึกใหม่ได้
-                      </p>
+                  {trip.imageUrl &&
+                  !tripImageFailed ? (
+                    <img
+                      src={
+                        trip.imageUrl
+                      }
+                      alt={
+                        trip.routeName
+                      }
+                      className="
+                        h-64
+                        w-full
+                        shrink-0
+                        rounded-xl
+                        object-cover
+                        object-center
+                        shadow-sm
+                        sm:h-72
+                        sm:w-48
+                      "
+                      onError={() => {
+                        setTripImageFailed(
+                          true,
+                        )
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="
+                        flex
+                        h-64
+                        w-full
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-gradient-to-br
+                        from-purple-100
+                        via-blue-100
+                        to-green-100
+                        text-5xl
+                        sm:h-72
+                        sm:w-48
+                      "
+                    >
+                      🏫
                     </div>
                   )}
 
-                  <div className="space-y-4">
-                    <StarRating
-                      label="ความประทับใจโดยรวม"
-                      value={overallRating}
-                      onChange={(value) => {
-                        setOverallRating(
-                          value,
-                        )
-                        clearMessage()
-                      }}
-                      disabled={
-                        isSubmitting
-                      }
-                    />
-
-                    <StarRating
-                      label="การให้บริการของไกด์"
-                      value={guideRating}
-                      onChange={(value) => {
-                        setGuideRating(
-                          value,
-                        )
-                        clearMessage()
-                      }}
-                      disabled={
-                        isSubmitting
-                      }
-                    />
-
-                    <StarRating
-                      label="เส้นทางและสถานที่"
-                      value={routeRating}
-                      onChange={(value) => {
-                        setRouteRating(
-                          value,
-                        )
-                        clearMessage()
-                      }}
-                      disabled={
-                        isSubmitting
-                      }
-                    />
-                  </div>
-
-                  <label
-                    htmlFor="review-comment"
-                    className="mb-2 mt-5 block font-semibold text-gray-900"
+                  <div
+                    className="
+                      min-w-0
+                      flex-1
+                    "
                   >
-                    ความคิดเห็นเพิ่มเติม
-                  </label>
-
-                  <textarea
-                    id="review-comment"
-                    value={comment}
-                    disabled={
-                      isSubmitting
-                    }
-                    onChange={(event) => {
-                      setComment(
-                        event.target.value,
-                      )
-                      clearMessage()
-                    }}
-                    rows={4}
-                    maxLength={500}
-                    placeholder="แชร์ประสบการณ์ของคุณ..."
-                    className="w-full resize-none rounded-xl border border-gray-300 p-3.5 text-gray-700 outline-none transition focus:border-purple-600 focus:ring-2 focus:ring-purple-100 disabled:cursor-not-allowed disabled:bg-gray-100"
-                  />
-
-                  <p className="mt-1 text-right text-xs text-gray-500">
-                    {comment.length}/500
-                  </p>
-
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    <button
-                      type="submit"
-                      disabled={
-                        isSubmitting
-                      }
-                      className="rounded-lg bg-purple-700 px-8 py-2.5 font-semibold text-white transition hover:bg-purple-800 disabled:cursor-not-allowed disabled:bg-purple-300"
+                    <h3
+                      className="
+                        text-xl
+                        font-bold
+                        text-gray-900
+                      "
                     >
-                      {isSubmitting
-                        ? isEditing
-                          ? 'กำลังบันทึก...'
-                          : 'กำลังส่ง...'
-                        : isEditing
-                          ? 'บันทึกการแก้ไข'
-                          : 'ส่งรีวิว'}
-                    </button>
+                      {
+                        trip.routeName
+                      }
+                    </h3>
 
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={
-                          handleCancelEdit
+                    <div
+                      className="
+                        mt-3
+                        space-y-2
+                        text-sm
+                        text-gray-600
+                      "
+                    >
+                      <p
+                        className="
+                          flex
+                          items-start
+                          gap-2
+                        "
+                      >
+                        <MapPin
+                          size={17}
+                          className="
+                            mt-0.5
+                            shrink-0
+                          "
+                        />
+
+                        <span>
+                          จุดนัดพบ:{' '}
+                          {
+                            trip.meetingPoint
+                          }
+                        </span>
+                      </p>
+
+                      <p
+                        className="
+                          flex
+                          items-center
+                          gap-2
+                        "
+                      >
+                        <UserRound
+                          size={17}
+                        />
+
+                        <span>
+                          ไกด์:{' '}
+                          {
+                            trip.guideName
+                          }
+                        </span>
+                      </p>
+
+                      <p
+                        className="
+                          flex
+                          items-center
+                          gap-2
+                        "
+                      >
+                        <CalendarDays
+                          size={17}
+                        />
+
+                        <span>
+                          วันที่เดินทาง:{' '}
+                          {
+                            trip.travelDate
+                          }
+                        </span>
+                      </p>
+
+                      <p
+                        className="
+                          flex
+                          items-center
+                          gap-2
+                        "
+                      >
+                        <Clock3
+                          size={17}
+                        />
+
+                        <span>
+                          เวลาเดินทาง:{' '}
+                          {
+                            trip.travelTime
+                          }
+                        </span>
+                      </p>
+
+                      <p
+                        className="
+                          flex
+                          items-center
+                          gap-2
+                        "
+                      >
+                        <Hash
+                          size={17}
+                        />
+
+                        <span
+                          className="
+                            break-all
+                          "
+                        >
+                          หมายเลขการจอง:{' '}
+                          {
+                            trip.bookingId
+                          }
+                        </span>
+                      </p>
+                    </div>
+
+                    <div
+                      className="
+                        mt-3
+                        flex
+                        flex-wrap
+                        items-center
+                        gap-3
+                      "
+                    >
+                      <span
+                        className={`
+                          inline-flex
+                          items-center
+                          gap-1.5
+                          rounded-full
+                          px-2.5
+                          py-1
+                          text-xs
+                          font-medium
+
+                          ${
+                            trip.statusCode ===
+                            'COMPLETED'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }
+                        `}
+                      >
+                        <CheckCircle2
+                          size={15}
+                        />
+
+                        {
+                          trip.status
                         }
+                      </span>
+
+                      <span
+                        className="
+                          inline-flex
+                          items-center
+                          gap-1.5
+                          text-xs
+                          text-gray-600
+                        "
+                      >
+                        <Star
+                          size={17}
+                          className="
+                            fill-amber-400
+                            text-amber-400
+                          "
+                        />
+
+                        <strong
+                          className="
+                            text-amber-500
+                          "
+                        >
+                          {
+                            averageRating
+                          }
+                        </strong>
+
+                        <span>
+                          (
+                          {
+                            reviews.length
+                          }{' '}
+                          รีวิว)
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {message && (
+                <div
+                  className={`
+                    mb-4
+                    rounded-lg
+                    px-4
+                    py-3
+                    text-sm
+                    font-medium
+
+                    ${
+                      messageType ===
+                      'success'
+                        ? 'border border-green-200 bg-green-50 text-green-700'
+                        : 'border border-red-200 bg-red-50 text-red-700'
+                    }
+                  `}
+                  role="alert"
+                >
+                  {message}
+                </div>
+              )}
+
+              {bookingId &&
+                !isLoading &&
+                trip &&
+                (hasReviewed &&
+                !isEditing ? (
+                  <div
+                    className="
+                      rounded-xl
+                      border
+                      border-green-200
+                      bg-green-50
+                      p-5
+                      text-center
+                    "
+                  >
+                    <CheckCircle2
+                      size={34}
+                      className="
+                        mx-auto
+                        text-green-600
+                      "
+                    />
+
+                    <h3
+                      className="
+                        mt-2
+                        font-semibold
+                        text-green-800
+                      "
+                    >
+                      คุณส่งรีวิวสำหรับการจองนี้แล้ว
+                    </h3>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        text-green-700
+                      "
+                    >
+                      หนึ่งการจองสามารถส่งรีวิวได้หนึ่งครั้ง
+                      แต่สามารถแก้ไขรีวิวเดิมของคุณได้
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={
+                        handleStartEdit
+                      }
+                      className="
+                        mt-4
+                        rounded-lg
+                        bg-purple-700
+                        px-5
+                        py-2.5
+                        text-sm
+                        font-semibold
+                        text-white
+                        transition
+                        hover:bg-purple-800
+                      "
+                    >
+                      แก้ไขรีวิว
+                    </button>
+                  </div>
+                ) : !canReview &&
+                  !isEditing ? (
+                  <div
+                    className="
+                      rounded-xl
+                      border
+                      border-amber-200
+                      bg-amber-50
+                      p-5
+                      text-center
+                    "
+                  >
+                    <Clock3
+                      size={34}
+                      className="
+                        mx-auto
+                        text-amber-600
+                      "
+                    />
+
+                    <h3
+                      className="
+                        mt-2
+                        font-semibold
+                        text-amber-800
+                      "
+                    >
+                      ยังไม่สามารถส่งรีวิวได้
+                    </h3>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        text-amber-700
+                      "
+                    >
+                      สามารถรีวิวได้หลังจากการจองและรอบนำเที่ยวมีสถานะ
+                      COMPLETED แล้วเท่านั้น
+                    </p>
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={
+                      handleSubmit
+                    }
+                  >
+                    {isEditing && (
+                      <div
+                        className="
+                          mb-5
+                          rounded-xl
+                          border
+                          border-purple-200
+                          bg-purple-50
+                          p-4
+                        "
+                      >
+                        <h3
+                          className="
+                            font-semibold
+                            text-purple-800
+                          "
+                        >
+                          กำลังแก้ไขรีวิวของคุณ
+                        </h3>
+
+                        <p
+                          className="
+                            mt-1
+                            text-sm
+                            text-purple-700
+                          "
+                        >
+                          คะแนนและความคิดเห็นเดิมถูกนำมาแสดงให้แล้ว
+                          คุณสามารถแก้ไขและบันทึกใหม่ได้
+                        </p>
+                      </div>
+                    )}
+
+                    <div
+                      className="
+                        space-y-4
+                      "
+                    >
+                      <StarRating
+                        label="ความประทับใจโดยรวม"
+                        value={
+                          overallRating
+                        }
+                        onChange={(
+                          value,
+                        ) => {
+                          setOverallRating(
+                            value,
+                          )
+
+                          clearMessage()
+                        }}
                         disabled={
                           isSubmitting
                         }
-                        className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+
+                      <StarRating
+                        label="การให้บริการของไกด์"
+                        value={
+                          guideRating
+                        }
+                        onChange={(
+                          value,
+                        ) => {
+                          setGuideRating(
+                            value,
+                          )
+
+                          clearMessage()
+                        }}
+                        disabled={
+                          isSubmitting
+                        }
+                      />
+
+                      <StarRating
+                        label="เส้นทางและสถานที่"
+                        value={
+                          routeRating
+                        }
+                        onChange={(
+                          value,
+                        ) => {
+                          setRouteRating(
+                            value,
+                          )
+
+                          clearMessage()
+                        }}
+                        disabled={
+                          isSubmitting
+                        }
+                      />
+                    </div>
+
+                    <label
+                      htmlFor="review-comment"
+                      className="
+                        mb-2
+                        mt-5
+                        block
+                        font-semibold
+                        text-gray-900
+                      "
+                    >
+                      ความคิดเห็นเพิ่มเติม
+                    </label>
+
+                    <textarea
+                      id="review-comment"
+                      value={
+                        comment
+                      }
+                      disabled={
+                        isSubmitting
+                      }
+                      onChange={(
+                        event,
+                      ) => {
+                        setComment(
+                          event.target
+                            .value,
+                        )
+
+                        clearMessage()
+                      }}
+                      rows={4}
+                      maxLength={500}
+                      placeholder="แชร์ประสบการณ์ของคุณ..."
+                      className="
+                        w-full
+                        resize-none
+                        rounded-xl
+                        border
+                        border-gray-300
+                        bg-white
+                        p-3.5
+                        text-gray-700
+                        outline-none
+                        transition
+                        focus:border-purple-600
+                        focus:ring-2
+                        focus:ring-purple-100
+                        disabled:cursor-not-allowed
+                        disabled:bg-gray-100
+                      "
+                    />
+
+                    <p
+                      className="
+                        mt-1
+                        text-right
+                        text-xs
+                        text-gray-500
+                      "
+                    >
+                      {
+                        comment.length
+                      }
+                      /500
+                    </p>
+
+                    <div
+                      className="
+                        mt-3
+                        flex
+                        flex-wrap
+                        gap-3
+                      "
+                    >
+                      <button
+                        type="submit"
+                        disabled={
+                          isSubmitting
+                        }
+                        className="
+                          rounded-lg
+                          bg-purple-700
+                          px-8
+                          py-2.5
+                          font-semibold
+                          text-white
+                          transition
+                          hover:bg-purple-800
+                          disabled:cursor-not-allowed
+                          disabled:bg-purple-300
+                        "
                       >
-                        ยกเลิก
+                        {isSubmitting
+                          ? isEditing
+                            ? 'กำลังบันทึก...'
+                            : 'กำลังส่ง...'
+                          : isEditing
+                            ? 'บันทึกการแก้ไข'
+                            : 'ส่งรีวิว'}
                       </button>
-                    )}
-                  </div>
-                </form>
-              ))}
-          </section>
 
-          {/* ==================================================
-              RIGHT SIDE
-          ================================================== */}
-          <section className="border-t border-gray-200 bg-gray-50 p-5 md:p-6 lg:border-l lg:border-t-0">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">
-                {bookingId
-                  ? 'รีวิวของการจองนี้'
-                  : 'รีวิวล่าสุด'}
-              </h2>
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={
+                            handleCancelEdit
+                          }
+                          disabled={
+                            isSubmitting
+                          }
+                          className="
+                            rounded-lg
+                            border
+                            border-gray-300
+                            bg-white
+                            px-6
+                            py-2.5
+                            font-semibold
+                            text-gray-700
+                            transition
+                            hover:bg-gray-50
+                            disabled:cursor-not-allowed
+                            disabled:opacity-50
+                          "
+                        >
+                          ยกเลิก
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                ))}
+            </section>
 
-              <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
-                {reviews.length} รีวิว
-              </span>
-            </div>
+            {/* ==================================================
+                RIGHT SIDE
+            ================================================== */}
 
-            {isLoading ? (
-              <div className="rounded-xl bg-white p-8 text-center text-sm text-gray-500">
-                กำลังโหลดรีวิว...
+            <section
+              className="
+                border-t
+                border-gray-200
+                bg-gray-50/95
+                p-5
+                md:p-6
+                lg:border-l
+                lg:border-t-0
+              "
+            >
+              <div
+                className="
+                  mb-4
+                  flex
+                  items-center
+                  justify-between
+                "
+              >
+                <h2
+                  className="
+                    text-xl
+                    font-bold
+                    text-gray-900
+                  "
+                >
+                  {bookingId
+                    ? 'รีวิวของการจองนี้'
+                    : 'รีวิวล่าสุด'}
+                </h2>
+
+                <span
+                  className="
+                    rounded-full
+                    bg-purple-100
+                    px-3
+                    py-1
+                    text-xs
+                    font-medium
+                    text-purple-700
+                  "
+                >
+                  {
+                    reviews.length
+                  }{' '}
+                  รีวิว
+                </span>
               </div>
-            ) : reviews.length ===
-              0 ? (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
-                <div className="mb-2 text-4xl">
-                  💬
+
+              {isLoading ? (
+                <div
+                  className="
+                    rounded-xl
+                    bg-white
+                    p-8
+                    text-center
+                    text-sm
+                    text-gray-500
+                  "
+                >
+                  กำลังโหลดรีวิว...
                 </div>
+              ) : reviews.length ===
+                0 ? (
+                <div
+                  className="
+                    rounded-xl
+                    border
+                    border-dashed
+                    border-gray-300
+                    bg-white
+                    px-6
+                    py-10
+                    text-center
+                  "
+                >
+                  <div
+                    className="
+                      mb-2
+                      text-4xl
+                    "
+                  >
+                    💬
+                  </div>
 
-                <h3 className="font-semibold text-gray-800">
-                  ยังไม่มีรีวิว
-                </h3>
+                  <h3
+                    className="
+                      font-semibold
+                      text-gray-800
+                    "
+                  >
+                    ยังไม่มีรีวิว
+                  </h3>
 
-                <p className="mt-1 text-sm text-gray-500">
-                  เมื่อมีผู้ใช้ส่งรีวิว
-                  รายการจะแสดงที่นี่
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {reviews.map(
-                  (review) => {
-                    const reviewerName =
-                      review.reviewer_name ||
-                      'ผู้ใช้งาน'
+                  <p
+                    className="
+                      mt-1
+                      text-sm
+                      text-gray-500
+                    "
+                  >
+                    เมื่อมีผู้ใช้ส่งรีวิว
+                    รายการจะแสดงที่นี่
+                  </p>
+                </div>
+              ) : (
+                <div
+                  className="
+                    space-y-3
+                  "
+                >
+                  {reviews.map(
+                    (review) => {
+                      const reviewerName =
+                        review.reviewer_name ||
+                        'ผู้ใช้งาน'
 
-                    return (
-                      <article
-                        key={review.id}
-                        className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-700">
-                              {reviewerName
-                                .charAt(0)
-                                .toUpperCase()}
+                      return (
+                        <article
+                          key={
+                            review.id
+                          }
+                          className="
+                            rounded-xl
+                            border
+                            border-gray-200
+                            bg-white
+                            p-4
+                            shadow-sm
+                          "
+                        >
+                          <div
+                            className="
+                              flex
+                              items-start
+                              justify-between
+                              gap-4
+                            "
+                          >
+                            <div
+                              className="
+                                flex
+                                gap-3
+                              "
+                            >
+                              <div
+                                className="
+                                  flex
+                                  h-10
+                                  w-10
+                                  shrink-0
+                                  items-center
+                                  justify-center
+                                  rounded-full
+                                  bg-purple-100
+                                  font-bold
+                                  text-purple-700
+                                "
+                              >
+                                {reviewerName
+                                  .charAt(
+                                    0,
+                                  )
+                                  .toUpperCase()}
+                              </div>
+
+                              <div>
+                                <h3
+                                  className="
+                                    font-bold
+                                    text-gray-900
+                                  "
+                                >
+                                  {
+                                    reviewerName
+                                  }
+                                </h3>
+
+                                <p
+                                  className="
+                                    mt-0.5
+                                    text-xs
+                                    text-gray-500
+                                  "
+                                >
+                                  {formatReviewDate(
+                                    review.created_at,
+                                  )}
+                                </p>
+                              </div>
                             </div>
 
-                            <div>
-                              <h3 className="font-bold text-gray-900">
-                                {
-                                  reviewerName
-                                }
-                              </h3>
+                            <div
+                              className="
+                                flex
+                                shrink-0
+                                items-center
+                                gap-1
+                                font-bold
+                                text-amber-500
+                              "
+                            >
+                              <Star
+                                size={19}
+                                className="
+                                  fill-amber-400
+                                  text-amber-400
+                                "
+                              />
 
-                              <p className="mt-0.5 text-xs text-gray-500">
-                                {formatReviewDate(
-                                  review.created_at,
-                                )}
-                              </p>
+                              {
+                                review.overall_rating
+                              }
                             </div>
                           </div>
 
-                          <div className="flex shrink-0 items-center gap-1 font-bold text-amber-500">
-                            <Star
-                              size={19}
-                              className="fill-amber-400 text-amber-400"
-                            />
+                          <div
+                            className="
+                              mt-3
+                              flex
+                              flex-wrap
+                              gap-2
+                              text-xs
+                            "
+                          >
+                            <span
+                              className="
+                                rounded-full
+                                bg-blue-50
+                                px-2.5
+                                py-1
+                                text-blue-700
+                              "
+                            >
+                              ไกด์{' '}
+                              {
+                                review.guide_rating
+                              }
+                              /5
+                            </span>
 
-                            {
-                              review.overall_rating
-                            }
+                            <span
+                              className="
+                                rounded-full
+                                bg-green-50
+                                px-2.5
+                                py-1
+                                text-green-700
+                              "
+                            >
+                              เส้นทาง{' '}
+                              {
+                                review.route_rating
+                              }
+                              /5
+                            </span>
                           </div>
-                        </div>
 
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">
-                            ไกด์{' '}
+                          <p
+                            className="
+                              mt-3
+                              text-sm
+                              leading-relaxed
+                              text-gray-700
+                            "
+                          >
                             {
-                              review.guide_rating
+                              review.comment
                             }
-                            /5
-                          </span>
-
-                          <span className="rounded-full bg-green-50 px-2.5 py-1 text-green-700">
-                            เส้นทาง{' '}
-                            {
-                              review.route_rating
-                            }
-                            /5
-                          </span>
-                        </div>
-
-                        <p className="mt-3 text-sm leading-relaxed text-gray-700">
-                          {review.comment}
-                        </p>
-                      </article>
-                    )
-                  },
-                )}
-              </div>
-            )}
-          </section>
+                          </p>
+                        </article>
+                      )
+                    },
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }
 
