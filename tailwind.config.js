@@ -1,11 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,jsx}",
-  ],
+  content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Prompt", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
       colors: {
         background: "#F8FAFC",
         surface: "#FFFFFF",
@@ -26,4 +26,4 @@ export default {
     },
   },
   plugins: [],
-}
+};
