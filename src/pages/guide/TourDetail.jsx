@@ -3,9 +3,10 @@ import {
   formatTime,
   statusLabel,
   canComplete,
+  attendanceAvailability,
 } from "../../services/m4/rules";
 import { Confirm, Feedback } from "../../components/m4/Feedback";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getMyTourManifest,
@@ -27,38 +28,67 @@ export default function TourDetail() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState("");
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const manifestRequestRef = useRef(0);
+  const attendance = attendanceAvailability(schedule, clockNow);
+
+  useEffect(() => {
+    const updateClock = () => setClockNow(Date.now());
+    const timer = window.setInterval(updateClock, 30_000);
+    window.addEventListener("focus", updateClock);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", updateClock);
+    };
+  }, []);
 
   const fetchManifest = useCallback(async () => {
+    const requestId = ++manifestRequestRef.current;
     setIsLoading(true);
     setErrorMsg("");
+    // Do not show a previous tour's participant list when the route changes.
+    setManifest([]);
+    setSchedule(null);
     try {
-      // เรียกใช้ฟังก์ชัน SQL แบบ Strict Privacy
       const [res, detail] = await Promise.all([
         getMyTourManifest(scheduleId),
         getScheduleDetail(scheduleId),
       ]);
-      if (!detail.success) throw new Error("LOAD_FAILED");
-      setSchedule(detail.data);
-
-      if (!res.success) {
-        throw new Error(res.error?.message || "Unable to load tour manifest");
+      if (requestId !== manifestRequestRef.current) return;
+      if (!detail.success || !res.success) {
+        throw new Error("LOAD_FAILED");
       }
-
+      setSchedule(detail.data);
       setManifest(res.data || []);
     } catch {
-      setErrorMsg("โหลดรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง");
+      if (requestId === manifestRequestRef.current) {
+        setErrorMsg("โหลดรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง");
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === manifestRequestRef.current) setIsLoading(false);
     }
   }, [scheduleId]);
 
   useEffect(() => {
     const timer = setTimeout(fetchManifest, 0);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      manifestRequestRef.current += 1;
+    };
   }, [fetchManifest]);
 
   const handleAttendance = async (bookingId, status) => {
     if (busy || isCompleting) return;
+    // Recheck at click time; the SQL RPC remains authoritative.
+    const current = attendanceAvailability(schedule);
+    if (
+      (status === "CHECKED_IN" && !current.canCheckIn) ||
+      (status === "NO_SHOW" && !current.canNoShow)
+    ) {
+      setSuccess("");
+      setErrorMsg(current.message || "ยังไม่อยู่ในช่วงเวลาที่อนุญาตให้เช็กชื่อ");
+      return;
+    }
     setBusy(true);
     setErrorMsg("");
     setSuccess("");
@@ -66,7 +96,17 @@ export default function TourDetail() {
       const res = await updateTourAttendance(bookingId, status);
 
       if (!res.success) {
-        throw new Error(res.error?.message || "Unable to update attendance");
+        const detail = String(res.error?.message || "");
+        if (detail.includes("NO_SHOW_TOO_EARLY")) {
+          throw new Error("ระบุว่าไม่มาได้หลังเริ่มทัวร์ 15 นาที");
+        }
+        if (detail.includes("ATTENDANCE_WINDOW_CLOSED")) {
+          throw new Error("อยู่นอกช่วงเวลาที่อนุญาตให้เช็กชื่อ กรุณาโหลดข้อมูลใหม่");
+        }
+        if (detail.includes("INVALID_SCHEDULE_TIME")) {
+          throw new Error("ข้อมูลเวลาของรอบนำเที่ยวไม่ถูกต้อง กรุณาติดต่อผู้ดูแล");
+        }
+        throw new Error("บันทึกการเช็กชื่อไม่สำเร็จ กรุณาโหลดข้อมูลใหม่");
       }
 
       // อัปเดตหน้าจอโดยไม่ต้องโหลดใหม่ทั้งหมด
@@ -76,8 +116,8 @@ export default function TourDetail() {
         ),
       );
       setSuccess("บันทึกการเช็กชื่อเรียบร้อยแล้ว");
-    } catch {
-      setErrorMsg("บันทึกการเช็กชื่อไม่สำเร็จ กรุณาโหลดข้อมูลใหม่");
+    } catch (error) {
+      setErrorMsg(error?.message || "บันทึกการเช็กชื่อไม่สำเร็จ กรุณาโหลดข้อมูลใหม่");
     } finally {
       setBusy(false);
     }
@@ -114,17 +154,17 @@ export default function TourDetail() {
   const getAttendanceBadge = (status) => {
     const badges = {
       NOT_CHECKED_IN: (
-        <span className="bg-background text-textSecondary border border-border px-2 py-1 rounded text-xs font-medium">
+        <span className="inline-flex rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800">
           ยังไม่เช็กอิน
         </span>
       ),
       CHECKED_IN: (
-        <span className="bg-success text-white px-2 py-1 rounded text-xs font-medium">
+        <span className="inline-flex rounded-md border border-green-300 bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-900">
           เช็กอินแล้ว
         </span>
       ),
       NO_SHOW: (
-        <span className="bg-danger text-white px-2 py-1 rounded text-xs font-medium">
+        <span className="inline-flex rounded-md border border-red-300 bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-900">
           ไม่มาปรากฏตัว
         </span>
       ),
@@ -144,17 +184,19 @@ export default function TourDetail() {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={disabled}
+          disabled={disabled || !attendance.canCheckIn}
+          title={!attendance.canCheckIn ? attendance.message : undefined}
           onClick={() => handleAttendance(participant.booking_id, "CHECKED_IN")}
-          className="rounded-button border border-border bg-background px-4 py-2 text-sm font-medium text-textPrimary transition-colors hover:border-success hover:bg-success hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 min-w-24 items-center justify-center rounded-button border border-green-800 bg-green-700 px-5 py-2.5 text-base font-bold text-white shadow-sm transition-colors hover:bg-green-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-green-300 disabled:bg-green-100 disabled:text-green-800 disabled:shadow-none disabled:opacity-100 disabled:hover:bg-green-100"
         >
           มา
         </button>
         <button
           type="button"
-          disabled={disabled}
+          disabled={disabled || !attendance.canNoShow}
+          title={!attendance.canNoShow ? attendance.message : undefined}
           onClick={() => handleAttendance(participant.booking_id, "NO_SHOW")}
-          className="rounded-button border border-border bg-background px-4 py-2 text-sm font-medium text-textPrimary transition-colors hover:border-danger hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 min-w-24 items-center justify-center rounded-button border border-red-800 bg-red-700 px-5 py-2.5 text-base font-bold text-white shadow-sm transition-colors hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-red-300 disabled:bg-red-100 disabled:text-red-800 disabled:shadow-none disabled:opacity-100 disabled:hover:bg-red-100"
         >
           ไม่มา
         </button>
@@ -245,6 +287,12 @@ export default function TourDetail() {
           <div className="mb-6 p-4 bg-danger/10 border border-danger rounded-button text-danger text-sm">
             {errorMsg}
           </div>
+        )}
+
+        {schedule && attendance.message && (
+          <p role="status" className="mb-4 rounded-button border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+            {attendance.message}
+          </p>
         )}
 
         {/* Mobile manifest: show complete participant details without a hidden action column. */}

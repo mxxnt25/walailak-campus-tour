@@ -1,5 +1,23 @@
 import { supabase } from "../lib/supabase";
 
+let myBookingSnapshot = null;
+let bookingSnapshotGeneration = 0;
+const pendingBookingLists = new Map();
+const BOOKING_SNAPSHOT_MS = 20_000;
+
+export function getCachedMyBookings(userId) {
+  return userId && myBookingSnapshot?.userId === userId &&
+    Date.now() < myBookingSnapshot.expiresAt
+    ? myBookingSnapshot.data
+    : null;
+}
+
+export function clearMyBookingsCache() {
+  bookingSnapshotGeneration += 1;
+  myBookingSnapshot = null;
+  pendingBookingLists.clear();
+}
+
 function success(data) {
   return {
     success: true,
@@ -131,6 +149,7 @@ export async function createBooking({
     return failure("DATABASE_ERROR", "ไม่สามารถสร้างการจองได้");
   }
 
+  clearMyBookingsCache();
   return success({
     bookingId: data,
     status: "CONFIRMED",
@@ -138,6 +157,7 @@ export async function createBooking({
 }
 
 export async function listMyBookings() {
+  const requestGeneration = bookingSnapshotGeneration;
   const {
     data: { user },
     error: userError,
@@ -151,33 +171,54 @@ export async function listMyBookings() {
     return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบผู้ใช้งานได้");
   }
 
-  const { data, error } = await supabase
-    .from("bookings")
-    .select(
-      `
-      *,
-      tour_schedules (
-        id,
-        tour_date,
-        start_time,
-        end_time,
-        max_participants,
-        status,
-        routes (
+  // StrictMode can run the mount effect twice in development. Share only
+  // the database read for the same verified user; never mix users or cache
+  // a request that predates a booking mutation or sign-out.
+  const pending = pendingBookingLists.get(user.id);
+  if (pending) return pending;
+
+  const read = (async () => {
+    const { data, error } = await supabase
+      .from("bookings")
+      .select(
+        `
+        *,
+        tour_schedules (
           id,
-          name
+          tour_date,
+          start_time,
+          end_time,
+          max_participants,
+          status,
+          routes (
+            id,
+            name
+          )
         )
+      `,
       )
-    `,
-    )
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
 
-  if (error) {
-    return failure("DATABASE_ERROR", "ไม่สามารถโหลดรายการจองได้");
+    if (error) {
+      return failure("DATABASE_ERROR", "ไม่สามารถโหลดรายการจองได้");
+    }
+
+    if (requestGeneration === bookingSnapshotGeneration) {
+      myBookingSnapshot = {
+        userId: user.id,
+        data: data ?? [],
+        expiresAt: Date.now() + BOOKING_SNAPSHOT_MS,
+      };
+    }
+    return success(data ?? []);
+  })();
+  pendingBookingLists.set(user.id, read);
+  try {
+    return await read;
+  } finally {
+    if (pendingBookingLists.get(user.id) === read) pendingBookingLists.delete(user.id);
   }
-
-  return success(data ?? []);
 }
 
 
@@ -323,6 +364,7 @@ export async function cancelMyBooking(bookingId) {
     return failure("NOT_FOUND", "ไม่พบรายการจองที่สามารถยกเลิกได้");
   }
 
+  clearMyBookingsCache();
   return success(data);
 }
 

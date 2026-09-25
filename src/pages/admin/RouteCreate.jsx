@@ -1,3 +1,4 @@
+import AppSelect from '../../components/common/AppSelect'
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -139,7 +140,7 @@ export default function RouteCreate() {
               สถานะ
             </label>
 
-            <select
+            <AppSelect
               id="route-status"
               name="status"
               value={form.status}
@@ -149,7 +150,7 @@ export default function RouteCreate() {
               <option value="ACTIVE">เปิดใช้งาน</option>
 
               <option value="INACTIVE">ปิดใช้งาน</option>
-            </select>
+            </AppSelect>
           </div>
 
           <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">

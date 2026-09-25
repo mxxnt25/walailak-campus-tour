@@ -144,9 +144,7 @@ export default function BookingDetail() {
           </p>
 
           <div className="mt-5">
-            <Link to="/login">
-              <Button>เข้าสู่ระบบ</Button>
-            </Link>
+            <Link to="/login" className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">เข้าสู่ระบบ</Link>
           </div>
         </Card>
       </section>
@@ -297,7 +295,8 @@ export default function BookingDetail() {
         description={`คุณต้องการยกเลิกการจอง ${route?.name || "รอบนำเที่ยวนี้"} หรือไม่? เมื่อยกเลิกแล้ว ระบบจะคืนจำนวนที่ว่างให้รอบนำเที่ยว`}
         confirmLabel="ยืนยันการยกเลิก"
         cancelLabel="ไม่ยกเลิก"
-        confirmVariant="danger"
+        cancelVariant="danger"
+        confirmVariant="primary"
         busy={cancelling}
         onConfirm={handleConfirmCancel}
         onCancel={closeCancelConfirmation}

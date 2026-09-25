@@ -1,3 +1,4 @@
+import AppSelect from '../../components/common/AppSelect'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/common/Button'
@@ -10,10 +11,10 @@ import { createIncident } from '../../services/incidentService'
 import { listMyGuideAssignments } from '../../services/assignmentService'
 
 const SEVERITY_OPTIONS = [
-  { value: 'LOW', label: 'ต่ำ (Low)' },
-  { value: 'MEDIUM', label: 'ปานกลาง (Medium)' },
-  { value: 'HIGH', label: 'สูง (High)' },
-  { value: 'EMERGENCY', label: 'ฉุกเฉิน (Emergency)' },
+  { value: 'LOW', label: 'ต่ำ' },
+  { value: 'MEDIUM', label: 'ปานกลาง' },
+  { value: 'HIGH', label: 'สูง' },
+  { value: 'EMERGENCY', label: 'ฉุกเฉิน' },
 ]
 
 function getScheduleLabel(assignment) {
@@ -43,13 +44,23 @@ export default function NewIncident({ scheduleId = null }) {
 
   const effectiveScheduleId = scheduleId || selectedScheduleId
 
-    useEffect(() => {
+  useEffect(() => {
     if (scheduleId) return
 
     let cancelled = false
 
     async function fetchAssignments() {
-      const result = await listMyGuideAssignments()
+      let result
+      try {
+        result = await listMyGuideAssignments()
+      } catch {
+        if (!cancelled) {
+          setAssignments([])
+          setAssignmentError('ไม่สามารถโหลดตารางงานของคุณได้ กรุณาลองใหม่')
+          setLoadingAssignments(false)
+        }
+        return
+      }
 
       if (cancelled) return
 
@@ -140,6 +151,11 @@ export default function NewIncident({ scheduleId = null }) {
         tone: 'success',
         message: 'บันทึกเหตุการณ์เรียบร้อยแล้ว',
       })
+    } catch {
+      setToast({
+        tone: 'danger',
+        message: 'เชื่อมต่อเพื่อบันทึกเหตุการณ์ไม่สำเร็จ กรุณาลองใหม่',
+      })
     } finally {
       setSubmitting(false)
     }
@@ -148,7 +164,7 @@ export default function NewIncident({ scheduleId = null }) {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <div className="mb-6">
-        <p className="text-sm font-medium text-primary">Incident Reporting</p>
+        <p className="text-sm font-medium text-primary">รายงานเหตุการณ์</p>
 
         <h1 className="mt-1 text-2xl font-bold text-textPrimary">
           แจ้งเหตุระหว่างการนำเที่ยว
@@ -168,7 +184,7 @@ export default function NewIncident({ scheduleId = null }) {
       {!scheduleId && !loadingAssignments && assignments.length === 0 && (
         <EmptyState
           title="ยังไม่มีรอบนำเที่ยวที่สามารถแจ้งเหตุได้"
-          description="คุณจะแจ้งเหตุได้เฉพาะรอบที่มีสถานะการมอบหมายเป็น ACCEPTED"
+          description="คุณจะแจ้งเหตุได้เฉพาะรอบที่ยืนยันรับงานแล้ว"
           className="mb-4"
         />
       )}
@@ -184,7 +200,7 @@ export default function NewIncident({ scheduleId = null }) {
                 รอบนำเที่ยว
               </label>
 
-              <select
+              <AppSelect
                 id="incident-schedule"
                 value={selectedScheduleId}
                 onChange={(event) => {
@@ -209,13 +225,13 @@ export default function NewIncident({ scheduleId = null }) {
                     {getScheduleLabel(assignment)}
                   </option>
                 ))}
-              </select>
+              </AppSelect>
             </div>
           )}
 
           {scheduleId && (
             <div className="rounded-card border border-border bg-background p-4">
-              <p className="text-sm text-textSecondary">Schedule ID</p>
+              <p className="text-sm text-textSecondary">รหัสรอบนำเที่ยว</p>
               <p className="mt-1 break-all font-medium text-textPrimary">
                 {scheduleId}
               </p>
@@ -238,7 +254,7 @@ export default function NewIncident({ scheduleId = null }) {
               ระดับความรุนแรง
             </label>
 
-            <select
+            <AppSelect
               id="incident-severity"
               value={severity}
               onChange={(event) => setSeverity(event.target.value)}
@@ -250,7 +266,7 @@ export default function NewIncident({ scheduleId = null }) {
                   {option.label}
                 </option>
               ))}
-            </select>
+            </AppSelect>
           </div>
 
           <div className="flex flex-col gap-1">

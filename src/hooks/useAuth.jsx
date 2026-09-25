@@ -1,6 +1,7 @@
 import {
   useState,
   useEffect,
+  useRef,
   createContext,
   useContext,
 } from 'react'
@@ -16,66 +17,106 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] =
     useState(true)
+  // Ignore profile responses belonging to a previous session or request.
+  const profileRequestRef = useRef(0)
+  const currentUserIdRef = useRef(null)
 
   async function loadProfile(userId) {
+    const requestId = ++profileRequestRef.current
     setProfileLoading(true)
 
     try {
       const result = await getProfile(userId)
 
+      if (
+        requestId !== profileRequestRef.current ||
+        currentUserIdRef.current !== userId
+      ) return
+
       if (!result.success) {
-        throw new Error(result.error.message)
+        throw new Error(result.error?.message || 'ไม่สามารถโหลดข้อมูลผู้ใช้ได้')
       }
 
       setProfile(result.data)
     } catch (err) {
+      if (
+        requestId !== profileRequestRef.current ||
+        currentUserIdRef.current !== userId
+      ) return
+
       console.error(
         'Failed to load profile:',
-        err.message
+        err?.message || err
       )
 
       setProfile(null)
     } finally {
-      setProfileLoading(false)
+      if (
+        requestId === profileRequestRef.current &&
+        currentUserIdRef.current === userId
+      ) setProfileLoading(false)
     }
   }
 
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        setSession(data.session)
+    let active = true
+    let receivedAuthEvent = false
+    const requestRef = profileRequestRef
 
-        if (data.session?.user) {
-          loadProfile(data.session.user.id)
-        } else {
-          setProfile(null)
-          setProfileLoading(false)
-        }
+    function applySession(nextSession) {
+      if (!active) return
 
-        setLoading(false)
+      const nextUserId = nextSession?.user?.id || null
+      const userChanged = currentUserIdRef.current !== nextUserId
+      currentUserIdRef.current = nextUserId
+      setSession(nextSession)
+
+      if (userChanged) {
+        ++profileRequestRef.current
+        setProfile(null)
+      }
+
+      if (nextUserId) {
+        loadProfile(nextUserId)
+      } else {
+        ++profileRequestRef.current
+        setProfile(null)
+        setProfileLoading(false)
+      }
+
+      setLoading(false)
+    }
+
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        // An auth event can be newer than the initial getSession response.
+        if (!active || receivedAuthEvent) return
+        if (error) console.error('Failed to initialize session:', error.message)
+        applySession(data?.session || null)
+      })
+      .catch((err) => {
+        if (!active || receivedAuthEvent) return
+        console.error('Failed to initialize session:', err)
+        applySession(null)
       })
 
     const { data: listener } =
       supabase.auth.onAuthStateChange(
         (_event, newSession) => {
-          setSession(newSession)
-
-          if (newSession?.user) {
-            loadProfile(newSession.user.id)
-          } else {
-            setProfile(null)
-            setProfileLoading(false)
-          }
+          receivedAuthEvent = true
+          applySession(newSession)
         }
       )
 
-    return () =>
+    return () => {
+      active = false
+      ++requestRef.current
       listener.subscription.unsubscribe()
+    }
   }, [])
 
   async function refreshProfile() {
-    if (!session?.user) {
+    if (!session?.user || currentUserIdRef.current !== session.user.id) {
       setProfile(null)
       return
     }

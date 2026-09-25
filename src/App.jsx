@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import ScrollOnRouteChange from "./components/navigation/ScrollOnRouteChange";
+import SiteHeader from "./components/navigation/SiteHeader";
 
 import { AuthProvider } from "./hooks/useAuth";
 
@@ -60,6 +62,8 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ScrollOnRouteChange />
+        <SiteHeader />
         <Routes>
           {/* =========================
               M1: HOME
@@ -80,16 +84,18 @@ function App() {
 
           <Route path="/register" element={<Register />} />
 
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/forgot-password" element={<PublicLayout><ForgotPassword /></PublicLayout>} />
 
-          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/reset-password" element={<PublicLayout><ResetPassword /></PublicLayout>} />
 
           <Route
             path="/profile"
             element={
-              <PublicLayout>
-                <Profile />
-              </PublicLayout>
+              <RoleGuard>
+                <PublicLayout>
+                  <Profile />
+                </PublicLayout>
+              </RoleGuard>
             }
           />
 
@@ -340,7 +346,7 @@ function App() {
           {/* =========================
               404 - NOT FOUND
           ========================= */}
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<PublicLayout><NotFound /></PublicLayout>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

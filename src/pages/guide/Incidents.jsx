@@ -7,6 +7,7 @@ import EmptyState from "../../components/common/EmptyState";
 import StatusBadge from "../../components/common/StatusBadge";
 import { formatDateTime } from "../../utils/dateTime";
 import { listMyRelatedIncidents } from "../../services/incidentService";
+import { getIncidentSeverityLabel } from "../../utils/incidentDisplay";
 
 function getSeverityColor(severity) {
   switch (severity) {
@@ -31,7 +32,17 @@ export default function GuideIncidents() {
     let cancelled = false;
 
     async function fetchIncidents() {
-      const result = await listMyRelatedIncidents();
+      let result;
+      try {
+        result = await listMyRelatedIncidents();
+      } catch {
+        if (!cancelled) {
+          setIncidents([]);
+          setError('เชื่อมต่อเพื่อโหลดเหตุการณ์ไม่สำเร็จ กรุณาลองใหม่');
+          setLoading(false);
+        }
+        return;
+      }
 
       if (cancelled) return;
 
@@ -59,7 +70,7 @@ export default function GuideIncidents() {
   return (
     <div>
       <div className="mb-6">
-        <p className="text-sm font-medium text-primary">Incident Reporting</p>
+        <p className="text-sm font-medium text-primary">รายงานเหตุการณ์</p>
 
         <h1 className="mt-1 text-2xl font-bold text-textPrimary">
           เหตุการณ์ที่เกี่ยวข้องกับคุณ
@@ -94,7 +105,7 @@ export default function GuideIncidents() {
 
                 <div className="flex flex-wrap gap-2">
                   <Badge color={getSeverityColor(incident.severity)}>
-                    {incident.severity}
+                    {getIncidentSeverityLabel(incident.severity)}
                   </Badge>
 
                   <StatusBadge status={incident.status} />
@@ -112,7 +123,7 @@ export default function GuideIncidents() {
               <div className="mt-5 border-t border-border pt-4">
                 <dl className="grid gap-3 text-sm sm:grid-cols-2">
                   <div>
-                    <dt className="text-textSecondary">Schedule ID</dt>
+                    <dt className="text-textSecondary">รหัสรอบนำเที่ยว</dt>
                     <dd className="mt-1 break-all text-textPrimary">
                       {incident.schedule_id}
                     </dd>

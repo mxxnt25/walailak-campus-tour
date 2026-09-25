@@ -1,13 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Camera,
   User,
   Lock,
   Image as ImageIcon,
-  LogOut,
   Shield,
-  Home,
   Mail,
   Phone,
   IdCard,
@@ -18,10 +16,8 @@ import {
   updateProfile,
   uploadAvatar,
 } from '../../services/profileService'
-import {
-  signOut,
-  changePassword,
-} from '../../services/authService'
+import { changePassword } from '../../services/authService'
+import { resolveProfileForm, updateProfileDraft } from '../../utils/profileDraft'
 
 import Button from '../../components/common/Button'
 import Input from '../../components/common/Input'
@@ -107,10 +103,10 @@ export default function Profile() {
   const [activeTab, setActiveTab] =
     useState('info')
 
-  const [form, setForm] = useState({
-    full_name: '',
-    phone: '',
-  })
+  // Store edits separately from the auth profile: a token refresh or tab
+  // focus may fetch a fresh profile object before the user presses Save.
+  const [formDraft, setFormDraft] = useState(null)
+  const form = resolveProfileForm(profile, formDraft)
 
   const [saving, setSaving] =
     useState(false)
@@ -145,23 +141,6 @@ export default function Profile() {
       type: '',
       text: '',
     })
-
-  const [
-    signOutMessage,
-    setSignOutMessage,
-  ] = useState('')
-
-  useEffect(() => {
-    if (!profile) return
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setForm({
-      full_name:
-        profile.full_name || '',
-      phone:
-        profile.phone || '',
-    })
-  }, [profile])
 
   if (loading) {
     return (
@@ -252,6 +231,12 @@ export default function Profile() {
         return
       }
 
+      // Replace the pending draft with the saved values. Later profile
+      // refreshes must not bring back the pre-save form or discard new edits.
+      setFormDraft(updateProfileDraft(profile, null, {
+        full_name: result.data?.full_name ?? normalizedFullName,
+        phone: result.data?.phone ?? phoneDigits,
+      }))
       await refreshProfile()
 
       setInfoMessage({
@@ -445,25 +430,6 @@ export default function Profile() {
     }
   }
 
-  async function handleSignOut() {
-    setSignOutMessage('')
-
-    const result =
-      await signOut()
-
-    if (!result.success) {
-      setSignOutMessage(
-        result.error?.message ||
-          'ออกจากระบบไม่สำเร็จ'
-      )
-      return
-    }
-
-    navigate('/login', {
-      replace: true,
-    })
-  }
-
   const initial = (
     profile.full_name || '?'
   )
@@ -494,25 +460,6 @@ export default function Profile() {
           py-6
         "
       >
-        <button
-          onClick={() =>
-            navigate('/')
-          }
-          className="
-            flex
-            items-center
-            gap-2
-            text-sm
-            text-white/80
-            hover:text-white
-            transition
-            mb-7
-          "
-        >
-          <Home size={17} />
-          กลับหน้าแรก
-        </button>
-
         <div
           className="
             flex
@@ -555,31 +502,6 @@ export default function Profile() {
                 initial
               )}
             </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                fileInputRef.current?.click()
-              }
-              className="
-                absolute
-                bottom-0
-                right-0
-                w-8
-                h-8
-                rounded-full
-                bg-white
-                text-primary
-                flex
-                items-center
-                justify-center
-                shadow-md
-                hover:bg-white/90
-              "
-              title="เปลี่ยนรูปโปรไฟล์"
-            >
-              <Camera size={14} />
-            </button>
 
             <input
               ref={fileInputRef}
@@ -652,68 +574,8 @@ export default function Profile() {
             )
           })}
 
-          {[
-            'ADMIN',
-            'SUPER_ADMIN',
-          ].includes(
-            profile.role
-          ) && (
-            <button
-              onClick={() =>
-                navigate(
-                  '/admin/users'
-                )
-              }
-              className="
-                flex
-                items-center
-                gap-3
-                px-4
-                py-3
-                rounded-xl
-                text-sm
-                text-left
-                hover:bg-white/10
-                transition
-                mt-2
-              "
-            >
-              <Shield
-                size={17}
-              />
-              จัดการผู้ใช้
-            </button>
-          )}
         </nav>
 
-        {signOutMessage && (
-          <div className="mb-3 rounded-xl bg-red-500/20 px-3 py-2 text-xs text-white">
-            {signOutMessage}
-          </div>
-        )}
-
-        <button
-          onClick={
-            handleSignOut
-          }
-          className="
-            flex
-            items-center
-            gap-3
-            px-4
-            py-3
-            rounded-xl
-            text-sm
-            hover:bg-white/10
-            border-t
-            border-white/20
-            mt-4
-            pt-5
-          "
-        >
-          <LogOut size={17} />
-          ออกจากระบบ
-        </button>
       </aside>
 
       {/* MAIN */}
@@ -771,14 +633,6 @@ export default function Profile() {
             </p>
           </div>
 
-          <Button
-            variant="ghost"
-            onClick={() =>
-              navigate('/')
-            }
-          >
-            กลับหน้าแรก
-          </Button>
         </div>
 
         {/* INFO */}
@@ -830,14 +684,13 @@ export default function Profile() {
                   value={
                     form.full_name
                   }
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      full_name:
-                        e.target
-                          .value,
-                    })
-                  }
+                  onChange={(e) => {
+                    const nextName = e.target.value
+                    setFormDraft((current) =>
+                      updateProfileDraft(profile, current, { full_name: nextName })
+                    )
+                  }}
+                  disabled={saving}
                   required
                 />
 
@@ -846,14 +699,13 @@ export default function Profile() {
                   value={
                     form.phone
                   }
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      phone:
-                        e.target
-                          .value,
-                    })
-                  }
+                  onChange={(e) => {
+                    const nextPhone = e.target.value
+                    setFormDraft((current) =>
+                      updateProfileDraft(profile, current, { phone: nextPhone })
+                    )
+                  }}
+                  disabled={saving}
                   placeholder="08x-xxx-xxxx"
                 />
 
@@ -1248,6 +1100,7 @@ export default function Profile() {
                 <Input
                   label="รหัสผ่านใหม่"
                   type="password"
+                  autoComplete="new-password"
                   value={
                     pwForm.password
                   }
@@ -1266,6 +1119,7 @@ export default function Profile() {
                 <Input
                   label="ยืนยันรหัสผ่านใหม่"
                   type="password"
+                  autoComplete="new-password"
                   value={
                     pwForm.confirm
                   }

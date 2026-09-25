@@ -1,3 +1,4 @@
+import AppSelect from '../../components/common/AppSelect'
 import { Feedback, Confirm } from "../../components/m4/Feedback";
 import { validateStop } from "../../services/m4/rules";
 import { useEffect, useState } from "react";
@@ -291,7 +292,7 @@ export default function RouteEdit() {
               สถานะ
             </label>
 
-            <select
+            <AppSelect
               id="route-status"
               name="status"
               value={form.status}
@@ -300,7 +301,7 @@ export default function RouteEdit() {
             >
               <option value="ACTIVE">เปิดใช้งาน</option>
               <option value="INACTIVE">ปิดใช้งาน</option>
-            </select>
+            </AppSelect>
           </div>
 
           <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
@@ -481,12 +482,16 @@ export default function RouteEdit() {
           </div>
 
           <Input
-            label="Image URL"
+            label="ลิงก์รูปภาพจุดแวะ"
             name="image_url"
             value={newStop.image_url}
             onChange={handleStopChange}
-            placeholder="https://..."
+            placeholder="https://example.com/photo.jpg"
           />
+          <p className="text-xs leading-relaxed text-textSecondary">
+            เพิ่มลิงก์รูปภาพจริงของจุดแวะจาก HTTPS แล้วบันทึกจุดแวะทั้งหมด
+            ระบบจะใช้รูปแรกที่มีอยู่บนหน้าแรกและหน้ารวมเส้นทาง
+          </p>
 
           <div className="flex justify-end">
             <Button

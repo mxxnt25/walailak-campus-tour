@@ -1,5 +1,6 @@
+import AppSelect from '../../components/common/AppSelect'
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import Button from "../../components/common/Button";
 import EmptyState from "../../components/common/EmptyState";
@@ -18,6 +19,9 @@ import { listPublicSchedules } from "../../services/scheduleService";
 import { formatDate, formatTime } from "../../utils/dateTime";
 
 import CampusMap from "./CampusMap";
+import RouteCover from "../../components/routes/RouteCover";
+import RouteReviews from "../../components/reviews/RouteReviews";
+import { getSafeRouteImageUrl } from "../../utils/routeDiscovery";
 
 function getScheduleStatusLabel(schedule, now) {
   if (isScheduleExpired(schedule, now)) {
@@ -87,6 +91,8 @@ function getUnavailableButtonLabel(schedule, now) {
 
 function RouteDetail() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const requestedDate = searchParams.get("date");
 
   const { session, profile, loading: authLoading, profileLoading } = useAuth();
 
@@ -160,9 +166,15 @@ function RouteDetail() {
 
         if (!active) return;
 
+        // Refresh the clock after asynchronous capacity requests finish.
+        setClockNow(new Date());
         setSchedules(schedulesWithCapacity);
 
-        setSelectedDate(schedulesWithCapacity[0]?.tour_date ?? "");
+        setSelectedDate(
+          schedulesWithCapacity.some((schedule) => schedule.tour_date === requestedDate)
+            ? requestedDate
+            : schedulesWithCapacity[0]?.tour_date ?? "",
+        );
       } else {
         setScheduleError(
           schedulesResult.error?.message || "ไม่สามารถโหลดรอบนำเที่ยวได้",
@@ -177,17 +189,29 @@ function RouteDetail() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, requestedDate]);
 
+  // Nothing on this screen shows a live countdown. Updating the whole page
+  // every second repaints its cards and can interrupt map interactions.
+  // Update only when a future tour actually crosses its start time.
   useEffect(() => {
+    let pending = schedules.filter((schedule) =>
+      schedule.tour_date && schedule.start_time && !isScheduleExpired(schedule, new Date())
+    );
+    if (pending.length === 0) return undefined;
+
     const timerId = window.setInterval(() => {
-      setClockNow(new Date());
+      const now = new Date();
+      const upcoming = pending.filter((schedule) => !isScheduleExpired(schedule, now));
+      if (upcoming.length !== pending.length) {
+        pending = upcoming;
+        setClockNow(now);
+      }
+      if (pending.length === 0) window.clearInterval(timerId);
     }, 1000);
 
-    return () => {
-      window.clearInterval(timerId);
-    };
-  }, []);
+    return () => window.clearInterval(timerId);
+  }, [schedules]);
 
   useEffect(() => {
     let active = true;
@@ -268,6 +292,10 @@ function RouteDetail() {
     );
   }
 
+  const coverPhoto = stops
+    .map((stop) => getSafeRouteImageUrl(stop.image_url))
+    .find(Boolean) ?? null;
+
   const availableDates = [
     ...new Set(schedules.map((schedule) => schedule.tour_date)),
   ];
@@ -278,18 +306,18 @@ function RouteDetail() {
 
   return (
     <div className="mx-auto max-w-6xl p-6">
-      <section className="rounded-xl border border-border bg-white p-6 shadow-sm">
-        <h1 className="text-3xl font-bold text-textPrimary">{route.name}</h1>
-
-        {route.description && (
-          <p className="mt-3 text-textSecondary">{route.description}</p>
-        )}
-
-        {route.duration_minutes && (
-          <p className="mt-4 text-sm text-textSecondary">
-            ระยะเวลาโดยประมาณ {route.duration_minutes} นาที
-          </p>
-        )}
+      <section className={`rounded-2xl border border-border bg-white p-6 shadow-sm ${coverPhoto ? "grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(240px,0.75fr)]" : ""}`}>
+        <div>
+          <h1 className="break-words text-3xl font-bold text-textPrimary">{route.name}</h1>
+          {route.description && <p className="mt-3 text-textSecondary">{route.description}</p>}
+          <a href="#reviews" className="mt-4 inline-flex rounded-xl border border-primary/30 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5">
+            อ่านรีวิวของเส้นทางนี้ →
+          </a>
+          {route.duration_minutes && (
+            <p className="mt-4 text-sm text-textSecondary">ระยะเวลาโดยประมาณ {route.duration_minutes} นาที</p>
+          )}
+        </div>
+        {coverPhoto && <RouteCover src={coverPhoto} alt={`ภาพเส้นทาง ${route.name}`} className="h-48 w-full rounded-xl md:h-full md:min-h-48" />}
       </section>
 
       <section className="mt-8">
@@ -318,7 +346,7 @@ function RouteDetail() {
                 เลือกวันที่ต้องการเข้าร่วม
               </label>
 
-              <select
+              <AppSelect
                 id="tourDate"
                 value={selectedDate}
                 onChange={(event) => setSelectedDate(event.target.value)}
@@ -329,7 +357,7 @@ function RouteDetail() {
                     {formatDate(date)}
                   </option>
                 ))}
-              </select>
+              </AppSelect>
             </div>
 
             <div>
@@ -404,9 +432,7 @@ function RouteDetail() {
 
                         <div className="mt-4">
                           {isMember && existingBooking ? (
-                            <Link to={`/bookings/${existingBooking.id}`}>
-                              <Button>ดูรายการจองเดิม</Button>
-                            </Link>
+                            <Link to={`/bookings/${existingBooking.id}`} className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">ดูรายการจองเดิม</Link>
                           ) : !bookable ? (
                             <Button disabled>
                               {getUnavailableButtonLabel(schedule, clockNow)}
@@ -415,19 +441,19 @@ function RouteDetail() {
                             <Button disabled>กำลังตรวจสอบสิทธิ์...</Button>
                           ) : isGuest ? (
                             <Link
-                              to="/login"
+                              to={`/login?returnTo=${encodeURIComponent(`/routes/${id}?date=${selectedDate}`)}`}
                               state={{
                                 from: {
                                   pathname: `/routes/${id}`,
+                                  search: `?date=${selectedDate}`,
                                 },
                               }}
+                              className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             >
-                              <Button>เข้าสู่ระบบเพื่อจอง</Button>
+                              เข้าสู่ระบบเพื่อจอง
                             </Link>
                           ) : isMember ? (
-                            <Link to={`/book/${schedule.id}`}>
-                              <Button>จองรอบนี้</Button>
-                            </Link>
+                            <Link to={`/book/${schedule.id}`} className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">จองรอบนี้</Link>
                           ) : (
                             <p className="text-sm text-textSecondary">
                               บัญชีบทบาทนี้ไม่สามารถจองรอบนำเที่ยวแบบสมาชิกได้
@@ -461,17 +487,16 @@ function RouteDetail() {
                 key={stop.id}
                 className="rounded-xl border border-border bg-white p-5 shadow-sm"
               >
-                <div className="text-sm font-medium text-textSecondary">
-                  จุดที่ {stop.stop_order}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                  {getSafeRouteImageUrl(stop.image_url) && (
+                    <RouteCover src={stop.image_url} alt={`ภาพจุดแวะชม ${stop.name}`} className="h-40 w-full shrink-0 rounded-xl sm:w-52" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-textSecondary">จุดที่ {stop.stop_order}</div>
+                    <h3 className="mt-1 break-words text-xl font-semibold text-textPrimary">{stop.name}</h3>
+                    {stop.description && <p className="mt-2 text-textSecondary">{stop.description}</p>}
+                  </div>
                 </div>
-
-                <h3 className="mt-1 text-xl font-semibold text-textPrimary">
-                  {stop.name}
-                </h3>
-
-                {stop.description && (
-                  <p className="mt-2 text-textSecondary">{stop.description}</p>
-                )}
               </article>
             ))}
           </div>
@@ -487,6 +512,8 @@ function RouteDetail() {
           <CampusMap stops={stops} />
         </div>
       </section>
+
+      <RouteReviews key={id} routeId={id} />
     </div>
   );
 }

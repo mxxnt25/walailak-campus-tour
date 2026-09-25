@@ -1,6 +1,9 @@
 import { safeMessage, request } from "./m4/response";
 import { validateStop } from "./m4/rules";
 import { supabase } from "../lib/supabase";
+import { addStopDiscovery } from "../utils/routeDiscovery";
+import { getRouteReviewSummaries } from "./review";
+import { createRequestCache } from "../utils/requestCache";
 
 function success(data) {
   return {
@@ -51,7 +54,21 @@ function isValidStatus(status) {
   return status === "ACTIVE" || status === "INACTIVE";
 }
 
-export async function listActiveRoutes() {
+const activeRouteCache = createRequestCache({ ttlMs: 30_000 });
+
+export function getCachedActiveRoutes() {
+  return activeRouteCache.peek()?.data ?? null;
+}
+
+export function invalidateActiveRoutesCache() {
+  activeRouteCache.invalidate();
+}
+
+export function listActiveRoutes() {
+  return activeRouteCache.load(loadActiveRoutes);
+}
+
+async function loadActiveRoutes() {
   const { data, error } = await supabase
     .from("routes")
     .select("*")
@@ -62,7 +79,33 @@ export async function listActiveRoutes() {
     return failure(error);
   }
 
-  return success(data);
+  const activeRoutes = data ?? [];
+  if (activeRoutes.length === 0) return success([]);
+
+  // Route images live on route_stops in the existing schema. One additional
+  // query lets both public screens display the first available image and
+  // search stop names without introducing a migration or per-card requests.
+  const routeIds = activeRoutes.map((route) => route.id);
+  const [stopsResult, reviewsResult] = await Promise.all([
+    supabase
+      .from("route_stops")
+      .select("route_id, name, description, image_url, stop_order")
+      .in("route_id", routeIds)
+      .order("stop_order", { ascending: true }),
+    // A failed ratings request must never hide public routes.
+    getRouteReviewSummaries(routeIds),
+  ]);
+
+  const discoverableRoutes = addStopDiscovery(
+    activeRoutes,
+    stopsResult.error ? [] : stopsResult.data,
+  );
+  const summaries = reviewsResult.success ? reviewsResult.data : {};
+  return success(discoverableRoutes.map((route) => ({
+    ...route,
+    review_rating: summaries[route.id]?.rating ?? null,
+    review_count: summaries[route.id]?.count ?? 0,
+  })));
 }
 
 export async function listAllRoutes() {
@@ -155,6 +198,7 @@ export async function createRoute(payload) {
     return failure(error);
   }
 
+  invalidateActiveRoutesCache();
   return success(data);
 }
 
@@ -222,6 +266,7 @@ export async function updateRoute(routeId, patch) {
     return failure(error);
   }
 
+  invalidateActiveRoutesCache();
   return success(data);
 }
 
@@ -236,6 +281,7 @@ export async function deleteRoute(routeId) {
     return failure(error);
   }
 
+  invalidateActiveRoutesCache();
   return success({ id: routeId });
 }
 
@@ -252,7 +298,7 @@ export async function replaceRouteStops(routeId, stops) {
     const message = validateStop(stop);
     if (message) return failure({ message }, "VALIDATION_ERROR");
   }
-  return request(() =>
+  const result = await request(() =>
     supabase.rpc("m4_replace_route_stops", {
       p_route_id: routeId,
       p_stops: stops.map((stop) => ({
@@ -264,4 +310,6 @@ export async function replaceRouteStops(routeId, stops) {
       })),
     }),
   );
+  if (result.success) invalidateActiveRoutesCache();
+  return result;
 }

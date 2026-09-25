@@ -1,12 +1,13 @@
+import AppSelect from '../../components/common/AppSelect'
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { User, Mail, Lock, IdCard } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { User, Mail, IdCard } from 'lucide-react'
 
 import { signUp } from '../../services/authService'
 import Button from '../../components/common/Button'
+import PasswordField from '../../components/common/PasswordField'
 import campusBg from '../../assets/campus-bg.jpg'
 
-import Home from '../Home'
 import PublicLayout from '../../layouts/PublicLayout'
 
 function validateForm(form) {
@@ -37,8 +38,6 @@ function validateForm(form) {
 }
 
 export default function Register() {
-  const navigate = useNavigate()
-
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -122,48 +121,22 @@ export default function Register() {
   }
 
   return (
-    <div
-      className="
-        relative
-        min-h-screen
-        overflow-hidden
-        bg-background
-        cursor-pointer
-      "
-      onClick={() => navigate('/')}
-    >
-      {/* HOME BACKGROUND */}
-      <div
-        className="
-          absolute
-          inset-0
-          z-0
-          pointer-events-none
-          opacity-60
-          blur-[1px]
-        "
-      >
-        <PublicLayout>
-          <Home />
-        </PublicLayout>
-      </div>
-
-      <div
-        className="
-          absolute
-          inset-0
-          z-10
-          bg-white/40
-          pointer-events-none
-        "
-      />
+    <PublicLayout>
+      <div className="relative min-h-[calc(100vh-6rem)] overflow-hidden bg-background">
+        {/* Shared public navbar is visible and interactive on auth pages too. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-20 blur-sm"
+          style={{ backgroundImage: `url(${campusBg})` }}
+        />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-white/60" />
 
       {/* REGISTER CARD */}
       <div
         className="
           relative
           z-20
-          min-h-screen
+          min-h-[calc(100vh-6rem)]
           flex
           items-center
           justify-center
@@ -189,7 +162,6 @@ export default function Register() {
             lg:min-h-[15cm]
             lg:w-[25cm]
             lg:max-w-[calc(100vw-80px)]
-            lg:max-h-[calc(100vh-40px)]
             lg:overflow-hidden
           "
         >
@@ -200,7 +172,7 @@ export default function Register() {
               hidden
               lg:flex
               lg:w-1/2
-              lg:min-h-full
+              lg:self-stretch
               bg-cover
               bg-center
               flex-col
@@ -364,48 +336,23 @@ export default function Register() {
                 </div>
 
                 {/* PASSWORD */}
-                <div className="relative">
-                  <Lock
-                    className="
-                      absolute
-                      left-4
-                      top-1/2
-                      -translate-y-1/2
-                      text-textSecondary
-                    "
-                    size={18}
-                  />
-
-                  <input
-                    name="password"
-                    type="password"
-                    placeholder="รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)"
-                    value={form.password}
-                    onChange={handleChange}
-                    disabled={loading}
-                    required
-                    minLength={6}
-                    className="
-                      w-full
-                      rounded-full
-                      border
-                      border-border
-                      pl-11
-                      pr-4
-                      py-2.5
-                      text-base
-                      bg-background
-                      text-textPrimary
-                      focus:outline-none
-                      focus:ring-2
-                      focus:ring-primary
-                      disabled:opacity-60
-                    "
-                  />
-                </div>
+                <PasswordField
+                  compact
+                  leadingIcon
+                  label="รหัสผ่าน"
+                  name="password"
+                  placeholder="รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)"
+                  value={form.password}
+                  onChange={handleChange}
+                  autoComplete="new-password"
+                  disabled={loading}
+                  required
+                  minLength={6}
+                />
 
                 {/* MEMBER TYPE */}
-                <select
+                <AppSelect
+                  aria-label="ประเภทสมาชิก"
                   name="memberType"
                   value={form.memberType}
                   onChange={handleChange}
@@ -429,7 +376,7 @@ export default function Register() {
                   <option value="STUDENT">🎓 นักศึกษา</option>
                   <option value="STAFF">💼 บุคลากร</option>
                   <option value="EXTERNAL">👤 บุคคลภายนอก</option>
-                </select>
+                </AppSelect>
 
                 {/* INSTITUTIONAL ID */}
                 {form.memberType !== 'EXTERNAL' && (
@@ -563,6 +510,7 @@ export default function Register() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </PublicLayout>
   )
 }

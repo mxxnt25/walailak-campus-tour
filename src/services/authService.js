@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { clearMyBookingsCache } from './bookingService'
 
 function success(data = null) {
   return {
@@ -135,6 +136,7 @@ export async function signOut() {
     return failure(error)
   }
 
+  clearMyBookingsCache()
   return success()
 }
 
