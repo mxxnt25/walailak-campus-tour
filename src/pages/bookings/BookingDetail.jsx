@@ -12,6 +12,7 @@ import Toast from "../../components/common/Toast";
 import {
   cancelMyBooking,
   getBookingDetail,
+  getBookingDisplayStatus,
 } from "../../services/bookingService";
 
 import { formatDate, formatDateTime, formatTime } from "../../utils/dateTime";
@@ -29,6 +30,7 @@ export default function BookingDetail() {
   const [cancelling, setCancelling] = useState(false);
 
   const [toast, setToast] = useState(null);
+  const [clockNow, setClockNow] = useState(() => new Date());
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +71,11 @@ export default function BookingDetail() {
     };
   }, [id]);
 
+  useEffect(() => {
+    const timer = setInterval(() => setClockNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   function openCancelConfirmation() {
     if (cancelling) {
       return;
@@ -87,6 +94,19 @@ export default function BookingDetail() {
 
   async function handleConfirmCancel() {
     if (cancelling) {
+      return;
+    }
+
+    if (
+      !booking ||
+      booking.status !== "CONFIRMED" ||
+      getBookingDisplayStatus(booking, new Date()) === "COMPLETED"
+    ) {
+      setCancelModalOpen(false);
+      setToast({
+        tone: "danger",
+        message: "รายการจองนี้ไม่สามารถยกเลิกได้แล้ว",
+      });
       return;
     }
 
@@ -144,7 +164,12 @@ export default function BookingDetail() {
           </p>
 
           <div className="mt-5">
-            <Link to="/login" className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">เข้าสู่ระบบ</Link>
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              เข้าสู่ระบบ
+            </Link>
           </div>
         </Card>
       </section>
@@ -161,6 +186,7 @@ export default function BookingDetail() {
 
   const schedule = booking.tour_schedules;
   const route = schedule?.routes;
+  const displayStatus = getBookingDisplayStatus(booking, clockNow);
 
   return (
     <section className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
@@ -177,11 +203,24 @@ export default function BookingDetail() {
             รายละเอียดการจอง
           </h1>
 
-          <StatusBadge status={booking.status} />
+          {displayStatus === "COMPLETED" ? (
+            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+              เสร็จสิ้นแล้ว
+            </span>
+          ) : (
+            <StatusBadge status={displayStatus} />
+          )}
         </div>
       </div>
 
       {errorMessage && <ErrorState message={errorMessage} />}
+
+      {displayStatus === "COMPLETED" && booking.status === "CONFIRMED" && (
+        <p className="text-sm text-textSecondary">
+          สถานะนี้แสดงตามเวลาที่ผ่านไป การรีวิวจะเปิดได้เมื่อระบบยืนยัน
+          สถานะการจองเป็นเสร็จสิ้นจริง
+        </p>
+      )}
 
       <Card>
         <div className="space-y-5">
@@ -264,7 +303,7 @@ export default function BookingDetail() {
             </p>
           </div>
 
-          {booking.status === "CONFIRMED" && (
+          {booking.status === "CONFIRMED" && displayStatus !== "COMPLETED" && (
             <div className="border-t border-border pt-5">
               <Button
                 variant="danger"
@@ -295,8 +334,8 @@ export default function BookingDetail() {
         description={`คุณต้องการยกเลิกการจอง ${route?.name || "รอบนำเที่ยวนี้"} หรือไม่? เมื่อยกเลิกแล้ว ระบบจะคืนจำนวนที่ว่างให้รอบนำเที่ยว`}
         confirmLabel="ยืนยันการยกเลิก"
         cancelLabel="ไม่ยกเลิก"
-        cancelVariant="danger"
-        confirmVariant="primary"
+        cancelVariant="primary"
+        confirmVariant="danger"
         busy={cancelling}
         onConfirm={handleConfirmCancel}
         onCancel={closeCancelConfirmation}
