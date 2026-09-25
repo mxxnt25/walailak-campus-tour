@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import Button from "../../components/common/Button";
@@ -6,17 +6,19 @@ import Card from "../../components/common/Card";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import EmptyState from "../../components/common/EmptyState";
 import ErrorState from "../../components/common/ErrorState";
-import LoadingState from "../../components/common/LoadingState";
 import StatusBadge from "../../components/common/StatusBadge";
 import Toast from "../../components/common/Toast";
 
-import { cancelMyBooking, listMyBookings } from "../../services/bookingService";
+import { cancelMyBooking, getCachedMyBookings, listMyBookings } from "../../services/bookingService";
+import { useAuth } from "../../hooks/useAuth";
 
 import { formatDate, formatTime } from "../../utils/dateTime";
 
 export default function MyBookings() {
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+  const [bookings, setBookings] = useState(() => getCachedMyBookings(userId) ?? []);
+  const [loading, setLoading] = useState(() => getCachedMyBookings(userId) === null);
   const [errorMessage, setErrorMessage] = useState("");
   const [authRequired, setAuthRequired] = useState(false);
 
@@ -25,14 +27,18 @@ export default function MyBookings() {
   const [cancellingId, setCancellingId] = useState(null);
 
   const [toast, setToast] = useState(null);
+  const requestVersionRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
+    const requestVersion = ++requestVersionRef.current;
 
     async function fetchBookings() {
       const result = await listMyBookings();
 
-      if (cancelled) {
+      // A cancellation can complete while a background revalidation is still
+      // in flight. Never overwrite the newer local status with that old read.
+      if (cancelled || requestVersion !== requestVersionRef.current) {
         return;
       }
 
@@ -85,6 +91,7 @@ export default function MyBookings() {
     }
 
     const bookingId = confirmBookingId;
+    ++requestVersionRef.current;
 
     setCancellingId(bookingId);
     setErrorMessage("");
@@ -123,10 +130,6 @@ export default function MyBookings() {
     setConfirmBookingId(null);
   }
 
-  if (loading) {
-    return <LoadingState message="กำลังโหลดรายการจอง..." />;
-  }
-
   if (authRequired) {
     return (
       <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
@@ -140,9 +143,7 @@ export default function MyBookings() {
           </p>
 
           <div className="mt-5">
-            <Link to="/login">
-              <Button>เข้าสู่ระบบ</Button>
-            </Link>
+            <Link to="/login" className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">เข้าสู่ระบบ</Link>
           </div>
         </Card>
       </section>
@@ -166,16 +167,26 @@ export default function MyBookings() {
         </p>
       </div>
 
-      {errorMessage && <ErrorState message={errorMessage} />}
-
-      {bookings.length === 0 ? (
+      {loading ? (
+        <div className="min-h-[480px] space-y-4" aria-busy="true" aria-label="กำลังโหลดรายการจอง">
+          <p role="status" className="text-sm text-textSecondary">กำลังโหลดรายการจอง...</p>
+          {[0, 1, 2].map((placeholder) => (
+            <div key={placeholder} aria-hidden="true" className="motion-safe:animate-pulse rounded-card border border-border bg-surface p-6 shadow-sm">
+              <div className="h-5 w-48 rounded-lg bg-background" />
+              <div className="mt-4 h-4 w-36 rounded-lg bg-background" />
+              <div className="mt-4 h-4 w-3/4 rounded-lg bg-background" />
+              <div className="mt-4 h-4 w-1/2 rounded-lg bg-background" />
+            </div>
+          ))}
+        </div>
+      ) : errorMessage ? (
+        <ErrorState message={errorMessage} />
+      ) : bookings.length === 0 ? (
         <EmptyState
           title="ยังไม่มีรายการจอง"
           description="เลือกเส้นทางและรอบนำเที่ยวที่ต้องการเพื่อเริ่มการจอง"
           action={
-            <Link to="/routes">
-              <Button>ดูเส้นทางนำเที่ยว</Button>
-            </Link>
+            <Link to="/routes" className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">ดูเส้นทางนำเที่ยว</Link>
           }
         />
       ) : (
@@ -240,9 +251,7 @@ export default function MyBookings() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Link to={`/bookings/${booking.id}`}>
-                      <Button variant="secondary">ดูรายละเอียด</Button>
-                    </Link>
+                    <Link to={`/bookings/${booking.id}`} className="inline-flex items-center justify-center rounded-button border border-border bg-surface px-4 py-2 text-sm font-medium text-textPrimary transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">ดูรายละเอียด</Link>
 
                     {booking.status === "CONFIRMED" && (
                       <Button
@@ -269,7 +278,8 @@ export default function MyBookings() {
         description={`คุณต้องการยกเลิกการจอง ${cancelRouteName} หรือไม่? เมื่อยกเลิกแล้ว ระบบจะคืนจำนวนที่ว่างให้รอบนำเที่ยว`}
         confirmLabel="ยืนยันการยกเลิก"
         cancelLabel="ไม่ยกเลิก"
-        confirmVariant="danger"
+        cancelVariant="danger"
+        confirmVariant="primary"
         busy={Boolean(confirmBookingId) && cancellingId === confirmBookingId}
         onConfirm={handleConfirmCancel}
         onCancel={closeCancelConfirmation}

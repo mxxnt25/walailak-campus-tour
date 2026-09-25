@@ -1,4 +1,4 @@
-export default function Button({ variant = 'primary', size = 'md', children, className = '', ...props }) {
+export default function Button({ variant = 'primary', size = 'md', type = 'button', children, className = '', ...props }) {
   const base = 'rounded-button font-medium transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
   const sizes = {
     sm: 'px-3 py-1.5 text-sm',
@@ -12,7 +12,7 @@ export default function Button({ variant = 'primary', size = 'md', children, cla
     ghost: 'text-textPrimary hover:bg-background',
   }
   return (
-    <button className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props}>
+    <button type={type} className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props}>
       {children}
     </button>
   )

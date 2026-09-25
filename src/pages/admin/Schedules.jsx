@@ -1,3 +1,4 @@
+import AppSelect from '../../components/common/AppSelect'
 import { useEffect, useState } from "react";
 import {
   listAdminSchedules,
@@ -318,7 +319,7 @@ export default function AdminSchedules() {
                 <>
                   <label className="block" htmlFor="m4-route">
                     เส้นทาง (Route)
-                    <select
+                    <AppSelect
                       id="m4-route"
                       className={fieldStyle}
                       value={form.route_id}
@@ -333,7 +334,7 @@ export default function AdminSchedules() {
                           {r.name}
                         </option>
                       ))}
-                    </select>
+                    </AppSelect>
                     <span className="text-sm text-danger">
                       {errors.route_id}
                     </span>
@@ -371,7 +372,7 @@ export default function AdminSchedules() {
               ) : (
                 <label className="block" htmlFor="m4-guide">
                   ไกด์ *
-                  <select
+                  <AppSelect
                     id="m4-guide"
                     className={fieldStyle}
                     value={guideId}
@@ -383,7 +384,7 @@ export default function AdminSchedules() {
                         {g.full_name}
                       </option>
                     ))}
-                  </select>
+                  </AppSelect>
                   <span className="text-sm text-danger">{errors.guide}</span>
                   {guides.length === 0 && <p>ไม่มีไกด์ที่เปิดใช้งาน</p>}
                 </label>

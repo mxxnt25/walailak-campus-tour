@@ -33,12 +33,19 @@ export default function RoleGuard({
   } = useAuth()
 
   const location = useLocation()
+  const profileMatchesSession = Boolean(
+    session?.user?.id && profile?.id === session.user.id
+  )
 
   if (
     loading ||
-    (session && profileLoading && !profile)
+    (session && profileLoading && !profileMatchesSession)
   ) {
-    return <LoadingState />
+    return (
+      <div className="flex min-h-[calc(100vh-72px)] items-center justify-center" aria-busy="true">
+        <LoadingState />
+      </div>
+    )
   }
 
   if (!session) {
@@ -64,7 +71,7 @@ export default function RoleGuard({
 
   if (
     allowedRoles &&
-    !allowedRoles.includes(profile?.role)
+    (!profileMatchesSession || !allowedRoles.includes(profile?.role))
   ) {
     return (
       <Navigate

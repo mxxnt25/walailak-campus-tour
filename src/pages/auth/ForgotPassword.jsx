@@ -1,13 +1,11 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Mail } from 'lucide-react'
 
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/common/Button'
 
 export default function ForgotPassword() {
-  const navigate = useNavigate()
-
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -41,7 +39,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6">
+    <div className="min-h-[calc(100vh-6rem)] bg-background flex items-center justify-center px-4 py-8 sm:px-6">
       <div className="w-full max-w-md bg-surface border border-border rounded-2xl shadow-lg p-8">
         <div className="mb-7">
           <p className="text-sm font-semibold text-primary mb-2">
@@ -141,13 +139,6 @@ export default function ForgotPassword() {
           </Link>
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="w-full mt-4 text-sm text-textSecondary hover:text-primary"
-        >
-          กลับหน้าแรก
-        </button>
       </div>
     </div>
   )

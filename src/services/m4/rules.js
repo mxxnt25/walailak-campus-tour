@@ -41,6 +41,38 @@ export function canAssign(schedule, now = Date.now()) {
       scheduleInstant(schedule.tour_date, schedule.start_time)
   );
 }
+// This is a presentation guard. The database RPC enforces the same window.
+export function attendanceAvailability(schedule, now = Date.now()) {
+  const start = scheduleInstant(schedule?.tour_date, schedule?.start_time);
+  const end = scheduleInstant(schedule?.tour_date, schedule?.end_time);
+  const blocked = (message) => ({
+    canCheckIn: false,
+    canNoShow: false,
+    message,
+  });
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return blocked("ข้อมูลเวลาของรอบนำเที่ยวไม่ถูกต้อง กรุณาติดต่อผู้ดูแล");
+  }
+  if (!["OPEN", "FULL", "CLOSED"].includes(schedule?.status)) {
+    return blocked("รอบนี้ปิดการเช็กชื่อแล้ว");
+  }
+  if (now > end) {
+    return blocked("เลยเวลาสิ้นสุดทัวร์แล้ว หากต้องแก้ไขย้อนหลังให้ติดต่อผู้ดูแล");
+  }
+  if (now < start - 60 * 60_000) {
+    return blocked("เปิดให้เช็กอินได้ตั้งแต่ 60 นาทีก่อนเริ่มทัวร์");
+  }
+  if (now < start + 15 * 60_000) {
+    return {
+      canCheckIn: true,
+      canNoShow: false,
+      message: "สามารถเช็กอินได้แล้ว ส่วนการระบุว่าไม่มาทำได้หลังเริ่มทัวร์ 15 นาที",
+    };
+  }
+  return { canCheckIn: true, canNoShow: true, message: "" };
+}
+
 export function thaiToday(now = Date.now()) {
   return new Date(now + 7 * 3600000).toISOString().slice(0, 10);
 }

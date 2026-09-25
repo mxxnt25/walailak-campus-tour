@@ -1,13 +1,23 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useSyncExternalStore } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Lock } from 'lucide-react'
 
-import { supabase } from '../../lib/supabase'
+import {
+  clearPasswordRecovery,
+  getPasswordRecoveryState,
+  subscribePasswordRecovery,
+  supabase,
+} from '../../lib/supabase'
 import Button from '../../components/common/Button'
 import Input from '../../components/common/Input'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
+  const recovery = useSyncExternalStore(
+    subscribePasswordRecovery,
+    getPasswordRecoveryState,
+    getPasswordRecoveryState,
+  )
 
   const [form, setForm] = useState({
     password: '',
@@ -24,6 +34,11 @@ export default function ResetPassword() {
     setMessage('')
     setError('')
 
+    if (recovery.status !== 'ready' || !recovery.userId) {
+      setError('ลิงก์ตั้งรหัสผ่านไม่ถูกต้องหรือหมดอายุ กรุณาขอลิงก์ใหม่')
+      return
+    }
+
     if (form.password.length < 6) {
       setError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
       return
@@ -37,6 +52,13 @@ export default function ResetPassword() {
     setLoading(true)
 
     try {
+      // A regular logged-in session must not unlock the recovery form.
+      const { data, error: userError } = await supabase.auth.getUser()
+      if (userError || data?.user?.id !== recovery.userId) {
+        clearPasswordRecovery()
+        throw new Error('ลิงก์ตั้งรหัสผ่านไม่ถูกต้องหรือหมดอายุ กรุณาขอลิงก์ใหม่')
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: form.password,
       })
@@ -49,9 +71,10 @@ export default function ResetPassword() {
         password: '',
         confirm: '',
       })
+      clearPasswordRecovery()
 
       setTimeout(() => {
-        navigate('/login')
+        navigate('/login', { replace: true })
       }, 1500)
     } catch (err) {
       setError(
@@ -63,7 +86,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6">
+    <div className="min-h-[calc(100vh-6rem)] bg-background flex items-center justify-center px-4 py-8 sm:px-6">
       <div className="w-full max-w-md bg-surface border border-border rounded-2xl shadow-lg p-8">
         <div className="mb-7">
           <Lock
@@ -84,6 +107,27 @@ export default function ResetPassword() {
           </p>
         </div>
 
+        {message ? (
+          <div role="status" className="rounded-xl bg-success/10 text-success px-4 py-3 text-sm">
+            {message}
+          </div>
+        ) : recovery.status === 'checking' ? (
+          <p role="status" className="text-sm text-textSecondary">
+            กำลังตรวจสอบลิงก์ตั้งรหัสผ่าน...
+          </p>
+        ) : recovery.status !== 'ready' ? (
+          <div className="flex flex-col gap-4">
+            <p role="alert" className="text-sm text-danger">
+              ลิงก์ตั้งรหัสผ่านไม่ถูกต้องหรือหมดอายุ กรุณาขอลิงก์ใหม่
+            </p>
+            <Link
+              to="/forgot-password"
+              className="rounded-button bg-primary px-4 py-3 text-center text-sm font-medium text-white"
+            >
+              ขอลิงก์ตั้งรหัสผ่านใหม่
+            </Link>
+          </div>
+        ) : (
         <form
           onSubmit={handleSubmit}
           className="flex flex-col gap-4"
@@ -91,6 +135,7 @@ export default function ResetPassword() {
           <Input
             label="รหัสผ่านใหม่"
             type="password"
+            autoComplete="new-password"
             value={form.password}
             onChange={(e) =>
               setForm({
@@ -105,6 +150,7 @@ export default function ResetPassword() {
           <Input
             label="ยืนยันรหัสผ่านใหม่"
             type="password"
+            autoComplete="new-password"
             value={form.confirm}
             onChange={(e) =>
               setForm({
@@ -114,12 +160,6 @@ export default function ResetPassword() {
             }
             required
           />
-
-          {message && (
-            <div className="rounded-xl bg-success/10 text-success px-4 py-3 text-sm">
-              {message}
-            </div>
-          )}
 
           {error && (
             <div className="rounded-xl bg-danger/10 text-danger px-4 py-3 text-sm">
@@ -137,6 +177,7 @@ export default function ResetPassword() {
               : 'ตั้งรหัสผ่านใหม่'}
           </Button>
         </form>
+        )}
 
         <button
           type="button"

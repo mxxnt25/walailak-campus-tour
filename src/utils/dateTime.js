@@ -1,4 +1,5 @@
 const THAI_LOCALE = 'th-TH'
+const THAI_TIME_ZONE = 'Asia/Bangkok'
 const EMPTY_VALUE = '-'
 
 function toValidDate(value) {
@@ -15,6 +16,7 @@ export function formatDate(value) {
   if (!date) return EMPTY_VALUE
 
   return new Intl.DateTimeFormat(THAI_LOCALE, {
+    timeZone: THAI_TIME_ZONE,
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -39,6 +41,7 @@ export function formatTime(value) {
   if (!date) return EMPTY_VALUE
 
   return `${new Intl.DateTimeFormat(THAI_LOCALE, {
+    timeZone: THAI_TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
@@ -51,6 +54,7 @@ export function formatDateTime(value) {
   if (!date) return EMPTY_VALUE
 
   return new Intl.DateTimeFormat(THAI_LOCALE, {
+    timeZone: THAI_TIME_ZONE,
     day: 'numeric',
     month: 'short',
     year: 'numeric',

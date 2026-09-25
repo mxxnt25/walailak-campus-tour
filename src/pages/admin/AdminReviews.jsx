@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import {
   deleteReviewAsAdmin,
   getAdminReviews,
@@ -31,6 +32,7 @@ function formatDate(value) {
     return new Intl.DateTimeFormat('th-TH', {
       dateStyle: 'medium',
       timeStyle: 'short',
+      timeZone: 'Asia/Bangkok',
     }).format(new Date(value))
   } catch {
     return '-'
@@ -49,6 +51,7 @@ export default function AdminReviews() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionId, setActionId] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
   const [filter, setFilter] = useState('ALL')
 
   async function loadReviews() {
@@ -188,52 +191,22 @@ export default function AdminReviews() {
     }
   }
 
-  async function handleDelete(review) {
-    if (!review?.id) {
-      setError('ไม่พบข้อมูลรีวิว')
-      return
-    }
-
-    const confirmed = window.confirm(
-      `ต้องการลบรีวิวของ "${
-        review.reviewer_name || 'ผู้ใช้งาน'
-      }" หรือไม่?\n\nการลบไม่สามารถย้อนกลับได้`,
-    )
-
-    if (!confirmed) {
-      return
-    }
+  async function handleDelete() {
+    const review = pendingDelete
+    if (!review?.id || actionId !== null) return
 
     try {
       setActionId(review.id)
       setError('')
-
-      const result =
-        await deleteReviewAsAdmin(
-          review.id,
-        )
-
+      const result = await deleteReviewAsAdmin(review.id)
       if (!result.success) {
-        setError(
-          getServiceError(
-            result,
-            'ไม่สามารถลบรีวิวได้',
-          ),
-        )
+        setError(getServiceError(result, 'ไม่สามารถลบรีวิวได้'))
         return
       }
-
-      setReviews((current) =>
-        current.filter(
-          (item) =>
-            item.id !== review.id,
-        ),
-      )
+      setReviews((current) => current.filter((item) => item.id !== review.id))
+      setPendingDelete(null)
     } catch (err) {
-      setError(
-        err?.message ||
-          'ไม่สามารถลบรีวิวได้',
-      )
+      setError(err?.message || 'ไม่สามารถลบรีวิวได้')
     } finally {
       setActionId(null)
     }
@@ -556,7 +529,7 @@ export default function AdminReviews() {
                       type="button"
                       disabled={busy}
                       onClick={() =>
-                        handleDelete(review)
+                        setPendingDelete(review)
                       }
                       className="
                         rounded-button
@@ -584,6 +557,16 @@ export default function AdminReviews() {
           })}
         </div>
       )}
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        title="ยืนยันลบรีวิว"
+        description={`ต้องการลบรีวิวของ ${pendingDelete?.reviewer_name || 'ผู้ใช้งาน'} หรือไม่? การลบไม่สามารถย้อนกลับได้`}
+        confirmLabel="ลบรีวิว"
+        confirmVariant="danger"
+        busy={actionId !== null}
+        onCancel={() => { if (actionId === null) setPendingDelete(null) }}
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

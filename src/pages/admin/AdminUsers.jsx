@@ -1,3 +1,4 @@
+import AppSelect from '../../components/common/AppSelect'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Search,
@@ -17,6 +18,8 @@ import {
 
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
+import ConfirmModal from '../../components/common/ConfirmModal'
+import Toast from '../../components/common/Toast'
 import LoadingState from '../../components/common/LoadingState'
 import ErrorState from '../../components/common/ErrorState'
 import { useAuth } from '../../hooks/useAuth'
@@ -68,6 +71,9 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [refreshing, setRefreshing] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null)
+  const [actionBusy, setActionBusy] = useState(false)
+  const [notice, setNotice] = useState(null)
 
   const currentUserId = session?.user?.id
   const currentRole = profile?.role
@@ -137,78 +143,58 @@ export default function AdminUsers() {
     return []
   }
 
-  async function handleRoleChange(user, newRole) {
-    if (!canManageUser(user)) {
-      alert('คุณไม่มีสิทธิ์เปลี่ยน Role ของบัญชีนี้')
+  function handleRoleChange(user, newRole) {
+    if (user.id === currentUserId || !canManageUser(user)) {
+      setNotice({ tone: 'danger', message: 'คุณไม่มีสิทธิ์เปลี่ยนบทบาทของบัญชีนี้' })
       return
     }
-
     if (user.role === newRole) return
-
-    const confirmed = window.confirm(
-      `ยืนยันเปลี่ยน Role ของ "${user.full_name}" จาก ${ROLE_LABELS[user.role] || user.role} เป็น ${ROLE_LABELS[newRole] || newRole}?`
-    )
-
-    if (!confirmed) return
-
-    try {
-      const result = await updateUserRole(
-        user.id,
-        newRole
-      )
-
-      if (!result.success) {
-        throw new Error(result.error.message)
-      }
-
-      await load(true)
-    } catch (err) {
-      alert(
-        'เปลี่ยน Role ไม่สำเร็จ: ' +
-          err.message
-      )
+    if (!getAllowedRoles(user).includes(newRole)) {
+      setNotice({ tone: 'danger', message: 'บทบาทที่เลือกไม่อยู่ในสิทธิ์ของคุณ' })
+      return
     }
+    setPendingAction({ kind: 'role', user, newRole })
   }
 
-  async function handleDelete(user) {
+  function handleDelete(user) {
     if (user.id === currentUserId) {
-      alert('ไม่สามารถจัดการบัญชีที่กำลังใช้งานอยู่ได้')
+      setNotice({ tone: 'danger', message: 'ไม่สามารถจัดการบัญชีที่กำลังใช้งานอยู่ได้' })
       return
     }
-
-    if (user.account_status !== 'ACTIVE') {
-      alert('บัญชีนี้ถูกปิดใช้งานแล้ว')
+    if (user.account_status !== 'ACTIVE' || !canManageUser(user)) {
+      setNotice({ tone: 'danger', message: 'คุณไม่มีสิทธิ์จัดการบัญชีนี้' })
       return
     }
+    setPendingAction({ kind: 'delete', user })
+  }
 
-    if (!canManageUser(user)) {
-      alert('คุณไม่มีสิทธิ์จัดการบัญชีนี้')
-      return
-    }
-
-    const confirmed = window.confirm(
-      `ยืนยันจัดการบัญชี "${user.full_name}" (${user.email})?\n\n` +
-        'หากบัญชีไม่มีประวัติการใช้งาน ระบบจะลบบัญชีถาวร\n' +
-        'หากมีประวัติ Booking / Review / Assignment / Incident ระบบจะเก็บประวัติและปิดการใช้งานบัญชีแทน'
-    )
-
-    if (!confirmed) return
-
+  async function confirmPendingAction() {
+    if (!pendingAction || actionBusy) return
+    const { kind, user, newRole } = pendingAction
+    setActionBusy(true)
+    setNotice(null)
     try {
-      const result = await deleteUserProfile(
-        user.id
-      )
-
-      if (!result.success) {
-        throw new Error(result.error.message)
+      // Recheck the original page-level guard. DB policies remain authoritative.
+      if (user.id === currentUserId || !canManageUser(user)) {
+        throw new Error('คุณไม่มีสิทธิ์จัดการบัญชีนี้')
       }
-
+      const result = kind === 'role'
+        ? await updateUserRole(user.id, newRole)
+        : await deleteUserProfile(user.id)
+      if (!result.success) {
+        throw new Error(result.error?.message || 'ดำเนินการไม่สำเร็จ')
+      }
+      setPendingAction(null)
       await load(true)
+      setNotice({
+        tone: 'success',
+        message: kind === 'role' ? 'เปลี่ยนบทบาทเรียบร้อยแล้ว' : 'จัดการบัญชีเรียบร้อยแล้ว',
+      })
     } catch (err) {
-      alert(
-        'จัดการบัญชีไม่สำเร็จ: ' +
-          err.message
-      )
+      setNotice({ tone: 'danger', message: err?.message || 'ดำเนินการไม่สำเร็จ กรุณาลองใหม่' })
+      setPendingAction(null)
+    } finally {
+      setActionBusy(false)
     }
   }
 
@@ -443,7 +429,8 @@ export default function AdminUsers() {
             />
           </div>
 
-          <select
+          <AppSelect
+            aria-label="กรองผู้ใช้ตามบทบาท"
             value={roleFilter}
             onChange={(e) =>
               setRoleFilter(e.target.value)
@@ -472,9 +459,10 @@ export default function AdminUsers() {
                 {item.label}
               </option>
             ))}
-          </select>
+          </AppSelect>
 
-          <select
+          <AppSelect
+            aria-label="กรองผู้ใช้ตามสถานะ"
             value={statusFilter}
             onChange={(e) =>
               setStatusFilter(
@@ -505,7 +493,7 @@ export default function AdminUsers() {
                 {item.label}
               </option>
             ))}
-          </select>
+          </AppSelect>
         </div>
 
         <p
@@ -546,7 +534,7 @@ export default function AdminUsers() {
             uppercase
             tracking-wide
             text-textSecondary
-            xl:grid
+            2xl:grid
           "
         >
           <span>ผู้ใช้งาน</span>
@@ -560,10 +548,10 @@ export default function AdminUsers() {
         {filteredUsers.map((user) => {
           const allowedRoles =
             getAllowedRoles(user)
-          const manageable =
-            canManageUser(user)
           const isCurrentUser =
             user.id === currentUserId
+          const manageable =
+            canManageUser(user) && !isCurrentUser
           const isInactive =
             user.account_status ===
             'DEACTIVATED'
@@ -587,8 +575,8 @@ export default function AdminUsers() {
                 py-5
                 transition
                 last:border-b-0
-                xl:grid-cols-[minmax(260px,1.6fr)_170px_150px_minmax(280px,1fr)]
-                xl:items-center
+                2xl:grid-cols-[minmax(220px,1.4fr)_130px_130px_minmax(430px,1fr)]
+                2xl:items-center
                 ${
                   isInactive
                     ? 'bg-gray-50/80 opacity-70'
@@ -742,8 +730,10 @@ export default function AdminUsers() {
                   flex-col
                   gap-2
                   sm:flex-row
+                  sm:flex-wrap
                   sm:items-center
-                  xl:justify-end
+                  2xl:flex-nowrap
+                  2xl:justify-end
                 "
               >
                 {isInactive ? (
@@ -757,8 +747,10 @@ export default function AdminUsers() {
                   </span>
                 ) : manageable &&
                   allowedRoles.length > 0 ? (
-                  <select
+                  <AppSelect
+                    aria-label={`เปลี่ยนบทบาทของ ${user.full_name || user.email || 'ผู้ใช้'}`}
                     value={user.role}
+                    disabled={actionBusy || Boolean(pendingAction)}
                     onChange={(e) =>
                       handleRoleChange(
                         user,
@@ -766,7 +758,8 @@ export default function AdminUsers() {
                       )
                     }
                     className="
-                      min-w-[170px]
+                      min-w-[220px]
+                      sm:w-[220px]
                       rounded-xl
                       border
                       border-border
@@ -794,7 +787,7 @@ export default function AdminUsers() {
                         </option>
                       )
                     )}
-                  </select>
+                  </AppSelect>
                 ) : (
                   <span
                     className="
@@ -811,11 +804,15 @@ export default function AdminUsers() {
                   !isCurrentUser && (
                     <button
                       type="button"
+                      disabled={actionBusy || Boolean(pendingAction)}
                       onClick={() =>
                         handleDelete(user)
                       }
                       className="
                         inline-flex
+                        w-full
+                        shrink-0
+                        sm:w-auto
                         items-center
                         justify-center
                         gap-2
@@ -935,6 +932,23 @@ export default function AdminUsers() {
           </div>
         </div>
       </div>
+      <Toast
+        message={notice?.message || ''}
+        tone={notice?.tone || 'success'}
+        onClose={() => setNotice(null)}
+      />
+      <ConfirmModal
+        open={Boolean(pendingAction)}
+        title={pendingAction?.kind === 'role' ? 'ยืนยันเปลี่ยนบทบาท' : 'ยืนยันจัดการบัญชี'}
+        description={pendingAction?.kind === 'role'
+          ? `เปลี่ยนบทบาทของ ${pendingAction.user.full_name || pendingAction.user.email} จาก ${ROLE_LABELS[pendingAction.user.role] || pendingAction.user.role} เป็น ${ROLE_LABELS[pendingAction.newRole] || pendingAction.newRole}?`
+          : `จัดการบัญชี ${pendingAction?.user.full_name || pendingAction?.user.email || ''}?\nบัญชีที่มีประวัติจะถูกปิดใช้งานเพื่อเก็บข้อมูล ส่วนบัญชีที่ไม่มีประวัติอาจถูกลบถาวร`}
+        confirmLabel={pendingAction?.kind === 'role' ? 'เปลี่ยนบทบาท' : 'ลบ / ปิดใช้งาน'}
+        confirmVariant={pendingAction?.kind === 'delete' ? 'danger' : 'primary'}
+        busy={actionBusy}
+        onCancel={() => { if (!actionBusy) setPendingAction(null) }}
+        onConfirm={confirmPendingAction}
+      />
     </div>
   )
 }

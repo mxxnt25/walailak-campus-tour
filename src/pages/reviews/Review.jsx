@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   CalendarDays,
   CheckCircle2,
@@ -20,7 +20,7 @@ import {
   getReviews,
 } from '../../services/review'
 
-import { listRouteStops } from '../../services/routeService'
+import { listRouteStops, invalidateActiveRoutesCache } from '../../services/routeService'
 
 import {
   getGuideNameForSchedule,
@@ -104,6 +104,8 @@ function formatReviewDate(dateValue) {
 
 function Review() {
   const { bookingId } = useParams()
+  const [searchParams] = useSearchParams()
+  const routeId = bookingId ? null : searchParams.get('routeId')
 
   const [trip, setTrip] = useState(null)
   const [canReview, setCanReview] = useState(false)
@@ -152,7 +154,7 @@ function Review() {
         // PUBLIC REVIEW PAGE
         // ====================================================
         if (!bookingId) {
-          const reviewResult = await getReviews()
+          const reviewResult = await getReviews(null, routeId)
 
           if (!reviewResult.success) {
             throw new Error(
@@ -374,7 +376,7 @@ function Review() {
     return () => {
       isActive = false
     }
-  }, [bookingId])
+  }, [bookingId, routeId])
 
   const clearMessage = () => {
     setMessage('')
@@ -472,6 +474,7 @@ function Review() {
         return
       }
 
+      invalidateActiveRoutesCache()
       const newReview =
         createResult.data
 
@@ -511,12 +514,16 @@ function Review() {
     <main className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-900">
-          รีวิวการเดินทาง
+          {routeId ? 'รีวิวของเส้นทางนี้' : 'รีวิวการเดินทาง'}
         </h1>
-
         <p className="mt-1 text-sm text-gray-600">
-          แบ่งปันประสบการณ์และความคิดเห็นของคุณ
+          {routeId ? 'รีวิวของผู้ที่เคยร่วมทัวร์ในเส้นทางนี้' : 'แบ่งปันประสบการณ์และความคิดเห็นของคุณ'}
         </p>
+        {routeId && (
+          <Link to={`/routes/${encodeURIComponent(routeId)}`} className="mt-3 inline-block text-sm font-semibold text-primary hover:underline">
+            ← กลับไปยังรายละเอียดเส้นทาง
+          </Link>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -540,12 +547,12 @@ function Review() {
               !isLoading && (
                 <div className="mb-5 rounded-xl border border-purple-200 bg-purple-50 p-5">
                   <h3 className="font-semibold text-purple-800">
-                    เลือกรายการจองที่ต้องการรีวิว
+                    {routeId ? 'รีวิวจากผู้ร่วมทัวร์' : 'เลือกรายการจองที่ต้องการรีวิว'}
                   </h3>
-
                   <p className="mt-1 text-sm text-purple-700">
-                    กรุณาเข้าหน้ารายการจองของฉัน
-                    แล้วเลือกการจองที่เดินทางเสร็จสิ้น
+                    {routeId
+                      ? 'กำลังแสดงเฉพาะความคิดเห็นที่เผยแพร่ของเส้นทางที่เลือก'
+                      : 'กรุณาเข้าหน้ารายการจองของฉัน แล้วเลือกการจองที่เดินทางเสร็จสิ้น'}
                   </p>
                 </div>
               )}
@@ -805,7 +812,7 @@ function Review() {
               <h2 className="text-xl font-bold text-gray-900">
                 {bookingId
                   ? 'รีวิวของการจองนี้'
-                  : 'รีวิวล่าสุด'}
+                  : routeId ? 'รีวิวของเส้นทางนี้' : 'รีวิวล่าสุด'}
               </h2>
 
               <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">

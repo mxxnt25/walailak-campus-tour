@@ -34,9 +34,11 @@ export default function GuideDashboard() {
 
         setAssignments(assignmentsWithCount);
       } else {
+        setAssignments([]);
         setErrorMsg(res.error?.message || 'โหลดตารางงานไม่สำเร็จ กรุณาลองอีกครั้ง');
       }
     } catch {
+      setAssignments([]);
       setErrorMsg("โหลดตารางงานไม่สำเร็จ กรุณาลองอีกครั้ง");
     } finally {
       setIsLoading(false);

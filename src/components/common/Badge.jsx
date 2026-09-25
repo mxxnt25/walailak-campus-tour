@@ -6,7 +6,7 @@ export default function Badge({ children, color = 'primary' }) {
     danger: 'bg-danger/10 text-danger',
   }
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[color]}`}>
+    <span className={`inline-flex shrink-0 items-center whitespace-nowrap px-2 py-1 rounded-full text-xs font-medium ${colors[color]}`}>
       {children}
     </span>
   )

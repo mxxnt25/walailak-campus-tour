@@ -1,37 +1,59 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { listActiveRoutes } from '../services/routeService'
+import { getCachedActiveRoutes, listActiveRoutes } from '../services/routeService'
+import RouteCover from '../components/routes/RouteCover'
+import RouteRating from '../components/reviews/RouteRating'
 
 export default function Home() {
   const navigate = useNavigate()
 
-  const [routes, setRoutes] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [routes, setRoutes] = useState(() => getCachedActiveRoutes() ?? [])
+  const [loading, setLoading] = useState(() => getCachedActiveRoutes() === null)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    loadRoutes()
+    let active = true
+    listActiveRoutes().then((result) => {
+      if (!active) return
+      if (!result?.success) {
+        setError(result?.error?.message || 'ไม่สามารถโหลดเส้นทางแนะนำได้ในขณะนี้')
+        setRoutes([])
+      } else {
+        setRoutes(result.data || [])
+        setError('')
+      }
+    }).catch(() => {
+      if (active) setError('ไม่สามารถโหลดเส้นทางแนะนำได้ในขณะนี้')
+    }).finally(() => {
+      if (active) setLoading(false)
+    })
+    return () => { active = false }
   }, [])
 
   async function loadRoutes() {
     setLoading(true)
     setError('')
 
-    const result = await listActiveRoutes()
+    try {
+      const result = await listActiveRoutes()
 
-    if (!result?.success) {
-      setError(
-        result?.error?.message ||
+      if (!result?.success) {
+        setRoutes([])
+        setError(
+          result?.error?.message ||
           'ไม่สามารถโหลดเส้นทางแนะนำได้ในขณะนี้'
-      )
-      setRoutes([])
-      setLoading(false)
-      return
-    }
+        )
+        return
+      }
 
-    setRoutes(result.data || [])
-    setLoading(false)
+      setRoutes(result.data || [])
+    } catch {
+      setRoutes([])
+      setError('ไม่สามารถโหลดเส้นทางแนะนำได้ในขณะนี้')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const featuredRoutes = useMemo(() => {
@@ -307,17 +329,10 @@ export default function Home() {
                 "
               >
                 <div className="relative h-44 overflow-hidden">
-                  <img
-                    src="/images/home-campus.jpg"
-                    alt={route.name}
-                    className="
-                      h-full
-                      w-full
-                      object-cover
-                      transition
-                      duration-300
-                      group-hover:scale-105
-                    "
+                  <RouteCover
+                    src={route.cover_image_url}
+                    alt={`ภาพเส้นทาง ${route.name}`}
+                    className="h-full w-full transition duration-300 group-hover:scale-105"
                   />
 
                   <span
@@ -347,6 +362,7 @@ export default function Home() {
                     {route.description ||
                       'สำรวจเส้นทางท่องเที่ยวภายในมหาวิทยาลัย'}
                   </p>
+                  <RouteRating rating={route.review_rating} count={route.review_count} className="mt-2" />
 
                   <div className="mt-4 flex items-center justify-between gap-2 text-xs text-textSecondary">
                     <span>

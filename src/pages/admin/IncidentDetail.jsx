@@ -10,6 +10,7 @@ import StatusBadge from '../../components/common/StatusBadge'
 import Toast from '../../components/common/Toast'
 import { formatDateTime } from '../../utils/dateTime'
 import { getStatusLabel } from '../../utils/status'
+import { getIncidentSeverityLabel } from '../../utils/incidentDisplay'
 import {
   listIncidentsForAdmin,
   updateIncidentStatus,
@@ -46,9 +47,16 @@ export default function IncidentDetail() {
     let cancelled = false
 
     async function fetchIncident() {
-      const result = await listIncidentsForAdmin({
-        incidentId: id,
-      })
+      let result
+      try {
+        result = await listIncidentsForAdmin({ incidentId: id })
+      } catch {
+        if (!cancelled) {
+          setError('เชื่อมต่อเพื่อโหลดรายละเอียดเหตุการณ์ไม่สำเร็จ กรุณาลองใหม่')
+          setLoading(false)
+        }
+        return
+      }
 
       if (cancelled) return
 
@@ -82,34 +90,33 @@ export default function IncidentDetail() {
 
   async function handleStatusChange() {
     const newStatus = pendingStatus
-
-    if (!incident || !newStatus || newStatus === incident.status) {
+    if (updating || !incident || !newStatus || newStatus === incident.status) {
       setPendingStatus(null)
       return
     }
 
     setUpdating(true)
     setToast(null)
-
-    const result = await updateIncidentStatus(incident.id, newStatus)
-
-    if (!result.success) {
+    try {
+      const result = await updateIncidentStatus(incident.id, newStatus)
+      if (!result.success) {
+        setToast({
+          tone: 'danger',
+          message: result.error?.message || 'ไม่สามารถเปลี่ยนสถานะเหตุการณ์ได้',
+        })
+        return
+      }
+      setIncident(result.data)
+      setToast({tone: 'success', message: 'อัปเดตสถานะเหตุการณ์เรียบร้อยแล้ว'})
+    } catch {
       setToast({
         tone: 'danger',
-        message: result.error?.message || 'ไม่สามารถเปลี่ยนสถานะเหตุการณ์ได้',
+        message: 'เชื่อมต่อเพื่อเปลี่ยนสถานะเหตุการณ์ไม่สำเร็จ กรุณาลองใหม่',
       })
+    } finally {
       setUpdating(false)
       setPendingStatus(null)
-      return
     }
-
-    setIncident(result.data)
-    setToast({
-      tone: 'success',
-      message: 'อัปเดตสถานะเหตุการณ์เรียบร้อยแล้ว',
-    })
-    setUpdating(false)
-    setPendingStatus(null)
   }
 
   if (loading) {
@@ -129,7 +136,7 @@ export default function IncidentDetail() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium text-primary">
-            Incident Management
+            ระบบจัดการเหตุการณ์
           </p>
 
           <h1 className="mt-1 text-2xl font-bold text-textPrimary">
@@ -165,7 +172,7 @@ export default function IncidentDetail() {
         <Card className="lg:col-span-2">
           <div className="mb-5 flex flex-wrap items-center gap-2">
             <Badge color={SEVERITY_COLORS[incident.severity]}>
-              {incident.severity}
+              {getIncidentSeverityLabel(incident.severity)}
             </Badge>
 
             <StatusBadge status={incident.status} />
@@ -192,7 +199,7 @@ export default function IncidentDetail() {
 
             <div>
               <p className="text-sm text-textSecondary">
-                Schedule ID
+                รหัสรอบนำเที่ยว
               </p>
               <p className="mt-1 break-all text-sm text-textPrimary">
                 {incident.schedule_id}
@@ -201,7 +208,7 @@ export default function IncidentDetail() {
 
             <div>
               <p className="text-sm text-textSecondary">
-                Reporter ID
+                รหัสผู้รายงาน
               </p>
               <p className="mt-1 break-all text-sm text-textPrimary">
                 {incident.reported_by}
@@ -236,7 +243,7 @@ export default function IncidentDetail() {
           </h2>
 
           <p className="mt-1 text-sm text-textSecondary">
-            เลือกสถานะปัจจุบันของเหตุการณ์
+            เปลี่ยนสถานะตามลำดับ: เปิดอยู่ → กำลังดำเนินการ → แก้ไขแล้ว
           </p>
 
           <div className="mt-5">

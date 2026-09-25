@@ -5,8 +5,9 @@ export default function ConfirmModal({
   open,
   title,
   description = '',
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel = 'ยืนยัน',
+  cancelLabel = 'ยกเลิก',
+  cancelVariant = 'secondary',
   confirmVariant = 'primary',
   busy = false,
   onConfirm,
@@ -95,7 +96,7 @@ export default function ConfirmModal({
         {description && (
           <p
             id="confirm-modal-description"
-            className="mt-2 text-sm text-textSecondary"
+            className="mt-2 whitespace-pre-line text-sm text-textSecondary"
           >
             {description}
           </p>
@@ -104,7 +105,7 @@ export default function ConfirmModal({
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
             type="button"
-            variant="secondary"
+            variant={cancelVariant}
             disabled={busy}
             onClick={onCancel}
           >
@@ -117,7 +118,7 @@ export default function ConfirmModal({
             disabled={busy}
             onClick={onConfirm}
           >
-            {busy ? 'Processing...' : confirmLabel}
+            {busy ? 'กำลังดำเนินการ...' : confirmLabel}
           </Button>
         </div>
       </div>

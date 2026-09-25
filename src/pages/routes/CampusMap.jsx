@@ -1,4 +1,4 @@
-import { Component, useEffect, useRef, useState } from 'react'
+import { Component, memo, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MapContainer,
   Marker,
@@ -95,11 +95,12 @@ function CampusMap({ stops = [] }) {
   const [tileState, setTileState] = useState('loading')
   const tileErrorRef = useRef(false)
 
-  const validStops = stops.filter(
+  // Parent updates its clock every second; refit only when actual stops change.
+  const validStops = useMemo(() => stops.filter(
     (stop) =>
       Number.isFinite(Number(stop.latitude)) &&
       Number.isFinite(Number(stop.longitude)),
-  )
+  ), [stops])
 
   if (validStops.length === 0) {
     return (
@@ -119,7 +120,7 @@ function CampusMap({ stops = [] }) {
 
   return (
     <MapErrorBoundary>
-      <div className="relative overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+      <div className="campus-map relative isolate z-0 overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {tileState === 'loading' && (
           <div className="absolute inset-0 z-[500] flex items-center justify-center bg-surface/90">
             <LoadingState message="กำลังโหลดแผนที่..." />
@@ -190,4 +191,4 @@ function CampusMap({ stops = [] }) {
   )
 }
 
-export default CampusMap
+export default memo(CampusMap)

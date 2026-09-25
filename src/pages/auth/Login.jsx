@@ -7,17 +7,17 @@ import {
   Link,
 } from "react-router-dom";
 
-import { Mail, Lock } from "lucide-react";
+import { Mail } from "lucide-react";
 
 import { signIn } from "../../services/authService";
 import { getProfile } from "../../services/profileService";
 import { useAuth } from "../../hooks/useAuth";
 
 import Button from "../../components/common/Button";
+import PasswordField from "../../components/common/PasswordField";
 import LoadingState from "../../components/common/LoadingState";
 import campusBg from "../../assets/campus-bg.jpg";
 
-import Home from "../Home";
 import PublicLayout from "../../layouts/PublicLayout";
 
 function getRoleHome(role) {
@@ -140,53 +140,22 @@ export default function Login() {
     (session && profile)
   ) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-[calc(100vh-72px)] flex items-center justify-center bg-background">
         <LoadingState />
       </div>
     );
   }
 
   return (
-    <div
-      className="
-        relative
-        min-h-screen
-        overflow-hidden
-        bg-background
-        cursor-pointer
-      "
-      onClick={() => navigate("/")}
-    >
-      {/* =======================================================
-          หน้า Home จริง อยู่ด้านหลังแบบจาง ๆ
-      ======================================================= */}
-      <div
-        className="
-          absolute
-          inset-0
-          z-0
-          pointer-events-none
-          opacity-60
-          blur-[1px]
-        "
-      >
-        <PublicLayout>
-          <Home />
-        </PublicLayout>
-      </div>
-
-      {/* =======================================================
-          ชั้นสีขาวจาง ๆ คลุม Home
-      ======================================================= */}
-      <div
-        className="
-          absolute
-          inset-0
-          z-10
-          bg-white/40
-          pointer-events-none
-        "
-      />
+    <PublicLayout>
+      <div className="relative min-h-[calc(100vh-6rem)] overflow-hidden bg-background">
+        {/* Shared public navbar is visible and interactive on auth pages too. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-20 blur-sm"
+          style={{ backgroundImage: `url(${campusBg})` }}
+        />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-white/60" />
 
       {/* =======================================================
           LOGIN CARD
@@ -195,7 +164,7 @@ export default function Login() {
         className="
           relative
           z-20
-          min-h-screen
+          min-h-[calc(100vh-6rem)]
           flex
           items-center
           justify-center
@@ -218,10 +187,9 @@ export default function Login() {
             shadow-2xl
             cursor-default
             lg:flex
-            lg:h-[15cm]
+            lg:h-[560px]
             lg:w-[25cm]
             lg:max-w-[calc(100vw-80px)]
-            lg:max-h-[calc(100vh-80px)]
             lg:overflow-hidden
           "
         >
@@ -234,7 +202,7 @@ export default function Login() {
               hidden
               lg:flex
               lg:w-1/2
-              lg:h-full
+              lg:self-stretch
               bg-cover
               bg-center
               flex-col
@@ -300,7 +268,7 @@ export default function Login() {
               p-5
               sm:p-8
               lg:w-1/2
-              lg:h-full
+              lg:self-stretch
               lg:p-10
               lg:overflow-y-auto
             "
@@ -360,42 +328,18 @@ export default function Login() {
                 </div>
 
                 {/* Password */}
-                <div className="relative">
-                  <Lock
-                    className="
-                      absolute
-                      left-4
-                      top-1/2
-                      -translate-y-1/2
-                      text-textSecondary
-                    "
-                    size={18}
-                  />
-
-                  <input
-                    name="password"
-                    type="password"
-                    placeholder="รหัสผ่าน"
-                    value={form.password}
-                    onChange={handleChange}
-                    required
-                    className="
-                      w-full
-                      rounded-full
-                      border
-                      border-border
-                      pl-11
-                      pr-4
-                      py-2.5
-                      text-base
-                      bg-background
-                      text-textPrimary
-                      focus:outline-none
-                      focus:ring-2
-                      focus:ring-primary
-                    "
-                  />
-                </div>
+                <PasswordField
+                  compact
+                  leadingIcon
+                  label="รหัสผ่าน"
+                  name="password"
+                  placeholder="รหัสผ่าน"
+                  value={form.password}
+                  onChange={handleChange}
+                  autoComplete="current-password"
+                  disabled={loading}
+                  required
+                />
 
                 {/* Forgot Password */}
                 <div className="flex justify-end">
@@ -468,6 +412,7 @@ export default function Login() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </PublicLayout>
   );
 }

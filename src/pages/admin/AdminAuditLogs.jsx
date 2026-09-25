@@ -1,3 +1,4 @@
+import AppSelect from '../../components/common/AppSelect'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Search,
@@ -76,13 +77,13 @@ function formatData(data) {
 function formatDate(value) {
   if (!value) return '-'
 
-  return new Date(value).toLocaleString(
-    'th-TH',
-    {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }
-  )
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return new Intl.DateTimeFormat('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Bangkok',
+  }).format(date)
 }
 
 export default function AdminAuditLogs() {
@@ -356,7 +357,8 @@ export default function AdminAuditLogs() {
             />
           </div>
 
-          <select
+          <AppSelect
+            aria-label="กรองบันทึกตามการกระทำ"
             value={actionFilter}
             onChange={(event) =>
               setActionFilter(
@@ -389,7 +391,7 @@ export default function AdminAuditLogs() {
                 </option>
               )
             )}
-          </select>
+          </AppSelect>
         </div>
 
         <p

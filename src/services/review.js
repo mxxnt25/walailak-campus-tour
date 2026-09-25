@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { buildRouteReviewSummaries } from '../utils/reviewSummary'
 
 const ERROR_CODES = {
   AUTH_REQUIRED: 'AUTH_REQUIRED',
@@ -207,7 +208,7 @@ async function getCurrentUser({
 // PUBLIC REVIEW LIST
 // ============================================================
 
-export async function getReviews(bookingId = null) {
+export async function getReviews(bookingId = null, routeId = null, limit = null) {
   try {
     let query = supabase
       .from('reviews')
@@ -215,6 +216,7 @@ export async function getReviews(bookingId = null) {
         id,
         booking_id,
         user_id,
+        route_id,
         reviewer_name,
         overall_rating,
         guide_rating,
@@ -230,6 +232,12 @@ export async function getReviews(bookingId = null) {
 
     if (bookingId) {
       query = query.eq('booking_id', bookingId)
+    }
+    if (routeId) {
+      query = query.eq('route_id', routeId)
+    }
+    if (Number.isInteger(limit) && limit > 0) {
+      query = query.limit(limit)
     }
 
     const { data, error } = await query
@@ -247,6 +255,32 @@ export async function getReviews(bookingId = null) {
       error,
       'ไม่สามารถโหลดรายการรีวิวได้',
     )
+  }
+}
+
+// Public summaries use ONLY visible reviews and route/rating columns.
+// Page through the results so an active route is not silently capped at
+// Supabase's default row limit once the site has many reviews.
+export async function getRouteReviewSummaries(routeIds = []) {
+  if (!Array.isArray(routeIds) || routeIds.length === 0) return success({})
+  const rows = []
+  const pageSize = 500
+  try {
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('route_id, overall_rating')
+        .eq('is_hidden', false)
+        .in('route_id', routeIds)
+        .order('id', { ascending: true })
+        .range(offset, offset + pageSize - 1)
+      if (error) return failureFromError(error, 'ไม่สามารถโหลดคะแนนรีวิวได้')
+      rows.push(...(data || []))
+      if (!data || data.length < pageSize) break
+    }
+    return success(buildRouteReviewSummaries(rows))
+  } catch (error) {
+    return failureFromError(error, 'ไม่สามารถโหลดคะแนนรีวิวได้')
   }
 }
 
