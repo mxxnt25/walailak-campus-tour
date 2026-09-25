@@ -4,7 +4,10 @@
 
 /* Reserve a consistent scrollbar lane: switching between short and long pages
    must not shift the shared navbar or content horizontally. */
-html { scrollbar-gutter: stable; }
+html {
+  scrollbar-gutter: stable;
+  font-family: "Prompt", ui-sans-serif, system-ui, sans-serif;
+}
 
 body {
   background-color: #F8FAFC;
