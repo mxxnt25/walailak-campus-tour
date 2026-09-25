@@ -154,6 +154,7 @@ export default function Profile() {
   useEffect(() => {
     if (!profile) return
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
       full_name:
         profile.full_name || '',

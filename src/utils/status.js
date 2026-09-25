@@ -27,6 +27,11 @@ export const STATUS_META = Object.freeze({
     label: 'ปิดการใช้งาน',
     tone: 'danger',
   },
+  FULL: {
+  label: 'เต็มแล้ว',
+  tone: 'warning',
+},
+
   HIDDEN: {
     label: 'ซ่อนอยู่',
     tone: 'warning',
