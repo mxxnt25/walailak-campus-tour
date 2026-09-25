@@ -153,8 +153,79 @@ export default function AdminSchedules() {
           ลองอีกครั้ง
         </Button>
       )}
-      <div className="overflow-x-auto rounded-card border border-border bg-surface">
-        <table className="w-full text-left text-sm">
+      <div className="space-y-3 sm:hidden">
+        {loading ? (
+          <div className="rounded-card border border-border bg-surface p-6 text-center text-textSecondary">
+            กำลังโหลด…
+          </div>
+        ) : schedules.length === 0 ? (
+          <div className="rounded-card border border-border bg-surface p-6 text-center text-textSecondary">
+            ยังไม่มีรอบนำเที่ยว เริ่มด้วยปุ่มสร้างรอบนำเที่ยว
+          </div>
+        ) : (
+          schedules.map((s) => {
+            const a = Array.isArray(s.guide_assignments)
+              ? s.guide_assignments[0]
+              : s.guide_assignments;
+            return (
+              <article key={s.id} className="min-w-0 rounded-card border border-border bg-surface p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold">{formatDate(s.tour_date)}</p>
+                    <p className="text-sm text-textSecondary">
+                      {formatTime(s.start_time)} – {formatTime(s.end_time)}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center justify-center rounded-md border px-3 py-1.5 text-xs font-semibold ${scheduleStatusColors[s.status] || "bg-slate-100 text-slate-700 border-slate-300"}`}
+                  >
+                    {statusLabel(s.status)}
+                  </span>
+                </div>
+
+                <p className="mt-3 break-words font-medium">
+                  {s.routes?.name || "ไม่พบเส้นทาง"}
+                </p>
+                <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3 text-sm">
+                  <div>
+                    <dt className="text-textSecondary">ความจุ</dt>
+                    <dd className="mt-1 font-medium">{s.max_participants} คน</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-textSecondary">ไกด์</dt>
+                    <dd className="mt-1 break-words font-medium">
+                      {a
+                        ? guides.find((g) => g.id === a.guide_id)?.full_name ||
+                          "ไกด์ที่ได้รับมอบหมาย"
+                        : "ยังไม่มอบหมาย"}
+                    </dd>
+                    {a && (
+                      <dd className="text-textSecondary">{statusLabel(a.status)}</dd>
+                    )}
+                  </div>
+                </dl>
+
+                {["OPEN", "FULL"].includes(s.status) && !isUpcoming(s) && (
+                  <p className="mt-3 text-sm text-danger">
+                    ผ่านเวลาเริ่มแล้ว · จองไม่ได้
+                  </p>
+                )}
+                <Button
+                  className="mt-4 w-full"
+                  size="sm"
+                  variant="secondary"
+                  disabled={!canAssign(s) || !!error}
+                  onClick={() => open("assign", s)}
+                >
+                  {a ? "เปลี่ยนไกด์" : "มอบหมายไกด์"}
+                </Button>
+              </article>
+            );
+          })
+        )}
+      </div>
+      <div className="hidden overflow-x-auto rounded-card border border-border bg-surface sm:block">
+        <table className="w-full min-w-[800px] text-left text-sm">
           <thead className="bg-background">
             <tr>
               {["วันและเวลา", "เส้นทาง", "ความจุ", "สถานะ", "ไกด์"].map((x) => (

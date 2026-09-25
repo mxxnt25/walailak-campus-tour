@@ -199,23 +199,30 @@ export default function Login() {
           flex
           items-center
           justify-center
-          px-6
-          py-8
+          px-4
+          py-6
+          sm:px-6
+          sm:py-8
         "
       >
         <div
           onClick={(e) => e.stopPropagation()}
           className="
-            w-[25cm]
-            h-[15cm]
-            max-w-[calc(100vw-80px)]
-            max-h-[calc(100vh-80px)]
-            flex
+            w-full
+            max-w-md
+            min-w-0
             rounded-card
-            overflow-hidden
-            shadow-2xl
+            border
+            border-border
             bg-surface
+            shadow-2xl
             cursor-default
+            lg:flex
+            lg:h-[15cm]
+            lg:w-[25cm]
+            lg:max-w-[calc(100vw-80px)]
+            lg:max-h-[calc(100vh-80px)]
+            lg:overflow-hidden
           "
         >
           {/* ===================================================
@@ -224,11 +231,12 @@ export default function Login() {
           <div
             className="
               relative
-              w-1/2
-              h-full
+              hidden
+              lg:flex
+              lg:w-1/2
+              lg:h-full
               bg-cover
               bg-center
-              flex
               flex-col
               items-center
               justify-end
@@ -284,16 +292,20 @@ export default function Login() {
           =================================================== */}
           <div
             className="
-              w-1/2
-              h-full
+              w-full
+              min-w-0
               flex
               items-center
               justify-center
-              p-10
-              overflow-y-auto
+              p-5
+              sm:p-8
+              lg:w-1/2
+              lg:h-full
+              lg:p-10
+              lg:overflow-y-auto
             "
           >
-            <div className="w-full max-w-sm">
+            <div className="w-full min-w-0 max-w-sm">
               <h2
                 className="
                   text-2xl
@@ -302,8 +314,11 @@ export default function Login() {
                   mb-5
                 "
               >
-                Login
+                เข้าสู่ระบบ
               </h2>
+              <p className="mb-5 text-sm text-textSecondary lg:hidden">
+                เข้าสู่ระบบเพื่อจองทัวร์และจัดการงานของคุณ
+              </p>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                 {/* Email */}
@@ -421,7 +436,7 @@ export default function Login() {
                   type="submit"
                   size="md"
                   disabled={loading}
-                  className="!rounded-full mt-2"
+                  className="!rounded-full mt-2 w-full"
                 >
                   {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
                 </Button>

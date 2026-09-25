@@ -171,33 +171,18 @@ export default function PublicLayout({ children }) {
                 </Link>
 
                 {profile?.role === 'GUIDE' && (
-                  <>
-                    <Link
-                      to="/guide/incidents"
-                      className="
-                        text-sm
-                        font-medium
-                        text-textPrimary
-                        transition
-                        hover:text-primary
-                      "
-                    >
-                      เหตุการณ์ของฉัน
-                    </Link>
-
-                    <Link
-                      to="/incidents/new"
-                      className="
-                        text-sm
-                        font-medium
-                        text-textPrimary
-                        transition
-                        hover:text-primary
-                      "
-                    >
-                      แจ้งเหตุ
-                    </Link>
-                  </>
+                  <Link
+                    to="/guide"
+                    className="
+                      text-sm
+                      font-medium
+                      text-textPrimary
+                      transition
+                      hover:text-primary
+                    "
+                  >
+                    งานนำเที่ยว
+                  </Link>
                 )}
               </>
             )}
@@ -319,21 +304,11 @@ export default function PublicLayout({ children }) {
           "
         >
           {session && (
-            <Link
-              to="/profile"
-              className="
-                mb-3
-                flex
-                items-center
-                gap-3
-                rounded-xl
-                border
-                border-border
-                bg-background
-                px-3
-                py-2
-              "
-            >
+            <div className="mb-3 flex min-w-0 items-center gap-2">
+              <Link
+                to="/profile"
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-border bg-background px-3 py-2"
+              >
               <div
                 className="
                   flex
@@ -370,7 +345,15 @@ export default function PublicLayout({ children }) {
                   {roleLabel}
                 </p>
               </div>
-            </Link>
+              </Link>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="shrink-0 rounded-button border border-border px-3 py-2 text-xs font-semibold text-danger hover:bg-danger/10"
+              >
+                ออกจากระบบ
+              </button>
+            </div>
           )}
 
           <div
@@ -414,21 +397,12 @@ export default function PublicLayout({ children }) {
             )}
 
             {session && profile?.role === 'GUIDE' && (
-              <>
-                <Link
-                  to="/guide/incidents"
-                  className="whitespace-nowrap text-xs font-medium text-textPrimary"
-                >
-                  เหตุการณ์ของฉัน
-                </Link>
-
-                <Link
-                  to="/incidents/new"
-                  className="whitespace-nowrap text-xs font-medium text-textPrimary"
-                >
-                  แจ้งเหตุ
-                </Link>
-              </>
+              <Link
+                to="/guide"
+                className="whitespace-nowrap text-xs font-medium text-primary"
+              >
+                งานนำเที่ยว
+              </Link>
             )}
 
             {session && canManageSystem && (
@@ -440,20 +414,7 @@ export default function PublicLayout({ children }) {
               </Link>
             )}
 
-            {session ? (
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="
-                  whitespace-nowrap
-                  text-xs
-                  font-medium
-                  text-red-500
-                "
-              >
-                ออกจากระบบ
-              </button>
-            ) : (
+            {!session && (
               <>
                 <Link
                   to="/login"

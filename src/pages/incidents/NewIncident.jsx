@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/common/Button'
 import Card from '../../components/common/Card'
 import Input from '../../components/common/Input'
@@ -26,6 +27,8 @@ function getScheduleLabel(assignment) {
 }
 
 export default function NewIncident({ scheduleId = null }) {
+  const [searchParams] = useSearchParams()
+  const requestedScheduleId = searchParams.get('scheduleId')
   const [assignments, setAssignments] = useState([])
   const [selectedScheduleId, setSelectedScheduleId] = useState('')
   const [loadingAssignments, setLoadingAssignments] = useState(!scheduleId)
@@ -65,10 +68,20 @@ export default function NewIncident({ scheduleId = null }) {
       )
 
       setAssignments(acceptedAssignments)
-      setAssignmentError('')
 
-      if (acceptedAssignments.length === 1) {
+      if (requestedScheduleId && acceptedAssignments.some(
+        (assignment) => assignment.schedule_id === requestedScheduleId
+      )) {
+        setSelectedScheduleId(requestedScheduleId)
+        setAssignmentError('')
+      } else if (requestedScheduleId) {
+        setSelectedScheduleId('')
+        setAssignmentError('ไม่พบรอบทัวร์ที่คุณได้รับมอบหมายตามลิงก์ กรุณาเลือกรอบที่รับงานแล้ว')
+      } else if (acceptedAssignments.length === 1) {
         setSelectedScheduleId(acceptedAssignments[0].schedule_id)
+        setAssignmentError('')
+      } else {
+        setAssignmentError('')
       }
 
       setLoadingAssignments(false)
@@ -79,7 +92,7 @@ export default function NewIncident({ scheduleId = null }) {
     return () => {
       cancelled = true
     }
-  }, [scheduleId])
+  }, [scheduleId, requestedScheduleId])
 
   async function handleSubmit(event) {
     event.preventDefault()

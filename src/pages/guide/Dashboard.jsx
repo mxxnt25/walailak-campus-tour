@@ -34,7 +34,7 @@ export default function GuideDashboard() {
 
         setAssignments(assignmentsWithCount);
       } else {
-        setErrorMsg(res.error.message);
+        setErrorMsg(res.error?.message || 'โหลดตารางงานไม่สำเร็จ กรุณาลองอีกครั้ง');
       }
     } catch {
       setErrorMsg("โหลดตารางงานไม่สำเร็จ กรุณาลองอีกครั้ง");
@@ -109,17 +109,17 @@ export default function GuideDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-6 lg:p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="w-full min-w-0">
+      <div className="w-full">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[#1E293B]">Guide Dashboard</h1>
-          <p className="text-[#64748B] text-sm mt-1">
+          <h1 className="text-2xl font-bold text-textPrimary">ตารางงานนำเที่ยวของฉัน</h1>
+          <p className="text-textSecondary text-sm mt-1">
             ตรวจสอบและจัดการตารางนำเที่ยวของคุณแบบสรุป
           </p>
         </div>
 
         {errorMsg && (
-          <div className="mb-6 p-4 bg-[#DC2626]/10 border border-[#DC2626] rounded-[10px] text-[#DC2626] text-sm">
+          <div className="mb-6 p-4 bg-danger/10 border border-danger rounded-button text-danger text-sm">
             {errorMsg}
           </div>
         )}
@@ -129,21 +129,21 @@ export default function GuideDashboard() {
           type="button"
           disabled={busy || isLoading}
           onClick={fetchAssignments}
-          className="mb-4 underline"
+          className="mb-5 rounded-button border border-border bg-surface px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
         >
           โหลดข้อมูลใหม่
         </button>
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-[#1E293B] mb-4">
+          <h2 className="text-lg font-semibold text-textPrimary mb-4">
             ตารางงานของคุณ
           </h2>
 
           {isLoading ? (
-            <div className="text-center py-10 text-[#64748B]">
+            <div className="text-center py-10 text-textSecondary">
               กำลังโหลดข้อมูล...
             </div>
           ) : assignments.length === 0 ? (
-            <div className="bg-[#FFFFFF] p-8 rounded-[12px] border border-[#E2E8F0] text-center text-[#64748B] shadow-sm">
+            <div className="bg-surface p-8 rounded-card border border-border text-center text-textSecondary shadow-sm">
               คุณยังไม่มีตารางนำเที่ยวที่ได้รับมอบหมาย
             </div>
           ) : (
@@ -158,26 +158,26 @@ export default function GuideDashboard() {
                 return (
                   <div
                     key={assignment.id}
-                    className="bg-[#FFFFFF] p-6 rounded-[12px] border border-[#E2E8F0] shadow-sm hover:shadow-md transition-shadow flex flex-col h-full"
+                  className="bg-surface p-5 sm:p-6 rounded-card border border-border shadow-sm hover:shadow-md transition-shadow flex flex-col h-full"
                   >
                     <div className="flex justify-between items-start mb-4">
                       {getStatusBadge(assignment.status)}
-                      <span className="text-[#7B5AA6] font-medium text-sm">
+                      <span className="text-primary font-medium text-sm">
                         {formatDate(assignment.tour_schedules.tour_date)}
                       </span>
                     </div>
 
-                    <h3 className="text-xl font-bold text-[#1E293B] mb-2">
+                    <h3 className="text-xl font-bold text-textPrimary mb-2">
                       {assignment.tour_schedules.routes?.name}
                     </h3>
 
-                    <div className="space-y-2 text-[#64748B] text-sm mb-6 flex-grow">
+                    <div className="space-y-2 text-textSecondary text-sm mb-6 flex-grow">
                       <p>
                         เวลา: {formatTime(assignment.tour_schedules.start_time)}{" "}
                         - {formatTime(assignment.tour_schedules.end_time)}
                       </p>
                       <p
-                        className={`font-medium ${isFull ? "text-[#DC2626]" : "text-[#1E293B]"}`}
+                        className={`font-medium ${isFull ? "text-danger" : "text-textPrimary"}`}
                       >
                         ผู้เข้าร่วม: {assignment.bookedCount ?? "โหลดไม่สำเร็จ"}{" "}
                         / {assignment.tour_schedules.max_participants}{" "}
@@ -198,7 +198,7 @@ export default function GuideDashboard() {
                         </p>
                       )}
                     {assignment.status === "ASSIGNED" && (
-                      <div className="flex gap-3 mt-auto pt-4 border-t border-[#E2E8F0]">
+                      <div className="flex gap-3 mt-auto pt-4 border-t border-border">
                         <button
                           disabled={
                             busy || !canAssign(assignment.tour_schedules)
@@ -209,7 +209,7 @@ export default function GuideDashboard() {
                               "ACCEPTED",
                             )
                           }
-                          className="flex-1 bg-[#7B5AA6] hover:bg-[#684b8f] text-white py-2 rounded-[10px] font-medium transition-colors"
+                          className="flex-1 rounded-button bg-primary px-3 py-2 text-white font-medium transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           รับงานนี้
                         </button>
@@ -221,23 +221,26 @@ export default function GuideDashboard() {
                               "DECLINED",
                             )
                           }
-                          className="flex-1 bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#E2E8F0] text-[#64748B] py-2 rounded-[10px] font-medium transition-colors"
+                          className="flex-1 rounded-button bg-background border border-border hover:bg-primary/10 text-textPrimary px-3 py-2 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           ปฏิเสธ
                         </button>
                       </div>
                     )}
 
-                    {/* ปุ่มสำหรับสถานะ ยืนยันรับงานแล้ว ให้กดเข้าไปดูรายชื่อลูกทัวร์ */}
+                    {/* งานที่เสร็จสิ้นแล้วดูข้อมูลได้ แต่ไม่ชวนให้เช็กชื่อซ้ำ */}
                     {["ACCEPTED", "COMPLETED"].includes(assignment.status) && (
-                      <div className="mt-auto pt-4 border-t border-[#E2E8F0]">
+                      <div className="mt-auto pt-4 border-t border-border">
                         <button
+                          type="button"
                           onClick={() =>
                             navigate(`/guide/tours/${assignment.schedule_id}`)
                           }
-                          className="w-full bg-[#16A34A] hover:bg-[#15803d] text-white py-2 rounded-[10px] font-medium transition-colors"
+                          className={`w-full rounded-button border px-3 py-2 font-medium transition-colors ${assignment.status === 'COMPLETED' || assignment.tour_schedules.status === 'COMPLETED' ? 'border-border bg-surface text-textPrimary hover:bg-background' : 'border-primary bg-primary text-white hover:bg-primary/90'}`}
                         >
-                          จัดการลูกทัวร์ / เช็กชื่อ
+                          {assignment.status === 'COMPLETED' || assignment.tour_schedules.status === 'COMPLETED'
+                            ? 'ดูรายละเอียดทัวร์ที่เสร็จสิ้น'
+                            : 'จัดการลูกทัวร์ / เช็กชื่อ'}
                         </button>
                       </div>
                     )}
