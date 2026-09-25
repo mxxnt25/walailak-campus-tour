@@ -8,8 +8,12 @@ import EmptyState from "../../components/common/EmptyState";
 import ErrorState from "../../components/common/ErrorState";
 import StatusBadge from "../../components/common/StatusBadge";
 import Toast from "../../components/common/Toast";
-
-import { cancelMyBooking, getCachedMyBookings, listMyBookings } from "../../services/bookingService";
+import {
+  cancelMyBooking,
+  getBookingDisplayStatus,
+  getCachedMyBookings,
+  listMyBookings,
+} from "../../services/bookingService";
 import { useAuth } from "../../hooks/useAuth";
 
 import { formatDate, formatTime } from "../../utils/dateTime";
@@ -17,8 +21,12 @@ import { formatDate, formatTime } from "../../utils/dateTime";
 export default function MyBookings() {
   const { session } = useAuth();
   const userId = session?.user?.id;
-  const [bookings, setBookings] = useState(() => getCachedMyBookings(userId) ?? []);
-  const [loading, setLoading] = useState(() => getCachedMyBookings(userId) === null);
+  const [bookings, setBookings] = useState(
+    () => getCachedMyBookings(userId) ?? [],
+  );
+  const [loading, setLoading] = useState(
+    () => getCachedMyBookings(userId) === null,
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [authRequired, setAuthRequired] = useState(false);
 
@@ -27,6 +35,7 @@ export default function MyBookings() {
   const [cancellingId, setCancellingId] = useState(null);
 
   const [toast, setToast] = useState(null);
+  const [clockNow, setClockNow] = useState(() => new Date());
   const requestVersionRef = useRef(0);
 
   useEffect(() => {
@@ -69,6 +78,11 @@ export default function MyBookings() {
     };
   }, []);
 
+  useEffect(() => {
+    const timer = setInterval(() => setClockNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   function openCancelConfirmation(bookingId) {
     if (cancellingId) {
       return;
@@ -91,6 +105,20 @@ export default function MyBookings() {
     }
 
     const bookingId = confirmBookingId;
+    const currentBooking = bookings.find((item) => item.id === bookingId);
+    if (
+      !currentBooking ||
+      currentBooking.status !== "CONFIRMED" ||
+      getBookingDisplayStatus(currentBooking, new Date()) === "COMPLETED"
+    ) {
+      setConfirmBookingId(null);
+      setToast({
+        tone: "danger",
+        message: "รายการจองนี้ไม่สามารถยกเลิกได้แล้ว",
+      });
+      return;
+    }
+
     ++requestVersionRef.current;
 
     setCancellingId(bookingId);
@@ -143,7 +171,12 @@ export default function MyBookings() {
           </p>
 
           <div className="mt-5">
-            <Link to="/login" className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">เข้าสู่ระบบ</Link>
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              เข้าสู่ระบบ
+            </Link>
           </div>
         </Card>
       </section>
@@ -153,7 +186,6 @@ export default function MyBookings() {
   const bookingToCancel = bookings.find(
     (booking) => booking.id === confirmBookingId,
   );
-
   const cancelRouteName =
     bookingToCancel?.tour_schedules?.routes?.name || "รอบนำเที่ยวนี้";
 
@@ -168,10 +200,20 @@ export default function MyBookings() {
       </div>
 
       {loading ? (
-        <div className="min-h-[480px] space-y-4" aria-busy="true" aria-label="กำลังโหลดรายการจอง">
-          <p role="status" className="text-sm text-textSecondary">กำลังโหลดรายการจอง...</p>
+        <div
+          className="min-h-[480px] space-y-4"
+          aria-busy="true"
+          aria-label="กำลังโหลดรายการจอง"
+        >
+          <p role="status" className="text-sm text-textSecondary">
+            กำลังโหลดรายการจอง...
+          </p>
           {[0, 1, 2].map((placeholder) => (
-            <div key={placeholder} aria-hidden="true" className="motion-safe:animate-pulse rounded-card border border-border bg-surface p-6 shadow-sm">
+            <div
+              key={placeholder}
+              aria-hidden="true"
+              className="motion-safe:animate-pulse rounded-card border border-border bg-surface p-6 shadow-sm"
+            >
               <div className="h-5 w-48 rounded-lg bg-background" />
               <div className="mt-4 h-4 w-36 rounded-lg bg-background" />
               <div className="mt-4 h-4 w-3/4 rounded-lg bg-background" />
@@ -186,7 +228,12 @@ export default function MyBookings() {
           title="ยังไม่มีรายการจอง"
           description="เลือกเส้นทางและรอบนำเที่ยวที่ต้องการเพื่อเริ่มการจอง"
           action={
-            <Link to="/routes" className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">ดูเส้นทางนำเที่ยว</Link>
+            <Link
+              to="/routes"
+              className="inline-flex items-center justify-center rounded-button bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              ดูเส้นทางนำเที่ยว
+            </Link>
           }
         />
       ) : (
@@ -194,6 +241,7 @@ export default function MyBookings() {
           {bookings.map((booking) => {
             const schedule = booking.tour_schedules;
             const route = schedule?.routes;
+            const displayStatus = getBookingDisplayStatus(booking, clockNow);
 
             return (
               <Card key={booking.id}>
@@ -205,7 +253,13 @@ export default function MyBookings() {
                           {route?.name || "รอบนำเที่ยว"}
                         </h2>
 
-                        <StatusBadge status={booking.status} />
+                        {displayStatus === "COMPLETED" ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                            เสร็จสิ้นแล้ว
+                          </span>
+                        ) : (
+                          <StatusBadge status={displayStatus} />
+                        )}
                       </div>
 
                       <p className="mt-1 text-xs text-textSecondary">
@@ -251,19 +305,25 @@ export default function MyBookings() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Link to={`/bookings/${booking.id}`} className="inline-flex items-center justify-center rounded-button border border-border bg-surface px-4 py-2 text-sm font-medium text-textPrimary transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">ดูรายละเอียด</Link>
+                    <Link
+                      to={`/bookings/${booking.id}`}
+                      className="inline-flex items-center justify-center rounded-button border border-border bg-surface px-4 py-2 text-sm font-medium text-textPrimary transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    >
+                      ดูรายละเอียด
+                    </Link>
 
-                    {booking.status === "CONFIRMED" && (
-                      <Button
-                        variant="danger"
-                        disabled={cancellingId === booking.id}
-                        onClick={() => openCancelConfirmation(booking.id)}
-                      >
-                        {cancellingId === booking.id
-                          ? "กำลังยกเลิก..."
-                          : "ยกเลิกการจอง"}
-                      </Button>
-                    )}
+                    {booking.status === "CONFIRMED" &&
+                      displayStatus !== "COMPLETED" && (
+                        <Button
+                          variant="danger"
+                          disabled={cancellingId === booking.id}
+                          onClick={() => openCancelConfirmation(booking.id)}
+                        >
+                          {cancellingId === booking.id
+                            ? "กำลังยกเลิก..."
+                            : "ยกเลิกการจอง"}
+                        </Button>
+                      )}
                   </div>
                 </div>
               </Card>
@@ -278,8 +338,8 @@ export default function MyBookings() {
         description={`คุณต้องการยกเลิกการจอง ${cancelRouteName} หรือไม่? เมื่อยกเลิกแล้ว ระบบจะคืนจำนวนที่ว่างให้รอบนำเที่ยว`}
         confirmLabel="ยืนยันการยกเลิก"
         cancelLabel="ไม่ยกเลิก"
-        cancelVariant="danger"
-        confirmVariant="primary"
+        cancelVariant="primary"
+        confirmVariant="danger"
         busy={Boolean(confirmBookingId) && cancellingId === confirmBookingId}
         onConfirm={handleConfirmCancel}
         onCancel={closeCancelConfirmation}
