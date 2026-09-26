@@ -6,7 +6,8 @@ const pendingBookingLists = new Map();
 const BOOKING_SNAPSHOT_MS = 20_000;
 
 export function getCachedMyBookings(userId) {
-  return userId && myBookingSnapshot?.userId === userId &&
+  return userId &&
+    myBookingSnapshot?.userId === userId &&
     Date.now() < myBookingSnapshot.expiresAt
     ? myBookingSnapshot.data
     : null;
@@ -217,10 +218,10 @@ export async function listMyBookings() {
   try {
     return await read;
   } finally {
-    if (pendingBookingLists.get(user.id) === read) pendingBookingLists.delete(user.id);
+    if (pendingBookingLists.get(user.id) === read)
+      pendingBookingLists.delete(user.id);
   }
 }
-
 
 export async function getMyConfirmedBookingForSchedule(scheduleId) {
   if (!scheduleId) {
@@ -233,27 +234,23 @@ export async function getMyConfirmedBookingForSchedule(scheduleId) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return failure(
-      "AUTH_REQUIRED",
-      "กรุณาเข้าสู่ระบบก่อนตรวจสอบรายการจอง",
-    );
+    return failure("AUTH_REQUIRED", "กรุณาเข้าสู่ระบบก่อนตรวจสอบรายการจอง");
   }
 
   if (userError) {
-    return failure(
-      "DATABASE_ERROR",
-      "ไม่สามารถตรวจสอบผู้ใช้งานได้",
-    );
+    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบผู้ใช้งานได้");
   }
 
   const { data, error } = await supabase
     .from("bookings")
-    .select(`
+    .select(
+      `
       id,
       status,
       participant_count,
       created_at
-    `)
+    `,
+    )
     .eq("user_id", user.id)
     .eq("schedule_id", scheduleId)
     .eq("status", "CONFIRMED")
@@ -262,10 +259,7 @@ export async function getMyConfirmedBookingForSchedule(scheduleId) {
     .maybeSingle();
 
   if (error) {
-    return failure(
-      "DATABASE_ERROR",
-      "ไม่สามารถตรวจสอบรายการจองเดิมได้",
-    );
+    return failure("DATABASE_ERROR", "ไม่สามารถตรวจสอบรายการจองเดิมได้");
   }
 
   return success(data ?? null);
@@ -410,4 +404,84 @@ export async function getScheduleCapacity(scheduleId) {
     remainingSeats: capacity.remaining_seats,
     status: capacity.status,
   });
+}
+const BANGKOK_UTC_OFFSET_MS = 7 * 60 * 60 * 1000;
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+
+// Supabase tour_date and end_time are DATE and TIME in Asia/Bangkok.
+// Use a fixed UTC+7 offset so a visitor's local timezone or DST cannot
+// alter the 12-hour deadline.
+function getBangkokScheduleEndMs(schedule) {
+  if (
+    typeof schedule?.tour_date !== "string" ||
+    typeof schedule?.end_time !== "string"
+  ) {
+    return null;
+  }
+
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(schedule.tour_date);
+  const timeMatch = /^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?$/.exec(
+    schedule.end_time,
+  );
+  if (!dateMatch || !timeMatch) return null;
+
+  const [, yearText, monthText, dayText] = dateMatch;
+  const [, hourText, minuteText, secondText = "0", fraction = ""] = timeMatch;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const millisecond = Number(fraction.padEnd(3, "0").slice(0, 3) || "0");
+
+  const localAsUtc = Date.UTC(
+    year,
+    month - 1,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond,
+  );
+  const check = new Date(localAsUtc);
+  if (
+    !Number.isFinite(localAsUtc) ||
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day ||
+    check.getUTCHours() !== hour ||
+    check.getUTCMinutes() !== minute ||
+    check.getUTCSeconds() !== second
+  ) {
+    return null;
+  }
+
+  return localAsUtc - BANGKOK_UTC_OFFSET_MS;
+}
+
+export function isBookingCompletedAfter12Hours(schedule, now = new Date()) {
+  const endMs = getBangkokScheduleEndMs(schedule);
+  const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+
+  return (
+    endMs !== null &&
+    Number.isFinite(nowMs) &&
+    nowMs >= endMs + TWELVE_HOURS_MS
+  );
+}
+
+// Display status only: keep booking.status unchanged in Supabase.
+// Review permission must still depend on the real COMPLETED status.
+export function getBookingDisplayStatus(booking, now = new Date()) {
+  if (!booking) return null;
+
+  if (
+    booking.status === "CONFIRMED" &&
+    isBookingCompletedAfter12Hours(booking.tour_schedules, now)
+  ) {
+    return "COMPLETED";
+  }
+
+  return booking.status;
 }
